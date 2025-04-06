@@ -1,0 +1,76 @@
+services:
+  docker-dind:
+    image: docker:dind
+    privileged: true
+    ports:
+      - "2375:2375"
+      - "2376:2376"
+    volumes:
+      - ./jenkins_home:/var/jenkins_home
+      - jenkins-docker-certs:/certs/client
+    networks:
+      - jenkins
+    environment:
+      - DOCKER_TLS_CERTDIR=/certs
+    restart: always
+
+  jenkins:
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - ./jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - jenkins
+    environment:
+      - JENKINS_OPTS="--prefix=/jenkins"
+    restart: always
+
+  sonarqube:
+    image: sonarqube:latest
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+    networks:
+      - jenkins
+    restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - jenkins
+    restart: always
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    networks:
+      - jenkins
+    restart: always
+
+  nexus:
+    image: sonatype/nexus3:latest
+    volumes:
+      - nexus-data:/nexus-data
+    ports:
+      - "8081:8081"
+    networks:
+      - jenkins
+    restart: always
+
+volumes:
+  jenkins_home:
+  jenkins-docker-certs:
+  nexus-data:
+  sonarqube_data:
+
+networks:
+  jenkins:
+    driver: bridge

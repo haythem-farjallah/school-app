@@ -1,0 +1,15 @@
+{
+    "Servers": {
+      "1": {
+        "Name": "School DB",
+        "Group": "Servers",
+        "Port": 5432,
+        "Username": "postgres",
+        "Host": "db",
+        "SSLMode": "prefer",
+        "MaintenanceDB": "school_db",
+        "PassFile": "/pgadmin4/pgpassfile"
+      }
+    }
+  }
+  

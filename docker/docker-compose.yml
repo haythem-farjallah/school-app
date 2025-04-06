@@ -1,0 +1,92 @@
+version: "3.8"
+
+services:
+  school-backend:
+    image: haythem25/school-app:backend-latest
+    container_name: school-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://school-db:5432/school_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      school-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: always
+    networks:
+      - school-network
+
+  school-frontend:
+    image: haythem25/school-app:front-latest
+    container_name: school-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      school-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - school-network
+
+  school-db:
+    image: postgres:16.3-alpine
+    container_name: school-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: school_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - school-network
+
+  school-pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: school-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
+      PGADMIN_DEFAULT_PASSWORD: "admin"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./servers.json:/pgadmin4/servers.json
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - "/bin/echo 'school-db:5432:school_db:postgres:postgres' > /tmp/pgpassfile && chmod 600 /tmp/pgpassfile && /entrypoint.sh"
+    depends_on:
+      school-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - school-network
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+
+networks:
+  school-network:
+    driver: bridge
