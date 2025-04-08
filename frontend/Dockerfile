@@ -1,35 +1,29 @@
 # ==========================
 # 1) Build Stage
 # ==========================
-FROM node:18-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Copy package & lock files first for better caching
+# Copy package files and install dependencies
 COPY package.json package-lock.json ./
+RUN npm install --omit=optional
 
-# FIX: Avoid native module errors on Alpine
-RUN rm -rf node_modules package-lock.json && npm install --omit=optional
-
-# Copy the rest of the files and build
+# Copy source and build
 COPY . .
 RUN npm run build
 
 # ==========================
 # 2) Production Stage
 # ==========================
-FROM nginx:alpine
+FROM nginx:stable
 
-# Remove the default Nginx web directory
+# Clean Nginx root and copy compiled files
 RUN rm -rf /usr/share/nginx/html/*
-
-# Copy compiled build artifacts from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy our custom Nginx config to override the default
+# Use your own Nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
