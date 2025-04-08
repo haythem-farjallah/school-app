@@ -6,8 +6,9 @@ import axios, {
   import { API_URL } from "./env";
   import { token } from "./token";
   import { notifyError } from "./notify";
-import { getErrorMessage } from "../utils/helpers";
-  
+  import { getErrorMessage } from "../utils/helpers";
+  import * as helpers from "../utils/helpers";
+console.log(helpers);
   interface RetryableRequest extends InternalAxiosRequestConfig {
     _retry?: boolean;
     skipAuth?: boolean;
