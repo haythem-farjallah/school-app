@@ -7,7 +7,9 @@ WORKDIR /app
 
 # Copy package & lock files first for better caching
 COPY package.json package-lock.json ./
-RUN npm install
+
+# FIX: Avoid native module errors on Alpine
+RUN rm -rf node_modules package-lock.json && npm install --omit=optional
 
 # Copy the rest of the files and build
 COPY . .
