@@ -7,6 +7,7 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package.json package-lock.json ./
+ENV ROLLUP_NO_NATIVE=true
 RUN npm install --omit=optional
 
 # Copy source and build
