@@ -10,5 +10,10 @@ RUN echo "deb [arch=$(dpkg --print-architecture) \
     $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 RUN apt-get update && apt-get install -y docker-ce-cli
 
+# Create the docker group (if it doesn't exist) and add the Jenkins user to it.
+# Adjust the group id (e.g., 999) if your host's docker group uses a different GID.
+RUN groupadd -g 999 docker || true && usermod -aG docker jenkins
+
+
 USER jenkins
 RUN jenkins-plugin-cli --plugins "blueocean docker-workflow"

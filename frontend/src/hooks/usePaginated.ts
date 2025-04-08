@@ -1,4 +1,3 @@
-// src/hooks/usePaginated.ts
 import { useState } from "react";
 import { http } from "../lib/http";
 import { useQueryApi } from "./useQueryApi";
@@ -21,7 +20,7 @@ export function usePaginated<T>(
   const [page, setPage] = useState(0);
 
   /* ------------- fetcher ------------------------------------------------ */
-  const fetchPage = (p: number) => {
+  const  fetchPage = async(p: number) => {
     const cfg: AxiosRequestConfig & { skipAuth?: boolean } = {
       params: { page: p, size: limit, ...params },
     };
@@ -34,7 +33,7 @@ export function usePaginated<T>(
   const query = useQueryApi<Page<T>>(
     [queryKey, page, limit, params, skipAuth],
     () => fetchPage(page),
-    { keepPreviousData: true },
+    {  placeholderData: (prev) => prev, },
   );
 
   /* ------------- helpers ------------------------------------------------ */
