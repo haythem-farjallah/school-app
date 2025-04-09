@@ -49,7 +49,7 @@ pipeline {
         stage('MVN SONARQUBE') {
             steps {
                 dir('backend') {
-                    withCredentials([usernamePassword(credentialsId: 'sonarqube-token', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    withCredentials([usernamePassword(credentialsId: 'sonarqube-token',  variable: 'SONAR_TOKEN')]) {
                         sh 'mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN  -Dsonar.host.url=http://sonarqube:9000'
                     }
                 }
