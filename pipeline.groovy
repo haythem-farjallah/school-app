@@ -5,7 +5,6 @@ pipeline {
     }
 
     environment {
-      //  registry = 'haythem25/khlail-2'
         registryCredential = 'dockerhub-credentials'
         dockerImage = ''
         DOCKER_REPO = "haythem25/school-app"
@@ -17,7 +16,7 @@ pipeline {
     stages {
         stage('CHECKOUT GIT') {
             steps {
-                checkout scmGit(branches: [[name: '*/**']], extensions: [], userRemoteConfigs: [[credentialsId: 'github-credentials', url: 'https://github.com/haythem-farjallah/school-app.git']])
+                checkout scmGit(branches: [[name: '*/**']], extensions: [], userRemoteConfigs: [[credentialsId: 'github-token', url: 'https://github.com/haythem-farjallah/school-app.git']])
             }
         }
 
@@ -50,8 +49,8 @@ pipeline {
         stage('MVN SONARQUBE') {
             steps {
                 dir('backend') {
-                    withCredentials([usernamePassword(credentialsId: 'sonarqube-credentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                        sh 'mvn sonar:sonar -Dsonar.login=$USERNAME -Dsonar.password=$PASSWORD -Dsonar.host.url=http://sonarqube:9000'
+                    withCredentials([usernamePassword(credentialsId: 'sonarqube-token', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                        sh 'mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN  -Dsonar.host.url=http://sonarqube:9000'
                     }
                 }
             }
