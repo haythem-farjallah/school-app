@@ -31,6 +31,9 @@ public abstract class BaseUser {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
+    private String otpCode;
+    private LocalDateTime otpExpiry;
+    private boolean passwordChangeRequired = false;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -40,7 +43,6 @@ public abstract class BaseUser {
     )
     private Set<Permission> permissions = new HashSet<>();
 
-    // One-to-One relationship with ProfileSettings
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private ProfileSettings profileSettings;
 }

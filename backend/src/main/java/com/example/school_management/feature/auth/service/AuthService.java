@@ -4,6 +4,9 @@ import com.example.school_management.commons.configs.JwtTokenProvider;
 import com.example.school_management.commons.dtos.LoginRequest;
 import com.example.school_management.commons.dtos.LoginResponse;
 import com.example.school_management.commons.dtos.RegisterRequest;
+import com.example.school_management.feature.auth.dto.ChangePasswordRequest;
+import com.example.school_management.feature.auth.dto.ForgotPasswordRequest;
+import com.example.school_management.feature.auth.dto.ResetPasswordRequest;
 import com.example.school_management.feature.auth.dto.UserDto;
 import com.example.school_management.feature.auth.entity.*;
 import com.example.school_management.feature.auth.mapper.AuthMapper;
@@ -16,6 +19,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -44,23 +48,31 @@ public class AuthService {
      * Authenticate a user and return JWT tokens plus user profile data.
      */
     public LoginResponse login(LoginRequest request) {
+        Authentication authToken =
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword());
+
+        Authentication authentication;
         try {
-            var authToken = new UsernamePasswordAuthenticationToken(
-                    request.getEmail(), request.getPassword());
-            authenticationManager.authenticate(authToken);
-            SecurityContextHolder.getContext().setAuthentication(authToken);
+            authentication = authenticationManager.authenticate(authToken);
         } catch (AuthenticationException ex) {
             log.warn("Authentication failed for {}", request.getEmail());
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED, "Invalid credentials");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
+
+        BaseUser user = userDetailsService.findBaseUserByEmail(request.getEmail());
+        if (user.isPasswordChangeRequired()) {
+            throw new ResponseStatusException(
+                    HttpStatus.LOCKED, "FIRST_LOGIN_PASSWORD_CHANGE_REQUIRED"
+            );
+        }
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
         String accessToken  = jwtTokenProvider.generateAccessToken(userDetails);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userDetails);
 
-        BaseUser userEntity = userDetailsService.findBaseUserByEmail(request.getEmail());
-        UserDto userDto = userMapper.toDto(userEntity);
+        UserDto userDto = userMapper.toDto(user);
 
         return new LoginResponse(accessToken, refreshToken, userDto);
     }
@@ -102,8 +114,10 @@ public class AuthService {
             U user, JpaRepository<U, Long> repo
     ) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setRole(user.getRole());
-        // TODO: default permissions & profile settings
+        user.setPasswordChangeRequired(true);
         repo.save(user);
+        log.info("Registered {} with forced password change: {}", user.getRole(), user.getEmail());
     }
+
+
 }
