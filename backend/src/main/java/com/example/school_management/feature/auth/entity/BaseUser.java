@@ -28,6 +28,9 @@ public abstract class BaseUser {
     private String address;
     private String password;
     private String image;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
