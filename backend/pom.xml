@@ -210,6 +210,38 @@
 						</includes>
 					</configuration>
 				</plugin>
+				<plugin>
+					<groupId>org.jacoco</groupId>
+					<artifactId>jacoco-maven-plugin</artifactId>
+					<version>0.8.12</version>
+					<executions>
+						<execution><goals><goal>prepare-agent</goal></goals></execution>
+						<execution>
+							<id>report</id>
+							<phase>prepare-package</phase>
+							<goals><goal>report</goal></goals>
+							<configuration>
+								<outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+<!--				<plugin>-->
+<!--					<groupId>org.owasp</groupId>-->
+<!--					<artifactId>dependency-check-maven</artifactId>-->
+<!--					<version>9.2.0</version>-->
+<!--					<configuration>-->
+<!--						<nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>-->
+<!--						<nvdApiDelay>2000</nvdApiDelay>-->
+<!--					</configuration>-->
+<!--					<executions>-->
+<!--						<execution>-->
+<!--							<id>check</id>-->
+<!--							<phase>verify</phase>-->
+<!--							<goals><goal>check</goal></goals>-->
+<!--						</execution>-->
+<!--					</executions>-->
+<!--				</plugin>-->
 			</plugins>
 		</build>
 	</profile>
