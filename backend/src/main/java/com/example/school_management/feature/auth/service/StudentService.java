@@ -34,7 +34,7 @@ public class StudentService {
         return studentRepo.findAll()
                 .stream()
                 .map(mapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public StudentDto getById(Long id) {

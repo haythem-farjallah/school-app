@@ -4,6 +4,8 @@ import com.example.school_management.commons.service.EmailService;
 import com.example.school_management.feature.auth.dto.CreateStudentWithParentsRequest;
 import com.example.school_management.feature.auth.dto.ParentCreateDto;
 import com.example.school_management.feature.auth.dto.StudentDtoCreate;
+import com.example.school_management.feature.auth.dto.UserProfileDTO;
+import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Parent;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.UserRole;
@@ -33,15 +35,18 @@ public class AdminService {
     public void createStudentWithParents(CreateStudentWithParentsRequest req) {
         // 1) Create & save the student
         StudentDtoCreate sd = req.student();
-        Student student = new Student();
-        populateCommon(
-                student,
-                sd.firstName(), sd.lastName(),
-                sd.email(),     sd.telephone(),
-                sd.birthday(),  sd.gender(),
+        UserProfileDTO studentProfile = new UserProfileDTO(
+                sd.firstName(),
+                sd.lastName(),
+                sd.email(),
+                sd.telephone(),
+                sd.birthday(),
+                sd.gender(),
                 sd.address(),
                 UserRole.STUDENT
-        );
+            );    
+        Student student = new Student();
+        populateCommon(student, studentProfile);
         String studentPw = generateAndSetPassword(student);
         student.setGradeLevel(sd.gradeLevel());
         student.setEnrollmentYear(sd.enrollmentYear());
@@ -56,15 +61,18 @@ public class AdminService {
 
         // 2) Create each parent, link, save & notify
         for (ParentCreateDto pd : req.parents()) {
+                UserProfileDTO parentProfile = new UserProfileDTO(
+                        pd.firstName(),
+                        pd.lastName(),
+                        pd.email(),
+                        pd.telephone(),
+                        null,      // no birthday for parent
+                        null,      // no gender for parent
+                        null,      // no address for parent
+                        UserRole.PARENT
+                    );
             Parent parent = new Parent();
-            populateCommon(
-                    parent,
-                    pd.firstName(), pd.lastName(),
-                    pd.email(),     pd.telephone(),
-                    null,           null,
-                    null,
-                    UserRole.PARENT
-            );
+            populateCommon(parent, parentProfile);
             parent.setPreferredContactMethod(pd.preferredContactMethod());
 
             String parentPw = generateAndSetPassword(parent);
@@ -83,25 +91,15 @@ public class AdminService {
     }
 
     /** Helper to populate all the BaseUser fields except password. */
-    private void populateCommon(
-            com.example.school_management.feature.auth.entity.BaseUser u,
-            String firstName,
-            String lastName,
-            String email,
-            String telephone,
-            java.time.LocalDateTime birthday,
-            String gender,
-            String address,
-            UserRole role
-    ) {
-        u.setFirstName(firstName);
-        u.setLastName(lastName);
-        u.setEmail(email);
-        u.setTelephone(telephone);
-        u.setBirthday(birthday);
-        u.setGender(gender);
-        u.setAddress(address);
-        u.setRole(role);
+    private void populateCommon(BaseUser u, UserProfileDTO profile) {
+        u.setFirstName(profile.firstName());
+        u.setLastName(profile.lastName());
+        u.setEmail(profile.email());
+        u.setTelephone(profile.telephone());
+        u.setBirthday(profile.birthday());
+        u.setGender(profile.gender());
+        u.setAddress(profile.address());
+        u.setRole(profile.role());
     }
 
     /**

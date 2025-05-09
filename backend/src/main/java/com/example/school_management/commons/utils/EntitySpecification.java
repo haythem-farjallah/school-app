@@ -2,10 +2,13 @@ package com.example.school_management.commons.utils;
 
 
 import jakarta.persistence.criteria.Path;
-import jakarta.persistence.metamodel.SingularAttribute;
 import org.springframework.data.jpa.domain.Specification;
 
-public class EntitySpecification<T> {
+public final class EntitySpecification {
+
+    private EntitySpecification() {
+        throw new UnsupportedOperationException("Utility class");
+    }
 
     public static <T> Specification<T> hasAttribute(String attribute, String value) {
 

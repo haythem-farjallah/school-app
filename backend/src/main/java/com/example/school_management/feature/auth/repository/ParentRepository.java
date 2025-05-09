@@ -1,6 +1,5 @@
 package com.example.school_management.feature.auth.repository;
 
-import com.example.school_management.feature.auth.entity.Administration;
 import com.example.school_management.feature.auth.entity.Parent;
 import org.springframework.data.jpa.repository.JpaRepository;
 
