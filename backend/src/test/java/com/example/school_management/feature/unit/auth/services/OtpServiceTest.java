@@ -2,6 +2,7 @@ package com.example.school_management.feature.unit.auth.services;
 import com.example.school_management.commons.service.EmailService;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.service.OtpService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,7 +16,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class OtpServiceTest {
-    @Mock private BaseUserRepository userRepo;
+    @Mock private UserRepository userRepo;
     @Mock private EmailService emailService;
     @InjectMocks private OtpService otpService;
 

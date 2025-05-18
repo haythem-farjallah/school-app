@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -47,36 +48,26 @@ public class AuthService {
     /**
      * Authenticate a user and return JWT tokens plus user profile data.
      */
-    public LoginResponse login(LoginRequest request) {
-        Authentication authToken =
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword());
-
-        Authentication authentication;
+    public LoginResponse login(LoginRequest req) {
         try {
-            authentication = authenticationManager.authenticate(authToken);
-        } catch (AuthenticationException ex) {
-            log.warn("Authentication failed for {}", request.getEmail());
+            Authentication auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
+
+            BaseUser user = userDetailsService.findBaseUserByEmail(req.getEmail());
+            if (user.isPasswordChangeRequired()) {
+                throw new ResponseStatusException(HttpStatus.LOCKED,
+                        "FIRST_LOGIN_PASSWORD_CHANGE_REQUIRED");
+            }
+
+            // token creation
+            String access  = jwtTokenProvider.generateAccessToken((UserDetails) auth.getPrincipal());
+            String refresh = jwtTokenProvider.generateRefreshToken((UserDetails) auth.getPrincipal());
+
+            return new LoginResponse(access, refresh, userMapper.toDto(user));
+        } catch (BadCredentialsException ex) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
-
-        BaseUser user = userDetailsService.findBaseUserByEmail(request.getEmail());
-        if (user.isPasswordChangeRequired()) {
-            throw new ResponseStatusException(
-                    HttpStatus.LOCKED, "FIRST_LOGIN_PASSWORD_CHANGE_REQUIRED"
-            );
-        }
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
-        String accessToken  = jwtTokenProvider.generateAccessToken(userDetails);
-        String refreshToken = jwtTokenProvider.generateRefreshToken(userDetails);
-
-        UserDto userDto = userMapper.toDto(user);
-
-        return new LoginResponse(accessToken, refreshToken, userDto);
     }
-
     /**
      * Register a new user based on the provided role.
      */
@@ -113,6 +104,9 @@ public class AuthService {
     private <U extends BaseUser> void finalizeAndSave(
             U user, JpaRepository<U, Long> repo
     ) {
+        if (user.getStatus() == null) {
+            user.setStatus(Status.ACTIVE);
+        }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setPasswordChangeRequired(true);
         repo.save(user);

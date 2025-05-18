@@ -48,7 +48,9 @@ class AuthServiceTest {
     void login_withValidCredentials_returnsTokens() {
         // given
         LoginRequest req = new LoginRequest("alice@example.com", "secret");
+        UserDetails userDetails = mock(UserDetails.class);
         Authentication fakeAuth = mock(Authentication.class);
+        given(fakeAuth.getPrincipal()).willReturn(userDetails);
         given(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .willReturn(fakeAuth);
 
@@ -58,9 +60,6 @@ class AuthServiceTest {
         given(userDetailsService.findBaseUserByEmail("alice@example.com"))
                 .willReturn(user);
 
-        UserDetails userDetails = mock(UserDetails.class);
-        given(userDetailsService.loadUserByUsername("alice@example.com"))
-                .willReturn(userDetails);
 
         given(jwtTokenProvider.generateAccessToken(userDetails))
                 .willReturn("ACCESS_TOKEN");

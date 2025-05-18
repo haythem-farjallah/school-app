@@ -17,50 +17,70 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-@Component
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    private final JwtTokenProvider jwtTokenProvider;
-    private final CustomUserDetailsService customUserDetailsService;
 
+    private final JwtTokenProvider         jwtTokenProvider;
+    private final CustomUserDetailsService userDetailsService;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/webjars");
+    }
+
+    /* ------------------------------------------------------------ */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain)
+                                    FilterChain chain)
             throws ServletException, IOException {
-        String jwt = getJwtFromRequest(request);
 
-        if (jwt != null) {
+        String token = extractToken(request);          // null if missing/invalid format
+
+        if (token != null && jwtTokenProvider.validateToken(token)) {
             try {
-                if (jwtTokenProvider.validateToken(jwt)) {
-                    String email = jwtTokenProvider.getEmailFromToken(jwt);
+                String email = jwtTokenProvider.getEmailFromToken(token);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                    UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
 
-                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            userDetails, null, userDetails.getAuthorities());
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(auth);
 
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
             } catch (ExpiredJwtException ex) {
-                log.warn("JWT token is expired: {}", ex.getMessage());
+                log.warn("JWT expired for {}: {}", request.getRequestURI(), ex.getMessage());
             } catch (Exception ex) {
-                log.error("Could not set user authentication in security context", ex);
+                log.error("JWT processing error: {}", ex.getMessage(), ex);
             }
         }
 
-        filterChain.doFilter(request, response);
+        chain.doFilter(request, response);
     }
 
-    private String getJwtFromRequest(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        log.debug("Authorization Header: '{}'", bearerToken);
-        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7).trim();
-        }
-        return null;
+    /* ------------------------------------------------------------ */
+    /**
+     * Extract raw JWT from the Authorization header.
+     * Accepts headers like:
+     *   - "Bearer eyJhbGciOiJI..."
+     *   - "Bearer   Bearer  eyJhbGciOiJI..."  (defensive trimming)
+     */
+    private static String extractToken(HttpServletRequest req) {
+        String header = req.getHeader("Authorization");
+        log.debug("Authorization Header: '{}'", header);
+
+        if (header == null) return null;
+
+        // Remove one or more "Bearer " prefixes (case-insensitive) and trim spaces/CRLF
+        String token = header.replaceFirst("(?i)^Bearer\\s+", "").trim();
+
+        // If we stripped nothing, the header didn't start with Bearer
+        return token.equals(header) ? null : token.replaceAll("\\s+", "");
     }
 }

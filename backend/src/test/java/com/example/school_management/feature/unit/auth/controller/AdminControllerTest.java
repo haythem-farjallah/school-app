@@ -8,6 +8,7 @@ import com.example.school_management.feature.auth.dto.ParentCreateDto;
 import com.example.school_management.feature.auth.dto.StudentDtoCreate;
 import com.example.school_management.feature.auth.service.AdminService;
 import com.example.school_management.commons.service.EmailService;
+import com.example.school_management.feature.auth.service.AdministrationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,8 @@ class AdminControllerTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper mapper;
-
+    @MockitoBean
+    AdministrationService administrationService;
     @MockitoBean AdminService   adminService;
     @MockitoBean EmailService   emailService;
     @MockitoBean

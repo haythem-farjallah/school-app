@@ -16,7 +16,7 @@ public class ProfileSettings {
     private Boolean notificationsEnabled;
     private Boolean darkMode;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY,optional = false)
     @JoinColumn(name = "user_id")
     private BaseUser user;
 }

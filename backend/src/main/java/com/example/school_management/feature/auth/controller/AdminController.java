@@ -1,8 +1,10 @@
 package com.example.school_management.feature.auth.controller;
 
 
+import com.example.school_management.feature.auth.dto.AdministrationCreateDto;
 import com.example.school_management.feature.auth.dto.CreateStudentWithParentsRequest;
 import com.example.school_management.feature.auth.service.AdminService;
+import com.example.school_management.feature.auth.service.AdministrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
 
     private final AdminService adminService;
+    private final AdministrationService service;
+
 
     @PostMapping("/students")
     public ResponseEntity<Void> createStudentWithParents(
@@ -26,4 +30,11 @@ public class AdminController {
                 req.student().email(), req.parents().size());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+
+    @PostMapping
+    public ResponseEntity<Void> create(@Valid @RequestBody AdministrationCreateDto dto) {
+        service.create(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
 }

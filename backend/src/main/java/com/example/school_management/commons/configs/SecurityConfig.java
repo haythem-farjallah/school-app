@@ -3,6 +3,8 @@ package com.example.school_management.commons.configs;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -46,14 +48,29 @@ public class SecurityConfig {
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/api/auth/**").permitAll()
-                    .requestMatchers("/actuator/**").permitAll()
-                    .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                    .anyRequest().authenticated()
+                    .requestMatchers("/api/auth/**", "/actuator/**", "/api/admin/**").permitAll()
+                    .requestMatchers(
+                            "/swagger-ui.html",
+                            "/swagger-ui/**",
+                            "/v3/api-docs/**",
+                            "/webjars/**"
+                    ).permitAll()                    .anyRequest().authenticated()
             );
 
 
     http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
     return http.build();
+  }
+
+  @Bean
+  RoleHierarchy roleHierarchy() {
+    return RoleHierarchyImpl.fromHierarchy("""
+            GRADE_WRITE   > GRADE_READ
+            STUDENT_DELETE > STUDENT_UPDATE
+            STUDENT_UPDATE > STUDENT_READ
+            TEACHER_DELETE > TEACHER_UPDATE
+            TEACHER_UPDATE > TEACHER_READ
+            ADMIN > (GRADE_WRITE STUDENT_DELETE TEACHER_DELETE)
+        """);
   }
 }

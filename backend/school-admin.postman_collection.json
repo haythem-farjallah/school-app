@@ -1,0 +1,391 @@
+{
+  "info": {
+    "name": "School Management – Admin API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "HOST",   "value": "localhost:8088" },
+    { "key": "TOKEN",  "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Teachers",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/teachers?page=0&size=10"
+          }
+        },
+        {
+          "name": "Create teacher",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/teachers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"firstName\": \"Mia\",\n    \"lastName\": \"Chen\",\n    \"email\": \"mia.chen@school.test\",\n    \"telephone\": \"+886-900-123-999\",\n    \"birthday\": \"1992-07-21\",\n    \"gender\": \"F\",\n    \"address\": \"5 Teacher Rd\",\n    \"role\": \"TEACHER\"\n  },\n  \"qualifications\": \"M.Ed TESOL\",\n  \"subjectsTaught\": \"English, Literature\",\n  \"availableHours\": 25,\n  \"schedulePreferences\": \"Morning classes preferred\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Patch teacher (id=REPLACE)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/teachers/REPLACE",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telephone\": \"+886-900-555-777\",\n  \"availableHours\": 30,\n  \"schedulePreferences\": \"Afternoons OK too\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete teacher (id=REPLACE)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/teachers/REPLACE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workers",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/workers?page=0&size=10"
+          }
+        },
+        {
+          "name": "Create worker",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/workers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"firstName\": \"Kevin\",\n    \"lastName\": \"Lee\",\n    \"email\": \"kevin.lee@school.test\",\n    \"telephone\": \"+886-900-888-222\",\n    \"birthday\": \"1983-03-10\",\n    \"gender\": \"M\",\n    \"address\": \"8 Worker Ln\",\n    \"role\": \"WORKER\"\n  },\n  \"department\": \"Maintenance\",\n  \"jobRole\": \"Electrician\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Patch worker (id=REPLACE)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/workers/REPLACE",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jobRole\": \"Senior Electrician\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete worker (id=REPLACE)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/workers/REPLACE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile Settings",
+      "item": [
+        {
+          "name": "Get current user settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/me/settings"
+          }
+        },
+        {
+          "name": "Update current user settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/me/settings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language\": \"fr\",\n  \"theme\": \"dark\",\n  \"notificationsEnabled\": false,\n  \"darkMode\": true\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Permissions",
+      "item": [
+        {
+          "name": "Catalogue – list all permission codes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/permissions"
+          }
+        },
+        {
+          "name": "Role defaults – view (role = {{ROLE}})",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/permissions/roles/{{ROLE}}"
+          }
+        },
+        {
+          "name": "Role defaults – replace",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/permissions/roles/{{ROLE}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codes\": [\n    \"STUDENT_READ\",\n    \"GRADE_READ\",\n    \"GRADE_WRITE\"\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "User overrides – view (id = {{USER_ID}})",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/permissions/users/{{USER_ID}}"
+          }
+        },
+        {
+          "name": "User overrides – replace",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/permissions/users/{{USER_ID}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codes\": [\n    \"STUDENT_CREATE\",\n    \"STUDENT_UPDATE\"\n  ]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Classes",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/classes?page=0&size=10"
+          }
+        },
+        {
+          "name": "Create class",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/classes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"3-A\",\n  \"levelId\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Update class (id=REPLACE)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/classes/REPLACE",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"3-A-Renamed\"\n}" }
+          }
+        },
+        {
+          "name": "Delete class (id=REPLACE)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/classes/REPLACE"
+          }
+        },
+        {
+          "name": "Batch add courses to class",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/classes/REPLACE/courses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operation\": \"ADD\",\n  \"ids\": [1, 2, 3]\n}"
+            }
+          }
+        },
+        {
+          "name": "Add single student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/classes/REPLACE/students/123"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/courses?page=0&size=10"
+          }
+        },
+        {
+          "name": "Create course",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/courses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Physics\",\n  \"color\": \"#ff00ff\",\n  \"coefficient\": 2.0,\n  \"teacherId\": 42\n}"
+            }
+          }
+        },
+        {
+          "name": "Update course (id=REPLACE)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/courses/REPLACE",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"color\": \"#00ffff\",\n  \"coefficient\": 3.0\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete course (id=REPLACE)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/courses/REPLACE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Levels",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/levels?page=0&size=10"
+          }
+        },
+        {
+          "name": "Create level",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/levels",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Level 3\" }" }
+          }
+        },
+        {
+          "name": "Patch level (id=REPLACE)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/levels/REPLACE",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Level 3 Advanced\" }" }
+          }
+        },
+        {
+          "name": "Batch remove courses from level",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/levels/REPLACE/courses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operation\": \"REMOVE\",\n  \"ids\": [1, 3]\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

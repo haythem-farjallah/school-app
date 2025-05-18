@@ -1,86 +1,141 @@
 package com.example.school_management.commons.configs;
 
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
-import io.jsonwebtoken.security.SignatureException;
 
- import javax.crypto.SecretKey;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
 
 @Slf4j
 @Component
 public class JwtTokenProvider {
 
     @Value("${jwt.secret}")
-    private String jwtSecret;
+    private String jwtSecret;                 // raw text OR base64 – see init()
 
     @Value("${jwt.expiration.ms}")
-    private long jwtExpirationMs;
+    private long accessTtlMs;
 
     @Value("${jwt.refresh.expiration.ms}")
-    private long jwtRefreshExpirationMs;
+    private long refreshTtlMs;
 
-    private SecretKey key;
+    private SecretKey  key;                   // final after @PostConstruct
+    private JwtParser  parser;                // thread–safe, reuse
 
+    /* ----------------------------------------------------------- */
     @jakarta.annotation.PostConstruct
-    public void init() {
-        // create a SecretKey from the injected secret string
-        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
-        this.key = Keys.hmacShaKeyFor(keyBytes);
-    }
-
-    public String generateAccessToken(UserDetails userDetails) {
-        return Jwts.builder()
-            .setSubject(userDetails.getUsername())
-            .setIssuedAt(new Date())
-            .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
-            .signWith(key, SignatureAlgorithm.HS256)  // no more deprecated overload
-            .compact();
-    }
-
-    public String generateRefreshToken(UserDetails userDetails) {
-        return Jwts.builder()
-            .setSubject(userDetails.getUsername())
-            .setIssuedAt(new Date())
-            .setExpiration(new Date(System.currentTimeMillis() + jwtRefreshExpirationMs))
-            .signWith(key, SignatureAlgorithm.HS256)
-            .compact();
-    }
-
-    public boolean validateToken(String token) {
-        try {
-            Jwts.parserBuilder()
+    void init() {
+        this.key = resolveKey(jwtSecret);
+        this.parser = Jwts.parserBuilder()
                 .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token);
-            return true;
-        } catch (SecurityException | SignatureException ex) {
-            log.error("Invalid JWT signature: {}", ex.getMessage());
-        } catch (MalformedJwtException ex) {
-            log.error("Invalid JWT token: {}", ex.getMessage());
-        } catch (ExpiredJwtException ex) {
-            log.error("JWT token is expired: {}", ex.getMessage());
-        } catch (UnsupportedJwtException ex) {
-            log.error("JWT token is unsupported: {}", ex.getMessage());
-        } catch (IllegalArgumentException ex) {
-            log.error("JWT claims string is empty: {}", ex.getMessage());
-        }
-        return false;
+                .build();
+        log.info("JWT provider initialized (alg=HS256, accessTtl={}ms)", accessTtlMs);
     }
 
-    public String getEmailFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-            .setSigningKey(key)
-            .build()
-            .parseClaimsJws(token)
-            .getBody();
+    /* Helper: choose raw vs. Base64 */
+    private static SecretKey resolveKey(String secret) {
+        String trimmed = secret.trim();
+        byte[] keyBytes;
+        if (trimmed.matches("^[A-Za-z0-9+/=]+$") && trimmed.length() % 4 == 0) {
+            // looks like Base64
+            keyBytes = Decoders.BASE64.decode(trimmed);
+        } else {
+            keyBytes = trimmed.getBytes(StandardCharsets.UTF_8);
+        }
+        if (keyBytes.length < 32) {           // 256-bit for HS256
+            throw new IllegalArgumentException(
+                    "JWT secret key must be at least 256 bits (32 ASCII chars)");
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
 
-        return claims.getSubject();
+    /* ----------------------------------------------------------- */
+    public String generateAccessToken(UserDetails user) {
+        List<String> roles = user.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)  // ROLE_ADMIN …
+                .toList();
 
+        long now = System.currentTimeMillis();
+        return Jwts.builder()
+                .setSubject(user.getUsername())
+                .claim("roles", roles)                    // ← NEW
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + accessTtlMs))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String generateRefreshToken(UserDetails user) {
+
+            List<String> roles = user.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)  // ROLE_ADMIN …
+                    .toList();
+
+            long now = System.currentTimeMillis();
+            return Jwts.builder()
+                    .setSubject(user.getUsername())
+                    .claim("roles", roles)                    // ← NEW
+                    .setIssuedAt(new Date(now))
+                    .setExpiration(new Date(now + accessTtlMs))
+                    .signWith(key, SignatureAlgorithm.HS256)
+                    .compact();
+
+    }
+
+    private String buildToken(String subject, long ttlMs) {
+
+        long now = System.currentTimeMillis();
+        return Jwts.builder()
+                .setSubject(subject)
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + ttlMs))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    /* ----------------------------------------------------------- */
+    public boolean validateToken(String rawHeaderToken) {
+        String token = stripPrefix(rawHeaderToken);
+        if (token == null) return false;
+
+        try {
+            parser.parseClaimsJws(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.debug("Invalid JWT: {}", ex.getMessage());
+            return false;
+        }
+    }
+
+    public String getEmailFromToken(String rawHeaderToken) {
+        String token = stripPrefix(rawHeaderToken);
+        if (token == null) throw new IllegalArgumentException("Empty token");
+        return parser.parseClaimsJws(token).getBody().getSubject();
+    }
+
+    /* Accept "Bearer x.y.z" or raw token */
+    private static String stripPrefix(String header) {
+        if (header == null || header.isBlank()) return null;
+        return header.startsWith("Bearer ") ? header.substring(7).trim()
+                : header.trim();
+    }
+
+    public String issue(String email, List<String> roles) {
+        long now = System.currentTimeMillis();
+        return Jwts.builder()
+                .setSubject(email)
+                .claim("roles", roles)          // ROLE_WORKER, …
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + accessTtlMs))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
     }
 }

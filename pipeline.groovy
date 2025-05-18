@@ -16,7 +16,7 @@ pipeline {
     stages {
         stage('CHECKOUT GIT') {
             steps {
-                checkout scmGit(branches: [[name: '*/**']], extensions: [], userRemoteConfigs: [[credentialsId: 'github token', url: 'https://github.com/haythem-farjallah/school-app.git']])
+                checkout scmGit(branches: [[name: '*/**']], extensions: [], userRemoteConfigs: [[credentialsId: 'github-token', url: 'https://github.com/haythem-farjallah/school-app.git']])
             }
         }
 

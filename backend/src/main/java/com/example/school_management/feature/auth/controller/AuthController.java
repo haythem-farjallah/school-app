@@ -13,6 +13,7 @@ import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.service.AuthService;
 import com.example.school_management.feature.auth.service.CustomUserDetailsService;
 import com.example.school_management.feature.auth.service.OtpService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 @Validated
 @Slf4j
+@SecurityRequirements({})
 public class AuthController {
 
     private final AuthService authService;

@@ -7,7 +7,10 @@ import com.example.school_management.feature.auth.dto.*;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.*;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -18,6 +21,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.*;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -32,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers
+@Transactional
 class AuthControllerIntegrationTest {
     // 1) Define your Testcontainer
     @Container
@@ -56,11 +61,12 @@ class AuthControllerIntegrationTest {
     @Autowired
     ObjectMapper mapper;
     @Autowired
-    BaseUserRepository userRepo;
+    UserRepository userRepo;
     @MockitoBean
     EmailService emailService;
 
-
+    @PersistenceContext
+    EntityManager em;
     @BeforeAll
     static void beforeAll() {
         postgres.start();
@@ -73,7 +79,9 @@ class AuthControllerIntegrationTest {
 
     @BeforeEach
     void cleanUp() {
-        userRepo.deleteAll();
+        em.createNativeQuery("TRUNCATE TABLE profile_settings CASCADE").executeUpdate();
+        em.createNativeQuery("TRUNCATE TABLE role_permissions CASCADE").executeUpdate();
+        em.createNativeQuery("TRUNCATE TABLE users CASCADE").executeUpdate();
     }
 
     @Test
