@@ -10,6 +10,7 @@ import com.example.school_management.feature.auth.dto.ForgotPasswordRequest;
 import com.example.school_management.feature.auth.dto.ResetPasswordRequest;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.service.AuthService;
 import com.example.school_management.feature.auth.service.CustomUserDetailsService;
 import com.example.school_management.feature.auth.service.OtpService;
@@ -39,7 +40,7 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
 
     private final OtpService otpService;
-    private final BaseUserRepository userRepo;
+    private final UserRepository userRepo;
     private final CustomUserDetailsService userDetailsService;
 
 

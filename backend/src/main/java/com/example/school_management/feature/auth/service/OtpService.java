@@ -42,7 +42,7 @@ public class OtpService {
         emailService.sendTemplateEmail(
                 user.getEmail(),
                 "Your password-reset code",
-                "otp-email",                 // Thymeleaf template name
+                "otp",                 // Thymeleaf template name
                 Map.of("otp", code)
         );
     }
