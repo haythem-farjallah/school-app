@@ -1,5 +1,6 @@
 package com.example.school_management.feature.academic.service;
 
+import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.feature.academic.dto.BatchIdsRequest;
 import com.example.school_management.feature.academic.dto.CreateLevelRequest;
 import com.example.school_management.feature.academic.dto.LevelDto;
@@ -16,6 +17,7 @@ public interface LevelService {
     LevelDto get(Long id);
 
     Page<LevelDto> list(Pageable page, String nameLike);
+    Page<LevelDto> listLevels(QueryParams qp);
 
     /* ─── Batch subject management ────────────────────── */
     LevelDto mutateCourses(Long levelId, BatchIdsRequest req);

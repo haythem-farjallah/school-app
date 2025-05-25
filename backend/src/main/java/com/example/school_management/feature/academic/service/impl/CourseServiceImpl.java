@@ -1,7 +1,11 @@
 package com.example.school_management.feature.academic.service.impl;
 
 import com.example.school_management.commons.exceptions.ConflictException;
+import com.example.school_management.commons.utils.FetchJoinSpecification;
+import com.example.school_management.commons.utils.QueryParams;
+import com.example.school_management.commons.utils.SpecificationBuilder;
 import com.example.school_management.feature.academic.dto.*;
+import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.CourseRepository;
@@ -94,4 +98,33 @@ public class CourseServiceImpl implements CourseService {
         if (r.teacherId() != null)
             c.setTeacher(fetch(teacherRepo, r.teacherId(), "Teacher"));
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CourseDto> listCourses(QueryParams qp) {
+        // 1) turn include=… into LEFT-JOINs for exactly the requested relations
+        Specification<Course> joinSpec =
+                FetchJoinSpecification.fetchRelations(qp.getInclude());
+
+        // 2) build a filter spec from all filter[...] params
+        Specification<Course> filterSpec =
+                new SpecificationBuilder<Course>(qp).build();
+
+        // 3) combine them
+        Specification<Course> combinedSpec =
+                Specification.where(joinSpec)
+                        .and(filterSpec);
+
+        // 4) page + sort from qp
+        Sort sort = qp.getSort().isEmpty()
+                ? Sort.unsorted()
+                : Sort.by(qp.getSort());
+        Pageable pageReq = PageRequest.of(qp.getPage(), qp.getSize(), sort);
+
+        // 5) query + map to DTO
+        return courseRepo
+                .findAll(combinedSpec, pageReq)
+                .map(mapper::toCourseDto);
+    }
+
 }

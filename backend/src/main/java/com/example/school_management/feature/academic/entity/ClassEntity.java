@@ -3,6 +3,8 @@ package com.example.school_management.feature.academic.entity;
 import com.example.school_management.feature.auth.entity.Student;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -24,6 +26,7 @@ public class ClassEntity {
             joinColumns = @JoinColumn(name = "class_id"),
             inverseJoinColumns = @JoinColumn(name = "student_id")
     )
+    @Fetch(FetchMode.SUBSELECT)
     private Set<Student> students = new HashSet<>();
 
     // Many-to-Many relationship with Course
@@ -33,6 +36,7 @@ public class ClassEntity {
             joinColumns = @JoinColumn(name = "class_id"),
             inverseJoinColumns = @JoinColumn(name = "course_id")
     )
+    @Fetch(FetchMode.SUBSELECT)
     private Set<Course> courses = new HashSet<>();
 
     // One-to-One relationship with Schedule

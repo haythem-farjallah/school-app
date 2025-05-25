@@ -2,6 +2,8 @@ package com.example.school_management.feature.academic.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
+import com.example.school_management.commons.utils.FieldFilterUtil;
+import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.feature.academic.dto.*;
 import com.example.school_management.feature.academic.service.ClassService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,8 +17,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.MappingJacksonValue;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -135,5 +139,66 @@ public class ClassController {
             @PathVariable Long classId,
             @PathVariable Long courseId) {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.removeCourse(classId, courseId)));
+    }
+
+
+    @GetMapping("/new")
+    public ResponseEntity<MappingJacksonValue> list(
+            QueryParams qp  // automatically resolved by your ArgumentResolver
+    ) {
+        // 1) Call service
+        Page<ClassDto> page = service.listClasses(qp);
+        PageDto<ClassDto> dtoPage = new PageDto<>(page);
+
+        // 2) Wrap in your ApiSuccessResponse
+        ApiSuccessResponse<PageDto<ClassDto>> resp =
+                new ApiSuccessResponse<>("success", dtoPage);
+
+        // 3) Wrap again so we can apply sparse-field filtering
+        MappingJacksonValue wrapper = new MappingJacksonValue(resp);
+        FieldFilterUtil.apply(wrapper, qp);  // "class" matches fields[class]=...
+
+        // 4) Return
+        return ResponseEntity.ok(wrapper);
+    }
+
+
+    @Operation(summary = "Lightweight list for dashboards",
+            description = """
+                   Returns a `ClassCardDto` that already contains
+                   * number of students
+                   * number of courses
+                   * number of teachers  
+                   ready for a grid / cards UI.
+                   """)
+    @GetMapping("/cards")
+    public ResponseEntity<MappingJacksonValue> listCards(QueryParams qp) {
+
+        var page     = service.listCards(qp);
+        var dtoPage  = new PageDto<>(page);
+        var response = new ApiSuccessResponse<>("success", dtoPage);
+
+        MappingJacksonValue wrapper = new MappingJacksonValue(response);
+        FieldFilterUtil.apply(wrapper, qp);         // supports fields[classCard]=…
+        return ResponseEntity.ok(wrapper);
+    }
+
+
+    @Operation(summary = "Detailed view of one class",
+            description = """
+                   Returns a `ClassViewDto` which contains  
+                   * the class basic data  
+                   * a list of `AssignmentDto` (course + teacher).  
+                   Perfect for a details-&-sidebar page.
+                   """)
+    @GetMapping("/{id}/details")
+    public ResponseEntity<MappingJacksonValue> details(@PathVariable Long id,
+                                                       QueryParams qp) {
+        ClassViewDto dto = service.getDetails(id);
+
+        MappingJacksonValue wrapper = new MappingJacksonValue(
+                new ApiSuccessResponse<>("success", dto));
+        FieldFilterUtil.apply(wrapper, qp);          // <-- installs filterProvider
+        return ResponseEntity.ok(wrapper);
     }
 }

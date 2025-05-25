@@ -1,6 +1,9 @@
 package com.example.school_management.commons.configs;
 
+import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
+import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
@@ -72,5 +75,14 @@ public class SecurityConfig {
             TEACHER_UPDATE > TEACHER_READ
             ADMIN > (GRADE_WRITE STUDENT_DELETE TEACHER_DELETE)
         """);
+  }
+  @Bean
+  public Jackson2ObjectMapperBuilderCustomizer addDefaultFieldFilter() {
+    // Serialize *everything* when no MappingJacksonValue supplies a filter:
+    var provider = new SimpleFilterProvider()
+            .setDefaultFilter(SimpleBeanPropertyFilter.serializeAll())
+            .setFailOnUnknownId(false);           // do NOT throw for unknown ids
+
+    return builder -> builder.filters(provider);
   }
 }

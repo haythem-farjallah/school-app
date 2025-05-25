@@ -1,5 +1,8 @@
 package com.example.school_management.feature.academic.service.impl;
 
+import com.example.school_management.commons.utils.FetchJoinSpecification;
+import com.example.school_management.commons.utils.QueryParams;
+import com.example.school_management.commons.utils.SpecificationBuilder;
 import com.example.school_management.feature.academic.dto.*;
 import com.example.school_management.feature.academic.entity.Level;
 import com.example.school_management.feature.academic.mapper.AcademicMapper;
@@ -78,6 +81,33 @@ public class LevelServiceImpl implements LevelService {
         }
 
         return levelRepo.findAll(spec, page).map(mapper::toLevelDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<LevelDto> listLevels(QueryParams qp) {
+        // 1) include=… → LEFT JOIN relations
+        Specification<Level> joinSpec =
+                FetchJoinSpecification.fetchRelations(qp.getInclude());
+
+        // 2) filter[...] → WHERE clauses
+        Specification<Level> filterSpec =
+                new SpecificationBuilder<Level>(qp).build();
+
+        // 3) combine them
+        Specification<Level> combined =
+                Specification.where(joinSpec).and(filterSpec);
+
+        // 4) page + sort
+        Sort sort = qp.getSort().isEmpty()
+                ? Sort.unsorted()
+                : Sort.by(qp.getSort());
+        Pageable pageReq = PageRequest.of(qp.getPage(), qp.getSize(), sort);
+
+        // 5) query + map
+        return levelRepo
+                .findAll(combined, pageReq)
+                .map(mapper::toLevelDto);
     }
 
     /* ─────────────────── Batch courses ─────────── */

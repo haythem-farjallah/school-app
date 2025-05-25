@@ -5,10 +5,7 @@ import com.example.school_management.feature.auth.dto.CreateStudentWithParentsRe
 import com.example.school_management.feature.auth.dto.ParentCreateDto;
 import com.example.school_management.feature.auth.dto.StudentDtoCreate;
 import com.example.school_management.feature.auth.dto.UserProfileDTO;
-import com.example.school_management.feature.auth.entity.BaseUser;
-import com.example.school_management.feature.auth.entity.Parent;
-import com.example.school_management.feature.auth.entity.Student;
-import com.example.school_management.feature.auth.entity.UserRole;
+import com.example.school_management.feature.auth.entity.*;
 import com.example.school_management.feature.auth.repository.ParentRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +47,7 @@ public class AdminService {
         String studentPw = generateAndSetPassword(student);
         student.setGradeLevel(sd.gradeLevel());
         student.setEnrollmentYear(sd.enrollmentYear());
+        student.setStatus(Status.ACTIVE);
         studentRepo.save(student);
         log.info("Created STUDENT {} (id={})", student.getEmail(), student.getId());
         emailService.sendTemplateEmail(
@@ -74,7 +72,7 @@ public class AdminService {
             Parent parent = new Parent();
             populateCommon(parent, parentProfile);
             parent.setPreferredContactMethod(pd.preferredContactMethod());
-
+            parent.setStatus(Status.ACTIVE);
             String parentPw = generateAndSetPassword(parent);
             parent.getChildren().add(student);
 

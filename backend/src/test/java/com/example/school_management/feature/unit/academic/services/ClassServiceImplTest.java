@@ -9,6 +9,7 @@ import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
 import com.example.school_management.feature.academic.repository.LevelRepository;
+import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
 import com.example.school_management.feature.academic.service.ClassService;
 import com.example.school_management.feature.academic.service.impl.ClassServiceImpl;
 import com.example.school_management.feature.auth.repository.StudentRepository;
@@ -44,6 +45,8 @@ class ClassServiceImplTest {
     CourseRepository courseRepo;
     @Mock
     StudentRepository studentRepo;
+    @Mock
+    TeachingAssignmentRepository assignmentRepo;
 
     AcademicMapper mapper = Mappers.getMapper(AcademicMapper.class);
 
@@ -52,7 +55,7 @@ class ClassServiceImplTest {
     @BeforeEach
     void init() {
         service = new ClassServiceImpl(
-                classRepo, levelRepo, courseRepo, studentRepo, mapper);
+                classRepo, levelRepo, courseRepo, studentRepo, mapper,assignmentRepo);
     }
 
     @Test

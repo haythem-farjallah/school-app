@@ -2,13 +2,17 @@ package com.example.school_management.feature.academic.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
+import com.example.school_management.commons.utils.FieldFilterUtil;
+import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.feature.academic.dto.*;
 import com.example.school_management.feature.academic.service.LevelService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.MappingJacksonValue;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -86,5 +90,18 @@ public class LevelController {
 
         return ResponseEntity.ok(new ApiSuccessResponse<>("success",
                 service.removeCourse(levelId, courseId)));
+    }
+
+    @GetMapping("/new")
+    public ResponseEntity<MappingJacksonValue> list(
+            QueryParams qp  // automatically resolved by your ArgumentResolver
+    ) {
+        var page = service.listLevels(qp);
+        var dto  = new PageDto<>(page);
+
+        var resp    = new ApiSuccessResponse<>("success", dto);
+        var wrapper = new MappingJacksonValue(resp);
+        FieldFilterUtil.apply(wrapper, qp);
+        return ResponseEntity.ok(wrapper);
     }
 }

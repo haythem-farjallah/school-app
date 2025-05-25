@@ -55,4 +55,27 @@ public interface AcademicMapper {
     static Set<Long> mapClasses(Set<ClassEntity> classes) {
         return classes.stream().map(ClassEntity::getId).collect(Collectors.toSet());
     }
+
+    /* CARD ------------------------------------------------- */
+    @Mapping(target = "levelName",   source = "e.level.name")   // <-- tell MapStruct
+    @Mapping(target = "studentCount",  expression = "java((int) stCnt)")  // cast required
+    @Mapping(target = "courseCount",   expression = "java((int) crsCnt)")
+    @Mapping(target = "teacherCount",  expression = "java((int) tchCnt)")
+    ClassCardDto toCardDto(ClassEntity e,
+                           long stCnt,
+                           long crsCnt,
+                           long tchCnt);
+
+    /* DETAIL assignment row ------------------------------------- */
+    default AssignmentDto toAssignmentDto(TeachingAssignment ta) {
+        return new AssignmentDto(
+                ta.getCourse().getId(),
+                ta.getCourse().getName(),
+                ta.getTeacher().getId(),
+                ta.getTeacher().getFirstName() + " " + ta.getTeacher().getLastName(),
+                ta.getWeeklyHours()
+        );
+    }
+
+
 }
