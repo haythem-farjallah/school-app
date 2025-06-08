@@ -1,26 +1,42 @@
 {
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "skipLibCheck": true,
+    /* ── Path alias ─────────────────────────────────────── */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]           // ← no leading "./" inside the pattern
+    },
 
-    /* Bundler mode */
+    /* ── Incremental build info ─────────────────────────── */
+    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.app.tsbuildinfo",
+
+    /* ── Language / target / lib ────────────────────────── */
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+
+    /* ── Bundler-friendly options (Vite) ────────────────── */
+    "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-    "noEmit": true,
     "jsx": "react-jsx",
+    "noEmit": true,
 
-    /* Linting */
+    "useDefineForClassFields": true,
+
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+
+    /* ── Misc ───────────────────────────────────────────── */
+    "skipLibCheck": true
   },
-  "include": ["cypress","src"]
+
+  /* ------------------------------------------------------------------ */
+  /*  Project files – let TS pick up everything under these folders     */
+  /* ------------------------------------------------------------------ */
+  "include": ["src", "cypress"],   // add more folders if needed
+
+
 }

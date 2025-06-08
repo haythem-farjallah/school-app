@@ -2,6 +2,7 @@ import { useState } from "react";
 import { http } from "../lib/http";
 import { useQueryApi } from "./useQueryApi";
 import type { AxiosRequestConfig } from "axios";
+import { ApiResponse, PageDto } from "@/types/level";
 
 export interface Page<T> {
   data: T[];
@@ -26,7 +27,18 @@ export function usePaginated<T>(
     };
     if (skipAuth) cfg.skipAuth = true;
 
-    return http.get<Page<T>>(endpoint, cfg).then((res) => res.data);
+   return http
+      .get<ApiResponse<PageDto<T>>, ApiResponse<PageDto<T>>>(endpoint, cfg)
+      .then((res) => {
+        const dto = res.data;
+        console.log("usePaginated received:", dto);
+        return {
+          data: dto.content,
+          page: dto.page,
+          totalPages: Math.ceil(dto.totalElements / dto.size),
+          totalItems: dto.totalElements,
+        };
+      });
   };
 
   /* ------------- react‑query ------------------------------------------- */

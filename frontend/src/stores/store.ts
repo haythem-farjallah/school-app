@@ -1,5 +1,6 @@
 import { configureStore, Middleware } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
+import  authReducer from "@/stores/authSlice"
 
 /* -------------------------------------------------------------------------- */
 /*  Slice reducers                                                            */
@@ -25,6 +26,7 @@ const logger: Middleware =
 export const store = configureStore({
   reducer: {
     notification: notificationReducer,
+    auth: authReducer,
   },
   middleware: (getDefault) =>
     getDefault({ serializableCheck: false }).concat(logger),

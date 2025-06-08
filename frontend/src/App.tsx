@@ -10,6 +10,7 @@ import { LanguageProvider } from "./context/LanguageProvider";
 import { ThemeProvider } from "./context/ThemeProvider"
 import { HelmetProvider } from "react-helmet-async";
 import { AppRoutes } from "./routes/AppRoutes";
+import { NuqsAdapter } from "nuqs/adapters/react-router";
 
 const queryClient =new QueryClient();
 function App() {
@@ -21,14 +22,16 @@ function App() {
           <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <LanguageProvider>
-              <Suspense fallback={<div>Loading...</div>}>
-                <AppRoutes/>
-              </Suspense>
-              <Toaster/>
-                {import.meta.env.DEV && (
-                    <ReactQueryDevtools initialIsOpen={false} />
-                  )}          
-                </LanguageProvider>
+              <NuqsAdapter>
+                <Suspense fallback={<div>Loading...</div>}>
+                  <AppRoutes/>
+                </Suspense>
+                <Toaster/>
+                  {import.meta.env.DEV && (
+                      <ReactQueryDevtools initialIsOpen={false} />
+                    )}          
+              </NuqsAdapter>
+              </LanguageProvider>
             </ThemeProvider>
           </QueryClientProvider>
         </Provider>

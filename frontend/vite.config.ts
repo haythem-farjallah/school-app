@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-
+import path from "path"
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -7,15 +7,17 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  
+  css: {
+    postcss: './postcss.config.cjs',
+  },
   test: {
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
-    coverage: {
-      provider: 'v8',                
-      reporter: ['text', 'lcov'],
-      reportsDirectory: 'coverage/unit'
-    }
+  },
+   resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
   },
 })

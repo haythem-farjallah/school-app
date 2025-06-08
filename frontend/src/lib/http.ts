@@ -22,7 +22,7 @@ import axios, {
     (cfg) => {
       const c = cfg as RetryableRequest;
   
-      if (!c.skipAuth && token.access) {
+      if (!c.skipAuth && token.access && token.access !== "null") {
         if (!c.headers) c.headers = {} as AxiosRequestHeaders;
   
         (c.headers as AxiosRequestHeaders).Authorization = `Bearer ${token.access}`;

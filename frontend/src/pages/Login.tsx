@@ -1,50 +1,68 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { AutoForm } from "@/form/AutoForm";
+import type { FormRecipe } from "@/form/types";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  loginSchema,
+  loginFields,
+  LoginValues,
+} from "@/features/auth/loginForm.definition";
 
-const Login = () => {
-  const nav = useNavigate();
-  const [email, setEmail] = useState("");
-  const [pwd, setPwd] = useState("");
+import { useLogin } from "@/hooks/useLogin";
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: call real auth API
-    localStorage.setItem("token", "fake‑token");
-    nav("/", { replace: true });
+export default function LoginPage() {
+  const loginMut = useLogin(); // ← React-Query mutation
+
+  /* ---------- Build recipe ---------- */
+  const recipe: FormRecipe = {
+    schema: loginSchema,
+    fields: loginFields,
+    onSubmit: (v) => loginMut.mutateAsync(v as LoginValues),
   };
 
   return (
-    <form
-      onSubmit={submit}
-      className="mx-auto max-w-sm space-y-4 rounded-md border p-6 shadow"
-    >
-      <h2 className="text-xl font-semibold text-center">Login</h2>
+    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-slate-50 via-background to-slate-100 dark:from-slate-950 dark:via-background dark:to-slate-900 px-4 py-12">
+      <Card className="w-full max-w-md border border-border/40 bg-card/95 shadow-2xl backdrop-blur-xl">
+        <CardHeader className="text-center space-y-3 pb-8">
+          <CardTitle className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+            Welcome Back
+          </CardTitle>
+          <CardDescription className="text-base text-muted-foreground">
+            Sign in to your account to continue
+          </CardDescription>
+        </CardHeader>
 
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        className="w-full rounded border px-3 py-2"
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={pwd}
-        onChange={(e) => setPwd(e.target.value)}
-        required
-        className="w-full rounded border px-3 py-2"
-      />
+        <CardContent className="px-8 pb-8">
+          <AutoForm
+            recipe={recipe}
+            submitLabel="Sign In"
+            submitClassName="bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl"
+          />
+        </CardContent>
 
-      <button
-        type="submit"
-        className="w-full rounded bg-blue-600 py-2 font-medium text-white hover:bg-blue-700"
-      >
-        Signin
-      </button>
-    </form>
+        <CardFooter className="flex flex-col gap-4 px-8 pb-8">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border/40" />
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            Forgot your password?{" "}
+            <a
+              href="/forgot-password"
+              className="font-medium text-primary underline-offset-4 hover:underline transition-colors"
+            >
+              Reset it here
+            </a>
+          </p>
+        </CardFooter>
+      </Card>
+    </div>
   );
-};
-
-export default Login;
+}

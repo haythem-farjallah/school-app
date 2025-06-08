@@ -1,29 +1,34 @@
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useMediaQuery } from "usehooks-ts";
+import { AnimatePresence } from "framer-motion";
 import { ThemeContext, Theme } from "./ThemeContext";
 
-export const ThemeProvider: React.FC<React.PropsWithChildren> = ({
-  children,
-}) => {
-  // localStorage  ➜  prefers‑color‑scheme  ➜  default "light"
-  const getInitial = (): Theme =>
-    (localStorage.getItem("theme") as Theme | null) ??
-    (window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light");
+/**
+ * Adds “dark” class to <html>, stores preference in localStorage,
+ * and exposes `useTheme()` to the rest of the app.
+ */
+export const ThemeProvider = ({ children }: React.PropsWithChildren) => {
+  /* -------------------------------- initial mode ------------------------ */
+  const prefersDark = useMediaQuery("(prefers-color-scheme: light)");
+  const saved = localStorage.getItem("theme") as Theme | null;
+  const [theme, setTheme] = useState<Theme>(saved ?? (prefersDark ? "light" : "light"));
 
-  const [theme, setTheme] = useState<Theme>(getInitial);
-
-  // Apply/remove the "dark" class and persist choice
+  /* -------------------------------- side-effect: keep <html> in sync ---- */
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.classList.toggle("light", theme === "light");
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  /* -------------------------------- API --------------------------------- */
+  const toggle = useCallback(
+    () => setTheme((m) => (m === "light" ? "light" : "light")),
+    [],
+  );
 
+  /* -------------------------------- render ------------------------------ */
   return (
     <ThemeContext.Provider value={{ theme, toggle }}>
-      {children}
+      <AnimatePresence initial={false}>{children}</AnimatePresence>
     </ThemeContext.Provider>
   );
 };

@@ -3,26 +3,22 @@ import { createContext, useContext } from "react";
 /* -------------------------------------------------------------------------- */
 /*  Public types                                                              */
 /* -------------------------------------------------------------------------- */
-
 export type Theme = "light" | "dark";
 
 export interface ThemeCtx {
+  /** current mode */
   theme: Theme;
+  /** swap between light ↔︎ dark */
   toggle: () => void;
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Context                                                                   */
+/*  Context + hook                                                            */
 /* -------------------------------------------------------------------------- */
-
 export const ThemeContext = createContext<ThemeCtx | undefined>(undefined);
 
-/* -------------------------------------------------------------------------- */
-/*  Hook                                                                      */
-/* -------------------------------------------------------------------------- */
-
-export const useTheme = () => {
+export const useTheme = (): ThemeCtx => {
   const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
+  if (!ctx) throw new Error("useTheme must be used inside <ThemeProvider>");
   return ctx;
 };
