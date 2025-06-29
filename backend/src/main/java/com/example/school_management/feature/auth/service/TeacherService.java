@@ -7,7 +7,6 @@ import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.mapper.TeacherMapper;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;

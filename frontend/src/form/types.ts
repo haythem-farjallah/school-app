@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { ElementType } from "react";
 
-export type FieldType = "text" | "checkbox" | "password" | "number";
+export type FieldType = "text" | "checkbox" | "password" | "number" | "color";
 
 export interface BaseField<T extends FieldType = FieldType> {
   name: string;

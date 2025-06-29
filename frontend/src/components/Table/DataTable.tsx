@@ -207,10 +207,9 @@ export function DataTable<TData>({
                 <tr 
                   key={row.id} 
                   className={cn(
-                    "border-t border-slate-100/80 transition-all duration-200 ease-in-out group cursor-pointer",
+                    "border-t border-slate-100/80 transition-colors duration-200 ease-in-out group cursor-pointer",
                     "hover:bg-gradient-to-r hover:from-blue-50/60 hover:via-indigo-50/30 hover:to-purple-50/20",
-                    "hover:shadow-sm hover:scale-[1.001]",
-                    row.getIsSelected() && "bg-gradient-to-r from-blue-100/70 via-indigo-100/40 to-purple-100/30 shadow-md",
+                    row.getIsSelected() && "bg-gradient-to-r from-blue-100/70 via-indigo-100/40 to-purple-100/30 shadow-sm",
                     index % 2 === 0 ? "bg-white" : "bg-slate-50/30"
                   )}
                 >

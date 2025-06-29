@@ -10,6 +10,7 @@ export function getCoursesColumns(actions?: {
   onView?: (course: Course) => void;
   onEdit?: (course: Course) => void;
   onDelete?: (course: Course) => void;
+  onSuccess?: () => void;
 }): ColumnDef<Course>[] {
   return [
     {
@@ -84,7 +85,7 @@ export function getCoursesColumns(actions?: {
         return (
           <div className="flex items-center space-x-3">
             <div
-              className="h-6 w-6 rounded-full border-2 border-white shadow-lg ring-2 ring-slate-200/80 transition-transform duration-200 hover:scale-110"
+              className="h-6 w-6 rounded-full border-2 border-white shadow-lg ring-2 ring-slate-200/80 transition-shadow duration-200 hover:ring-slate-300/90"
               style={{ backgroundColor: color }}
             />
             <span className="text-sm text-slate-700 font-mono bg-slate-100/80 px-2 py-1 rounded border">{color}</span>
@@ -103,7 +104,7 @@ export function getCoursesColumns(actions?: {
         return (
           <Badge 
             variant="secondary" 
-            className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 hover:from-blue-200 hover:to-indigo-200 border border-blue-200/60 font-semibold transition-all duration-200 hover:scale-105"
+            className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 hover:from-blue-200 hover:to-indigo-200 border border-blue-200/60 font-semibold transition-colors duration-200"
           >
             {coefficient.toFixed(1)}
           </Badge>
@@ -148,6 +149,7 @@ export function getCoursesColumns(actions?: {
             onView={actions?.onView}
             onEdit={actions?.onEdit}
             onDelete={actions?.onDelete}
+            onSuccess={actions?.onSuccess}
           />
         </div>
       ),

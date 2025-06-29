@@ -1,15 +1,21 @@
 package com.example.school_management.feature.auth.dto;
 
-import lombok.Builder;
-import lombok.Data;
+import java.time.LocalDate;
 
-@Data
-@Builder
-public class StudentDto {
-    private Long   id;
-    private String firstName;
-    private String lastName;
-    private String email;
-    private String gradeLevel;
-    private Integer enrollmentYear;
-}
+public record StudentDto(
+        /* ------------ identity ------------ */
+        Long id,
+
+        /* ------------ profile ------------ */
+        String firstName,
+        String lastName,
+        String email,
+        String telephone,
+        LocalDate birthday,
+        String gender,
+        String address,
+
+        /* ------------ student-specific ------------ */
+        String gradeLevel,
+        Integer enrollmentYear
+) {}

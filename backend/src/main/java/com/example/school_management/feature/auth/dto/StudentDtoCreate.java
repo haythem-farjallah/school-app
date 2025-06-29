@@ -13,4 +13,4 @@ public record StudentDtoCreate (
     String    address,
     @NotBlank String gradeLevel,
     @Min(1900) @Max(2100) Integer enrollmentYear
-) {}
+) implements BaseUserDtoMarker {}

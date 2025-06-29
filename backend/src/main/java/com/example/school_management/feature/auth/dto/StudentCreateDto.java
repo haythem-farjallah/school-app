@@ -1,35 +1,28 @@
 package com.example.school_management.feature.auth.dto;
 
-
-import jakarta.validation.constraints.Email;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class StudentCreateDto {
-    @NotBlank(message = "First name is required")
-    private String firstName;
+/**
+ * DTO used by the admin API to create a {@code Student}.
+ *
+ *  • All "person" fields live in the nested {@link BaseUserCreateDto}.
+ *  • Student-specific fields are added beside it.
+ *  • Record = immutable → safe to expose in controller layer.
+ */
+public record StudentCreateDto(
 
-    @NotBlank(message = "Last name is required")
-    private String lastName;
+        @NotNull @Valid
+        BaseUserCreateDto profile,          // firstName, lastName, email, …
 
-    @Email(message = "Must be a valid email")
-    @NotBlank(message = "Email is required")
-    private String email;
+        @NotBlank
+        String gradeLevel,                  // e.g. "5th", "Grade 10"
 
-    @Size(min = 6, message = "Password must be at least 6 characters")
-    @NotBlank(message = "Password is required")
-    private String password;
+        @NotNull
+        @Min(1900) @Max(2100)
+        Integer enrollmentYear              // year student enrolled
 
-    @NotBlank(message = "Grade level is required")
-    private String gradeLevel;
-
-    @NotNull(message = "Enrollment year is required")
-    private Integer enrollmentYear;
-}
+) implements BaseUserDtoMarker { }

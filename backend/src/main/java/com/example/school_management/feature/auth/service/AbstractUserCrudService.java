@@ -3,7 +3,6 @@ package com.example.school_management.feature.auth.service;
 import com.example.school_management.feature.auth.dto.BaseUserDtoMarker; // marker interface "Dto"
 import com.example.school_management.feature.auth.dto.UserCreatedEvent;
 import com.example.school_management.feature.auth.entity.BaseUser;
-import com.example.school_management.feature.auth.entity.ProfileSettings;
 import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.mapper.BaseUserMapper;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;

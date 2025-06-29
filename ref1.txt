@@ -1,0 +1,148 @@
+@startuml ClassDiagram
+'––– enums –––
+enum Status
+enum ResourceType
+enum RoomType
+enum GradeLevel
+enum DayOfWeek
+enum EnrollmentStatus
+enum Relation
+enum ContactMethod
+enum StaffType
+enum AnnouncementImportance
+
+'––– Users –––
+class BaseUser {
+  +String firstname
+  +String lastname
+  +String email
+  +String gender
+  +String phone
+  +Date birthday
+  +String optCode
+  +String password
+  +Boolean isEmailVerified
+  +Boolean passwordChangeRequired
+  +Status status
+  +String profileSetting
+}
+class Student extends BaseUser {
+  +GradeLevel gradeLevel
+  +Date enrolledAt
+}
+class Teacher extends BaseUser {
+  +String qualifications
+  +Integer weeklyCapacity
+}
+class Staff extends BaseUser {
+  +StaffType staffType
+  +String department
+}
+class Parent extends BaseUser {
+  +ContactMethod preferredContactMethod
+  +Relation relation
+}
+
+'––– Events & Notifications –––
+class AuditEvent {
+  +eventType : enum
+  +summary   : String
+  +details   : String
+}
+class Notification {
+  +message    : String
+  +readStatus : Boolean
+  +createdAt  : Date
+  +read       : Boolean
+}
+
+'––– Learning resources –––
+class LearningResource {
+  +url          : String
+  +title        : String
+  +description  : String
+  +status       : enum
+  +isPublic     : Boolean
+  +type         : ResourceType
+  +thumbnailUrl : String
+  +duration     : Integer
+}
+class ResourceComment {
+  +content : String
+}
+
+'––– Scheduling –––
+class Room {
+  +name     : String
+  +capacity : Integer
+  +roomType : RoomType
+}
+class Period {
+  +index     : Integer
+  +startTime : Date
+  +endTime   : Date
+}
+class TimetableSlot {
+  +dayOfWeek   : DayOfWeek
+  +description : String
+}
+
+'––– Courses & classes –––
+class Course {
+  +name   : String
+  +color  : String
+  +credit : Float
+}
+class Class {
+  +name         : String
+  +yearOfStudy  : Integer
+  +maxStudents  : Integer
+  +level        : enum
+}
+class Enrollment {
+  +status      : EnrollmentStatus
+  +enrolledAt  : Date
+  +finalGrad   : Float
+}
+class Transfer {
+  +requestedAt : Date
+  +effectiveAt : Date
+  +reason      : String
+}
+class Grade {
+  +content  : String
+  +score    : Float
+  +weight   : Float
+  +gradedAt : Date
+}
+class Announcement {
+  +title      : enum
+  +body       : String
+  +startDate  : Date
+  +endDate    : Date
+  +isPublic   : Boolean
+  +importance : AnnouncementImportance
+}
+
+'––– Associations –––
+BaseUser "1" <-- "*" AuditEvent          : actedBy
+BaseUser "0..1" <-- "*" Notification     : forUser
+
+ResourceComment "*" --> "1" LearningResource : onResource
+LearningResource "*" -- "*" Teacher            : createdBy
+
+Staff "*" -- "*" Announcement : publishes
+
+Class "*" --> "0..1" Room                  : assignedRoom
+Period "1" <-- "*" TimetableSlot           : uses
+Class "1" <-- "*" TimetableSlot            : forClass
+Course "1" <-- "*" TimetableSlot           : forCourse
+
+Student "1" --> "*" Enrollment : enrolls
+Class   "1" <-- "*" Enrollment : hasEnrollment
+
+Enrollment "1" <-- "*" Grade   : records   
+Teacher "*" -- "*" Grade       : assignedBy
+
+Teacher "*" -- "*" Class : teaches
+@enduml

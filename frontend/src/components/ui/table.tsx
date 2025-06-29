@@ -65,11 +65,11 @@ const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      "border-b border-slate-100/80 transition-all duration-200 ease-in-out",
+      "border-b border-slate-100/80 transition-colors duration-200 ease-in-out",
       "hover:bg-gradient-to-r hover:from-blue-50/80 hover:via-indigo-50/40 hover:to-purple-50/30",
-      "hover:shadow-sm hover:scale-[1.001] hover:border-blue-200/60",
+      "hover:border-blue-200/60",
       "data-[state=selected]:bg-gradient-to-r data-[state=selected]:from-blue-100/90 data-[state=selected]:via-indigo-100/60 data-[state=selected]:to-purple-100/40",
-      "data-[state=selected]:border-blue-300/80 data-[state=selected]:shadow-md",
+      "data-[state=selected]:border-blue-300/80 data-[state=selected]:shadow-sm",
       "focus-within:bg-gradient-to-r focus-within:from-blue-50/60 focus-within:to-indigo-50/30",
       "cursor-pointer group",
       className

@@ -1,0 +1,441 @@
+@startuml
+!theme plain
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam padding 8
+skinparam roundcorner 20
+skinparam shadowing false
+
+' ========= COMMON ==========
+abstract class Auditable {
+  +Long id
+  +LocalDateTime createdAt
+  +LocalDateTime updatedAt
+  +LocalDateTime deletedAt
+}
+
+' ========= ENUMS ==========
+enum UserRole {
+  STUDENT
+  TEACHER
+  STAFF
+  PARENT
+}
+
+enum Status {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum StaffType {
+  ADMINISTRATION
+  WORKER
+  SUPPORT
+}
+
+enum RelationType {
+  MOTHER
+  FATHER
+  GUARDIAN
+  OTHER
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum ResourceType {
+  VIDEO
+  PDF
+  IMAGE
+  AUDIO
+  LINK
+  DOCUMENT
+}
+
+enum ResourceCategory {
+  LECTURE
+  EXERCISE
+  QUIZ
+  SUMMARY
+  REFERENCE
+  TUTORIAL
+}
+
+enum ScopeType {
+  COURSE
+  CLASS
+  LEVEL
+  GLOBAL
+}
+
+@enduml
+
+@startuml
+!theme plain
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam padding 8
+skinparam roundcorner 20
+skinparam shadowing false
+
+' ========= AUTH PACKAGE ==========
+package "Auth" {
+  abstract class BaseUser extends Auditable {
+    +String email
+    +String firstName
+    +String lastName
+    +Status status
+  }
+
+  class Student extends BaseUser {
+    +String gradeLevel
+    +Integer enrollmentYear
+  }
+
+  class Teacher extends BaseUser {
+    +String qualifications
+    +Integer weeklyCapacity
+  }
+
+  class Staff extends BaseUser {
+    +StaffType staffType
+    +String department
+  }
+
+  class Parent extends BaseUser {
+    +String preferredContactMethod
+  }
+
+  class ProfileSettings extends Auditable {
+    +String language
+    +String theme
+    +Boolean notificationsEnabled
+    +Boolean darkMode
+  }
+
+  class Role extends Auditable {
+    +String code
+    +String name
+  }
+
+  class Permission extends Auditable {
+    +String code
+    +String description
+  }
+
+  class RolePermission extends Auditable {
+    +Role role
+    +Permission permission
+  }
+
+  BaseUser "1" *-- "0..1" ProfileSettings : has
+  BaseUser "0..*" -- "0..*" Role : roles
+  Role "1" o-- "0..*" RolePermission
+  Permission "1" o-- "0..*" RolePermission
+}
+
+' ========= GUARDIAN RELATION ==========
+class GuardianStudent extends Auditable {
+  +RelationType relationType
+}
+Parent "0..*" -- "0..*" GuardianStudent
+GuardianStudent -- "0..*" Student
+
+@enduml
+
+@startuml
+!theme plain
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam padding 8
+skinparam roundcorner 20
+skinparam shadowing false
+
+' ========= SCHEDULE PACKAGE ==========
+package "SchedulePkg" {
+  class Semester extends Auditable {
+    +String name
+    +LocalDate startDate
+    +LocalDate endDate
+  }
+
+  class Period extends Auditable {
+    +Integer index
+    +LocalTime startTime
+    +LocalTime endTime
+  }
+
+  class Room extends Auditable {
+    +String name
+    +Integer capacity
+    +String type
+  }
+
+  class TimetableSlot <<unique>> extends Auditable {
+    +Semester semester
+    +ClassEntity classEntity
+    +Course course
+    +Teacher teacher
+    +DayOfWeek dayOfWeek
+    +Period period
+    +Room room
+    -- "{unique semester, teacher, dayOfWeek, period}"
+    -- "{unique semester, classEntity, dayOfWeek, period}"
+  }
+
+  Semester "1" *-- "0..*" TimetableSlot
+  Period "1" *-- "0..*" TimetableSlot
+  Room "1" *-- "0..*" TimetableSlot
+}
+
+' ========= ACADEMICS PACKAGE ==========
+package "Academics" {
+  class Level extends Auditable {
+    +String name
+    +String description
+  }
+
+  class ClassEntity extends Auditable {
+    +String name
+  }
+
+  class Course extends Auditable {
+    +String name
+    +String color
+    +Double coefficient
+  }
+
+  class Enrollment extends Auditable {
+    +Student student
+    +ClassEntity classEntity
+    +Course course
+    +Semester semester
+    +LocalDate startDate
+    +LocalDate endDate
+  }
+
+  class Bulletin extends Auditable {
+    +Double overallAverage
+  }
+
+  Level "1" *-- "0..*" ClassEntity
+  ClassEntity "1" *-- "0..*" Course
+  Enrollment --> Student
+  Enrollment --> ClassEntity
+  Enrollment --> Course
+  Enrollment --> Semester
+  Enrollment "1" *-- "0..1" Bulletin
+}
+
+@enduml
+
+@startuml
+!theme plain
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam padding 8
+skinparam roundcorner 20
+skinparam shadowing false
+
+' ========= ASSESSMENTS PACKAGE ==========
+package "Assessments" {
+  class Assessment extends Auditable {
+    +String title
+    +Double maxScore
+    +Double weight
+    +LocalDate date
+    +ClassEntity classEntity
+    +Semester semester
+  }
+
+  class Submission extends Auditable {
+    +Assessment assessment
+    +Student student
+    +Double score
+    +String comment
+    +LocalDateTime submittedAt
+    +Boolean isMakeUp
+    +String attachmentUrl
+  }
+
+  class Grade extends Auditable {
+    +Double score
+    +String criterionName
+    +Double criterionWeight
+    +Teacher gradedBy
+    +LocalDateTime gradedAt
+  }
+
+  class BulletinSummary extends Auditable {
+    +Enrollment enrollment
+    +Assessment assessment
+    +Submission bestSubmission
+  }
+
+  Course "1" o-- "0..*" Assessment
+  Assessment "1" *-- "0..*" Submission
+  Submission "1" *-- "0..*" Grade
+  BulletinSummary --> Submission
+}
+
+' ========= ATTENDANCE PACKAGE ==========
+package "Attendance" {
+  class StudentAttendance extends Auditable {
+    +Student student
+    +TimetableSlot timetableSlot
+    +LocalDate date
+    +Boolean present
+    +String remarks
+  }
+
+  StudentAttendance --> Student
+  StudentAttendance --> TimetableSlot
+}
+
+@enduml
+
+@startuml
+!theme plain
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam padding 8
+skinparam roundcorner 20
+skinparam shadowing false
+
+' ========= LEARNING RESOURCES PACKAGE ==========
+package "LearningResources" {
+  class LearningResource extends Auditable {
+    +Teacher author
+    +String title
+    +String description
+    +ResourceType type
+    +ResourceCategory category
+    +String url
+    +String thumbnailUrl
+    +Integer duration
+    +Boolean isPublic
+  }
+
+  class ResourceScope {
+    +LearningResource resource
+    +ScopeType scopeType
+    +Course course
+    +ClassEntity classEntity
+    +Level level
+  }
+
+  class ResourceTag extends Auditable {
+    +String name
+  }
+
+  class ResourceComment extends Auditable {
+    +LearningResource resource
+    +Student author
+    +String content
+  }
+
+  class ResourceRating extends Auditable {
+    +LearningResource resource
+    +Student student
+    +Integer rating
+  }
+
+  class ResourceView extends Auditable {
+    +LearningResource resource
+    +Student student
+    +LocalDateTime viewedAt
+    +Integer watchDuration
+  }
+
+  class ResourcePlaylist extends Auditable {
+    +Teacher creator
+    +String name
+    +String description
+    +Boolean isPublic
+  }
+
+  class PlaylistItem extends Auditable {
+    +ResourcePlaylist playlist
+    +LearningResource resource
+    +Integer position
+  }
+
+  LearningResource "1" o-- "0..*" ResourceTag
+  LearningResource "1" o-- "0..*" ResourceComment
+  LearningResource "1" o-- "0..*" ResourceRating
+  LearningResource "1" o-- "0..*" ResourceView
+  LearningResource "1" o-- "0..*" ResourceScope
+  ResourcePlaylist "1" o-- "0..*" PlaylistItem
+  PlaylistItem --> LearningResource
+  ResourceScope --> Course
+  ResourceScope --> ClassEntity
+  ResourceScope --> Level
+}
+
+' ========= COMMUNICATION PACKAGE ==========
+package "Comms" {
+  class Notification extends Auditable {
+    +BaseUser recipient
+    +String message
+    +Boolean readStatus
+  }
+
+  class Note extends Auditable {
+    +BaseUser owner
+    +String content
+  }
+
+  BaseUser "1" o-- "0..*" Notification
+  BaseUser "1" o-- "0..*" Note
+}
+
+@enduml
+
+@startuml
+!theme plain
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam padding 8
+skinparam roundcorner 20
+skinparam shadowing false
+
+' ========= CROSS-PACKAGE LINKS ==========
+Student --> Enrollment
+Teacher --> TimetableSlot
+ClassEntity --> TimetableSlot
+Course --> TimetableSlot
+Semester --> TimetableSlot
+Period --> TimetableSlot
+Teacher --> LearningResource
+
+note right of TimetableSlot
+  <<OptaPlanner>> Constraints
+  * unique (semester, teacher, day, period)
+  * unique (semester, class, day, period)
+  * unique (semester, room, day, period)
+  * teacher weeklyCapacity
+  * class weekly hours limit
+  * room capacity ≥ class size (soft)
+end note
+
+@enduml

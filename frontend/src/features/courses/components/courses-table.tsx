@@ -6,11 +6,11 @@ import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, BookOpen, Users, TrendingUp } from "lucide-react";
+import { BookOpen, Users, TrendingUp } from "lucide-react";
 
 import { useCourses, useDeleteCourse } from "../hooks/use-courses";
 import { getCoursesColumns } from "./course-columns";
+import { AddCourseSheet } from "./course-sheet";
 import type { Course } from "@/types/course";
 
 export function CoursesTable() {
@@ -22,7 +22,7 @@ export function CoursesTable() {
     order?: "asc" | "desc";
   }>({});
 
-  const { courses, totalElements, totalPages, isLoading, error } = useCourses({
+  const { courses, totalElements, totalPages, isLoading, error, refetch } = useCourses({
     page,
     size: pageSize,
     search: search || undefined,
@@ -38,8 +38,8 @@ export function CoursesTable() {
   }, []);
 
   const handleEdit = React.useCallback((course: Course) => {
-    toast(`Editing course: ${course.name}`);
-    // Implement edit logic here
+    // Edit logic is now handled by the EditCourseSheet component
+    console.log(`Editing course: ${course.name}`);
   }, []);
 
   const handleDelete = React.useCallback(async (course: Course) => {
@@ -58,8 +58,9 @@ export function CoursesTable() {
       onView: handleView,
       onEdit: handleEdit,
       onDelete: handleDelete,
+      onSuccess: () => refetch(),
     }),
-    [handleView, handleEdit, handleDelete]
+    [handleView, handleEdit, handleDelete, refetch]
   );
 
   const { table } = useDataTable({
@@ -122,17 +123,14 @@ export function CoursesTable() {
                 Manage and organize your courses efficiently
               </CardDescription>
             </div>
-            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Course
-            </Button>
+            <AddCourseSheet onSuccess={() => refetch()} />
           </div>
         </CardHeader>
       </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-blue-200/60 bg-gradient-to-br from-blue-50/60 to-indigo-50/30 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+        <Card className="border-blue-200/60 bg-gradient-to-br from-blue-50/60 to-indigo-50/30 hover:shadow-lg transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-semibold text-blue-900">Total Courses</CardTitle>
             <BookOpen className="h-6 w-6 text-blue-600" />
@@ -143,7 +141,7 @@ export function CoursesTable() {
           </CardContent>
         </Card>
         
-        <Card className="border-indigo-200/60 bg-gradient-to-br from-indigo-50/60 to-purple-50/30 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+        <Card className="border-indigo-200/60 bg-gradient-to-br from-indigo-50/60 to-purple-50/30 hover:shadow-lg transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-semibold text-indigo-900">Selected</CardTitle>
             <Users className="h-6 w-6 text-indigo-600" />
@@ -156,7 +154,7 @@ export function CoursesTable() {
           </CardContent>
         </Card>
         
-        <Card className="border-purple-200/60 bg-gradient-to-br from-purple-50/60 to-pink-50/30 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+        <Card className="border-purple-200/60 bg-gradient-to-br from-purple-50/60 to-pink-50/30 hover:shadow-lg transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-semibold text-purple-900">Total Pages</CardTitle>
             <TrendingUp className="h-6 w-6 text-purple-600" />

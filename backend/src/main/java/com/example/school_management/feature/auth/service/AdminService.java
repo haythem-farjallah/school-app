@@ -60,10 +60,10 @@ public class AdminService {
         // 2) Create each parent, link, save & notify
         for (ParentCreateDto pd : req.parents()) {
                 UserProfileDTO parentProfile = new UserProfileDTO(
-                        pd.firstName(),
-                        pd.lastName(),
-                        pd.email(),
-                        pd.telephone(),
+                        pd.profile().firstName(),
+                        pd.profile().lastName(),
+                        pd.profile().email(),
+                        pd.profile().telephone(),
                         null,      // no birthday for parent
                         null,      // no gender for parent
                         null,      // no address for parent

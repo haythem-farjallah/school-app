@@ -1,0 +1,51 @@
+@startuml UseCaseDiagram
+left to right direction
+actor Student
+actor Parent
+actor Teacher
+actor Staff
+actor Admin
+
+rectangle "School Management System" {
+  (Authenticate) as UC0
+  Student --> UC0
+  Parent  --> UC0
+  Teacher --> UC0
+  Staff   --> UC0
+  Admin   --> UC0
+
+  Student --> (Enroll in Course)
+  Student --> (View Timetable)
+  Student --> (Request Transfer)
+  Student --> (Comment on Resource)
+  Student --> (View Own Grades)
+  Student --> (Receive Notification)
+
+  Teacher --> (Upload Learning Resources)
+  Teacher --> (Record Grades)
+  Teacher --> (Publish Announcement)
+
+  Staff --> (Configure Courses)
+  Staff --> (Configure Classes)
+  Staff --> (View Audit Logs)
+  Staff --> (Manage Timetable)
+
+  Admin --> (Manage Users)
+
+  ' include arrows
+  (Enroll in Course)       .> UC0 : <<include>>
+  (View Timetable)         .> UC0 : <<include>>
+  (Request Transfer)       .> UC0 : <<include>>
+  (Comment on Resource)    .> UC0 : <<include>>
+  (View Own Grades)        .> UC0 : <<include>>
+  (Receive Notification)   .> UC0 : <<include>>
+  (Upload Learning Resources) .> UC0 : <<include>>
+  (Record Grades)          .> UC0 : <<include>>
+  (Publish Announcement)   .> UC0 : <<include>>
+  (Configure Courses)      .> UC0 : <<include>>
+  (Configure Classes)      .> UC0 : <<include>>
+  (View Audit Logs)        .> UC0 : <<include>>
+  (Manage Timetable)       .> UC0 : <<include>>
+  (Manage Users)           .> UC0 : <<include>>
+}
+@enduml

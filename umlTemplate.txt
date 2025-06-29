@@ -1,0 +1,188 @@
+@startuml
+hide circle          ' cleaner inheritance arrows
+skinparam classAttributeIconSize 0
+
+'──────────────────────  GLOBAL  ──────────────────────
+abstract class BaseEntity {
+  +id           : UUID
+  +createdAt    : DateTime
+  +updatedAt    : DateTime
+  +deletedAt    : DateTime  <<nullable>>
+  +version      : Long       <<optimistic>>
+}
+
+enum Gender         { MALE; FEMALE; OTHER }
+enum UserStatus     { NEW; ACTIVE; SUSPENDED }
+enum StaffType      { TEACHER; ADMIN; SUPPORT }
+enum EnrolStatus    { ACTIVE; COMPLETED; WITHDRAWN }
+enum GradeLevel     { G1; G2; G3; … }               ' adjust
+enum RoomType       { CLASSROOM; LAB; HALL }
+enum DayOfWeek      { MON; TUE; WED; THU; FRI }
+enum ResourceStatus { DRAFT; PUBLISHED; ARCHIVED }
+enum Importance     { INFO; WARNING; URGENT }
+enum RelationType   { MOTHER; FATHER; GUARDIAN }
+
+'──────────────────────  USERS  ───────────────────────
+class BaseUser {
+  +firstName          : String
+  +lastName           : String
+  +email              : String
+  +gender             : Gender
+  +phone              : String
+  +birthday           : Date
+  +otpCode            : String
+  +passwordHash       : String
+  +isEmailVerified    : Boolean
+  +passwordChangeReqd : Boolean
+  +status             : UserStatus
+  +profileSetting     : Json
+}
+BaseUser --|> BaseEntity
+
+class Staff {
+  +staffType   : StaffType
+  +department  : String
+}
+Staff --|> BaseUser
+
+class Teacher {
+  +qualifications : String
+  +weeklyCapacity : Integer
+}
+Teacher --|> Staff
+
+class Student {
+  +gradeLevel : GradeLevel
+  +enrolledAt : Date
+}
+Student --|> BaseUser
+
+class Parent {
+  +preferredContactMethod : String
+  +relation               : RelationType
+}
+Parent --|> BaseUser
+Parent "0..*" -- "0..*" Student : caresFor
+
+'──────────────────────  COMMS / AUDIT  ───────────────
+class Notification {
+  +message   : String
+  +read      : Boolean
+}
+Notification --|> BaseEntity
+Notification "0..*" --> "1" BaseUser : recipient
+
+class AuditEvent {
+  +eventType : String
+  +summary   : String
+  +details   : String
+}
+AuditEvent --|> BaseEntity
+AuditEvent "0..*" --> "1" BaseUser : actedBy
+
+class Announcement {
+  +title       : String
+  +body        : String
+  +startDate   : Date
+  +endDate     : Date
+  +isPublic    : Boolean
+  +importance  : Importance
+}
+Announcement --|> BaseEntity
+Announcement "0..*" --> "1" Staff : author
+Announcement "0..*" --> "0..*" Class : targets
+
+'──────────────────────  ACADEMICS  ───────────────────
+class Class {
+  +name        : String
+  +yearOfStudy : Integer
+  +maxStudents : Integer
+  +level       : GradeLevel
+}
+Class --|> BaseEntity
+Student  "1" --> "1" Class : memberOf
+
+class Course {
+  +name   : String
+  +color  : String
+  +credit : Float
+}
+Course --|> BaseEntity
+Class  "0..*" -- "0..*" Course : follows
+
+class Enrolment {
+  +status     : EnrolStatus
+  +enrolledAt : Date
+  +finalGrad  : Float
+}
+Enrolment --|> BaseEntity
+Enrolment "0..*" --> "1" Student
+Enrolment "0..*" --> "1" Course
+
+class Grade {
+  +content  : String
+  +score    : Decimal(4,1)
+  +weight   : Float
+  +gradedAt : Date
+}
+Grade --|> BaseEntity
+Grade "0..*" --> "1" Enrolment : for
+Grade "0..*" --> "1" Teacher   : gradedBy
+
+class Transfer {
+  +requestedAt  : DateTime
+  +effectiveAt  : DateTime
+  +reason       : String
+}
+Transfer --|> BaseEntity
+Transfer "0..*" --> "1" Student
+Transfer "0..*" --> "1" Class : from/to
+
+'──────────────────────  TIMETABLE  ───────────────────
+class Room {
+  +name     : String
+  +capacity : Integer
+  +roomType : RoomType
+}
+Room --|> BaseEntity
+
+class Period {
+  +index     : Integer
+  +startTime : Time
+  +endTime   : Time
+}
+Period --|> BaseEntity
+
+class TimetableSlot {
+  +dayOfWeek    : DayOfWeek
+  +description  : String
+}
+TimetableSlot --|> BaseEntity
+TimetableSlot "0..*" --> "1" Class
+TimetableSlot "0..*" --> "1" Course
+TimetableSlot "0..*" --> "1" Teacher
+TimetableSlot "0..*" --> "1" Room
+TimetableSlot "0..*" --> "1" Period
+
+'──────────────────────  RESOURCES  ───────────────────
+class LearningResource {
+  +url          : String
+  +title        : String
+  +description  : String
+  +status       : ResourceStatus
+  +isPublic     : Boolean
+  +type         : String
+  +thumbnailUrl : String
+  +duration     : Integer
+}
+LearningResource --|> BaseEntity
+LearningResource "0..*" --> "0..1" Teacher : author
+
+class ResourceComment {
+  +content : String
+}
+ResourceComment --|> BaseEntity
+ResourceComment "0..*" --> "1" LearningResource
+ResourceComment "0..*" --> "1" BaseUser : author
+
+@enduml

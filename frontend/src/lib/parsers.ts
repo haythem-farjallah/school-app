@@ -35,7 +35,7 @@ export function getSortingStateParser(
         .map((sort) => `${sort.id}:${sort.desc}`)
         .join(",");
     },
-  });
+  }).withDefault([]);
 }
 
 /**

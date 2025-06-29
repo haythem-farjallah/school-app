@@ -52,7 +52,7 @@ interface UseDataTableProps<TData>
     >,
     Required<Pick<TableOptions<TData>, "pageCount">> {
   initialState?: Omit<Partial<TableState>, "sorting"> & {
-    sorting?: ExtendedColumnSort<TData>[];
+    sorting?: ExtendedColumnSort[];
   };
   history?: "push" | "replace";
   debounceMs?: number;
@@ -149,18 +149,16 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
 
   const [sorting, setSorting] = useQueryState(
     SORT_KEY,
-    getSortingStateParser<TData>(columnIds)
-      .withOptions(queryStateOptions)
-      .withDefault(initialState?.sorting ?? []),
+    getSortingStateParser(columnIds),
   );
 
   const onSortingChange = React.useCallback(
     (updaterOrValue: Updater<SortingState>) => {
       if (typeof updaterOrValue === "function") {
-        const newSorting = updaterOrValue(sorting);
-        setSorting(newSorting as ExtendedColumnSort<TData>[]);
+        const newSorting = updaterOrValue(sorting ?? []);
+        setSorting(newSorting as ExtendedColumnSort[]);
       } else {
-        setSorting(updaterOrValue as ExtendedColumnSort<TData>[]);
+        setSorting(updaterOrValue as ExtendedColumnSort[]);
       }
     },
     [sorting, setSorting],
@@ -265,7 +263,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     pageCount,
     state: {
       pagination,
-      sorting,
+      sorting: sorting ?? [],
       columnVisibility,
       rowSelection,
       columnFilters,

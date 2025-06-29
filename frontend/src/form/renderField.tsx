@@ -1,12 +1,14 @@
+import type { BaseField } from "./types";
 import { InputField } from "./InputField";
 import { CheckboxField } from "./CheckboxField";
-import type { BaseField } from "./types";
+import { ColorField } from "./ColorField";
 
-/* -------------------- Type Guards -------------------- */
+/* -------------------- Type guards -------------------- */
 const isTextField = (f: BaseField): f is BaseField<"text"> => f.type === "text";
 const isPasswordField = (f: BaseField): f is BaseField<"password"> => f.type === "password";
 const isNumberField = (f: BaseField): f is BaseField<"number"> => f.type === "number";
 const isCheckboxField = (f: BaseField): f is BaseField<"checkbox"> => f.type === "checkbox";
+const isColorField = (f: BaseField): f is BaseField<"color"> => f.type === "color";
 
 /* -------------------- Renderer -------------------- */
 export const renderField = (f: BaseField): JSX.Element | null => {
@@ -21,6 +23,9 @@ export const renderField = (f: BaseField): JSX.Element | null => {
   }
   if (isCheckboxField(f)) {
     return <CheckboxField key={f.name} field={f} />;
+  }
+  if (isColorField(f)) {
+    return <ColorField key={f.name} field={f} />;
   }
 
   if (import.meta.env.DEV) {

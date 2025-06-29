@@ -4,7 +4,6 @@ import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Permission;
 import com.example.school_management.feature.auth.entity.RolePermission;
 import com.example.school_management.feature.auth.entity.UserRole;
-import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.PermissionRepository;
 import com.example.school_management.feature.auth.repository.RolePermissionRepo;
 import com.example.school_management.feature.auth.repository.UserRepository;
