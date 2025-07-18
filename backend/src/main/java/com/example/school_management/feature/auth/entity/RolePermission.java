@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnTransformer;
 
 @Entity
 @Table(name = "role_permissions")
@@ -14,6 +15,8 @@ import lombok.NoArgsConstructor;
 public class RolePermission {
     @Id
     @Enumerated(EnumType.STRING)
+    @Column(name = "role", columnDefinition = "user_role")
+    @ColumnTransformer(write = "?::user_role")
     private UserRole role;
     @Id @ManyToOne
     private Permission permission;

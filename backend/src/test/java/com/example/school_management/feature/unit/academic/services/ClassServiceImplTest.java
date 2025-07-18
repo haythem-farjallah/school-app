@@ -8,11 +8,13 @@ import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
-import com.example.school_management.feature.academic.repository.LevelRepository;
 import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
 import com.example.school_management.feature.academic.service.ClassService;
 import com.example.school_management.feature.academic.service.impl.ClassServiceImpl;
+import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.operational.service.AuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,14 +41,17 @@ class ClassServiceImplTest {
 
     @Mock
     ClassRepository classRepo;
-    @Mock
-    LevelRepository levelRepo;
+
     @Mock
     CourseRepository courseRepo;
     @Mock
     StudentRepository studentRepo;
     @Mock
     TeachingAssignmentRepository assignmentRepo;
+    @Mock
+    AuditService auditService;
+    @Mock
+    BaseUserRepository<BaseUser> userRepo;
 
     AcademicMapper mapper = Mappers.getMapper(AcademicMapper.class);
 
@@ -55,12 +60,12 @@ class ClassServiceImplTest {
     @BeforeEach
     void init() {
         service = new ClassServiceImpl(
-                classRepo, levelRepo, courseRepo, studentRepo, mapper,assignmentRepo);
+                classRepo, courseRepo, studentRepo, mapper, assignmentRepo, auditService, userRepo);
     }
 
     @Test
     void createClass_success() {
-        CreateClassRequest req = new CreateClassRequest("3-A", null);
+        CreateClassRequest req = new CreateClassRequest("3-A");
 
         ClassEntity saved = new ClassEntity(); saved.setId(1L); saved.setName("3-A");
         when(classRepo.existsByNameIgnoreCase("3-A")).thenReturn(false);
@@ -98,7 +103,7 @@ class ClassServiceImplTest {
         when(classRepo.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(cls)));
 
-        Page<ClassDto> p = service.list(PageRequest.of(0,10), null, "Sci");
+        Page<ClassDto> p = service.list(PageRequest.of(0,10), "Sci");
 
         assertThat(p.getContent()).hasSize(1);
         verify(classRepo).findAll(any(Specification.class), eq(PageRequest.of(0,10)));

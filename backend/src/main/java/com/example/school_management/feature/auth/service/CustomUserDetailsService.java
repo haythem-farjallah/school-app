@@ -2,7 +2,9 @@ package com.example.school_management.feature.auth.service;
 
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.*;
+import com.example.school_management.feature.auth.repository.RolePermissionRepo;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,14 +18,16 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
-public class CustomUserDetailsService implements UserDetailsService {
+public class CustomUserDetailsService implements UserDetailsService
+ {
 
     private final StudentRepository       studentRepo;
     private final TeacherRepository       teacherRepo;
     private final ParentRepository        parentRepo;
     private final AdministrationRepository adminRepo;
-    private final WorkerRepository        workerRepo;
+    private final StaffRepository         staffRepo;
 
     private final RolePermissionRepo      rolePermRepo;   // <-- NEW
 
@@ -60,7 +64,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                         teacherRepo.findByEmail(email),
                         parentRepo.findByEmail(email),
                         adminRepo.findByEmail(email),
-                        workerRepo.findByEmail(email)
+                        staffRepo.findByEmail(email)
                 )
                 .filter(Optional::isPresent)
                 .map(Optional::get)

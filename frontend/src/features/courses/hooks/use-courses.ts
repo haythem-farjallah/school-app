@@ -1,53 +1,61 @@
-import { useQueryApi } from "@/hooks/useQueryApi";
 import { useMutationApi } from "@/hooks/useMutationApi";
+import { usePaginated } from "@/hooks/usePaginated";
 import { http } from "@/lib/http";
-import type { Course, CoursesResponse } from "@/types/course";
+import type { Course } from "@/types/course";
+import React from "react";
 
-interface UseCoursesParams {
-  page?: number;
-  size?: number;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-}
+const LIST_KEY = "courses";
 
-export function useCourses(params: UseCoursesParams = {}) {
-  const {
-    page = 0,
-    size = 10,
-    search,
-    sortBy,
-    sortOrder = "asc",
-  } = params;
+/* ── 1. Paginated list with search and filters ──────────────────────────────────────────────────── */
+export function useCourses(
+  options: { page?: number; size?: number; search?: string } & Record<string, unknown> = {},
+) {
+  const { page, size = 10, search, ...filters } = options;
 
-  const query = useQueryApi<CoursesResponse>(
-    ["courses", page, size, search, sortBy, sortOrder],
-    async () => {
-      const response = await http.get<CoursesResponse>("/v1/courses", {
-        params: {
-          page,
-          size,
-          ...(search && { search }),
-          ...(sortBy && { sortBy, sortOrder }),
-        },
-      });
-      console.log("🔍 Courses API Response:", response.data);
-      return response.data;
-    },
-    {
-      placeholderData: (prev) => prev,
-    }
+  console.log("🔍 useCourses - Called with options:", { size, search, filters });
+
+  // Map frontend column keys to backend filter parameter names
+  const apiParams = React.useMemo(() => {
+    const keyMap: Record<string, string> = {
+      name: "nameLike",
+      credit: "credit",
+      weeklyCapacity: "weeklyCapacity", 
+      teacherId: "teacherId",
+    };
+
+    const params: Record<string, unknown> = {};
+
+    Object.entries(filters).forEach(([key, val]) => {
+      if (typeof val === "string" && val.trim()) {
+        const backendKey = keyMap[key] ?? key;
+        params[backendKey] = val.trim();
+      }
+    });
+
+    return params;
+  }, [filters]);
+
+  // Add search to filters if provided
+  const searchFilters = search ? { search, ...apiParams } : apiParams;
+
+  const result = usePaginated<Course>(
+    "/v1/courses",
+    LIST_KEY,
+    size,
+    searchFilters,
+    false,
+    page, // external page number
   );
 
-  console.log("📊 Query Data:", query.data);
-  console.log("📋 Processed Courses:", query.data?.content || []);
-  
-  return {
-    ...query,
-    courses: query.data?.content || [],
-    totalElements: query.data?.totalElements || 0,
-    totalPages: Math.ceil((query.data?.totalElements || 0) / size),
-  };
+  console.log("🔍 useCourses - Result:", {
+    data: result.data,
+    isLoading: result.isLoading,
+    error: result.error?.message,
+    totalElements: result.data?.totalItems,
+    totalPages: result.data?.totalPages
+  });
+
+  return result;
 }
 
 export function useCreateCourse() {

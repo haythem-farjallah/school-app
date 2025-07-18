@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type TextKinds = "text" | "password" | "number";
+type TextKinds = "text" | "password" | "number" | "date";
 
 interface Props<K extends TextKinds = TextKinds> {
   field: BaseField<K>;
@@ -29,7 +29,20 @@ export function InputField<K extends TextKinds = "text">({
   const err = errors[field.name]?.message as string | undefined;
   const Icon = field.icon;
   const isPasswordField = (inputType ?? field.type) === "password";
+  const isNumberField = (inputType ?? field.type) === "number";
   const actualInputType = isPasswordField && showPassword ? "text" : (inputType ?? field.type);
+
+  // Register with value transformation for number fields
+  const registerOptions = isNumberField 
+    ? {
+        ...register(field.name, {
+          setValueAs: (value: string) => {
+            const num = parseFloat(value);
+            return isNaN(num) ? undefined : num;
+          },
+        })
+      }
+    : register(field.name);
 
   return (
     <div className="space-y-2">
@@ -49,7 +62,7 @@ export function InputField<K extends TextKinds = "text">({
           id={field.name}
           type={actualInputType}
           placeholder={field.placeholder ? t(field.placeholder) : undefined}
-          {...register(field.name)}
+          {...registerOptions}
           {...field.props}
           className={cn(
             "h-11 transition-all duration-200 border border-border/60 bg-background/80 backdrop-blur-sm",

@@ -8,7 +8,7 @@ export interface Student {
   gender?: string | null;
   address?: string | null;
   gradeLevel: string;
-  enrollmentYear: number;
+  enrollmentYear?: number | null;
 }
 
 export interface CreateStudentData {

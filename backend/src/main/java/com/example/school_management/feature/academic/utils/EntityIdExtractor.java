@@ -11,7 +11,6 @@ public final class EntityIdExtractor {
         if (entity instanceof Student s)      return s.getId();
         if (entity instanceof Course c)       return c.getId();
         if (entity instanceof ClassEntity ce) return ce.getId();
-        if (entity instanceof Level l)        return l.getId();
         throw new IllegalArgumentException("Unsupported entity: " + entity.getClass());
     }
 }

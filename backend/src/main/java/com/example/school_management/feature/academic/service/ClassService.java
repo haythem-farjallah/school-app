@@ -15,7 +15,6 @@ public interface ClassService {
 
     /* ─── LIST with optional filters (pagination) ─────── */
     Page<ClassDto> list(Pageable page,
-                        Long   levelId,          // nullable → no filter
                         String nameLike);        // nullable LIKE %name%
 
     /* ─── BATCH ENROLMENT ─────────────────────────────── */

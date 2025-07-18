@@ -44,8 +44,8 @@ class CourseControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void createCourse_returnsSuccess() throws Exception {
-        var req = new CreateCourseRequest("Biology","green" ,2.0,5L);
-        var dto = new CourseDto(10L, "Biology","green" ,1.5,5L);
+        var req = new CreateCourseRequest("Biology","green" ,2.0f, 3, 5L);
+        var dto = new CourseDto(10L, "Biology","green" ,1.5f, 3, 5L);
         when(service.create(any(CreateCourseRequest.class))).thenReturn(dto);
 
         mockMvc.perform(post("/api/v1/courses")
@@ -63,8 +63,8 @@ class CourseControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void updateCourse_returnsUpdatedDto() throws Exception {
-        var req = new UpdateCourseRequest("Chemistry", "red",2.0,1L);
-        var dto = new CourseDto(11L, "Chemistry", "blue",1.5,7L);
+        var req = new UpdateCourseRequest("Chemistry", "red", 2.0f, 3, 1L);
+        var dto = new CourseDto(11L, "Chemistry", "blue", 1.5f, 3, 7L);
         when(service.update(eq(11L), any(UpdateCourseRequest.class))).thenReturn(dto);
 
         mockMvc.perform(put("/api/v1/courses/11")
@@ -81,7 +81,7 @@ class CourseControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getCourse_returnsDto() throws Exception {
-        var dto = new CourseDto(12L, "Physics", "purple",1.5,3L);
+        var dto = new CourseDto(12L, "Physics", "purple", 1.5f, 3, 3L);
         when(service.get(12L)).thenReturn(dto);
 
         mockMvc.perform(get("/api/v1/courses/12"))
@@ -105,7 +105,7 @@ class CourseControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void listCourses_returnsPage() throws Exception {
-        var dto = new CourseDto(20L, "History", "red",2.0,2L);
+        var dto = new CourseDto(20L, "History", "red", 2.0f, 3, 2L);
         var page = new PageImpl<>(List.of(dto));
         when(service.list(PageRequest.of(0, 10), null, "His")).thenReturn(page);
 

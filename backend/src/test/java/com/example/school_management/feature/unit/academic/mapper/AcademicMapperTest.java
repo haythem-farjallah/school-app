@@ -23,12 +23,10 @@ class AcademicMapperTest {
         Student st = new Student();       st.setId(99L);
         Course  co = new Course();        co.setId(77L);
 
-        Level level = new Level();        level.setId(3L);
 
         ClassEntity cl = new ClassEntity();
         cl.setId(1L);
         cl.setName("3-A");
-        cl.setLevel(level);
         cl.setStudents(Set.of(st));
         cl.setCourses(Set.of(co));
 
@@ -37,29 +35,10 @@ class AcademicMapperTest {
 
         // then
         assertThat(dto.id()).isEqualTo(1L);
-        assertThat(dto.levelId()).isEqualTo(3L);
         assertThat(dto.studentIds()).containsExactly(99L);
         assertThat(dto.courseIds()).containsExactly(77L);
     }
 
-    @Test
-    void levelEntity_isMapped_to_LevelDto_with_course_and_class_ids() {
-        Course c1 = new Course(); c1.setId(11L);
-        Course c2 = new Course(); c2.setId(12L);
-
-        ClassEntity cls1 = new ClassEntity(); cls1.setId(21L);
-        ClassEntity cls2 = new ClassEntity(); cls2.setId(22L);
-
-        Level level = new Level();
-        level.setId(5L);
-        level.setName("Level 3");
-        level.setCourses(Set.of(c1, c2));
-        level.setClasses(Set.of(cls1, cls2));
-
-        LevelDto dto = mapper.toLevelDto(level);
-
-        assertThat(dto.courseIds()).containsExactlyInAnyOrder(11L, 12L);
-    }
 
     /* ───────────────────── patch / update ───────────────────── */
 
@@ -68,12 +47,14 @@ class AcademicMapperTest {
         Course entity = new Course();
         entity.setName("Math");
         entity.setColor("#111");
-        entity.setCoefficient(2.0);
+        entity.setCredit(2.0f);
+        entity.setWeeklyCapacity(3);
 
         UpdateCourseRequest patch = new UpdateCourseRequest(
                 "Advanced Math",   // change
                 null,              // keep old color
-                3.0,               // change
+                3.0f,              // change
+                4,                 // change weeklyCapacity
                 null               // teacher unchanged
         );
 
@@ -81,7 +62,8 @@ class AcademicMapperTest {
 
         assertThat(entity.getName()).isEqualTo("Advanced Math");
         assertThat(entity.getColor()).isEqualTo("#111");          // untouched
-        assertThat(entity.getCoefficient()).isEqualTo(3.0);
+        assertThat(entity.getCredit()).isEqualTo(3.0f);
+        assertThat(entity.getWeeklyCapacity()).isEqualTo(4);
     }
 
     @Test
@@ -89,7 +71,7 @@ class AcademicMapperTest {
         ClassEntity entity = new ClassEntity();
         entity.setName("3-B");
 
-        UpdateClassRequest patch = new UpdateClassRequest(null, null); // nothing to change
+        UpdateClassRequest patch = new UpdateClassRequest(null); // nothing to change
         mapper.updateClassEntity(patch, entity);
 
         assertThat(entity.getName()).isEqualTo("3-B"); // unchanged

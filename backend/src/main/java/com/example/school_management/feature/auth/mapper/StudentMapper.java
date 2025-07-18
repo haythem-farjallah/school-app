@@ -5,9 +5,9 @@ import com.example.school_management.feature.auth.dto.StudentDto;
 import com.example.school_management.feature.auth.dto.StudentUpdateDto;
 import com.example.school_management.feature.auth.entity.Student;
 import org.mapstruct.*;
+import java.time.LocalDateTime;
 
-@Mapper(componentModel = "spring",
-        config = BaseUserMapper.class)
+@Mapper(componentModel = "spring")
 public interface StudentMapper
         extends BaseUserMapper<
         Student,          // entity subtype
@@ -26,11 +26,15 @@ public interface StudentMapper
             @Mapping(target = "birthday",   source = "profile.birthday"),
             @Mapping(target = "gender",     source = "profile.gender"),
             @Mapping(target = "address",    source = "profile.address"),
-            @Mapping(target = "role",       constant = "STUDENT")
+            @Mapping(target = "role",       constant = "STUDENT"),
+            @Mapping(target = "enrolledAt", expression = "java(dto.enrollmentYear() != null ? LocalDateTime.of(dto.enrollmentYear(), 1, 1, 0, 0) : null)")
     })
     Student toEntity(StudentCreateDto dto);
 
     @Override
+    @Mappings({
+        @Mapping(target = "enrollmentYear", expression = "java(entity.getEnrolledAt() != null ? entity.getEnrolledAt().getYear() : null)")
+    })
     StudentDto toDto(Student entity);
 
     @Override

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Academic Transcript</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: 'Times New Roman', serif;
+            font-size: 12pt;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .school-name {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .document-title {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #34495e;
+            margin-bottom: 10px;
+        }
+        
+        .date {
+            font-size: 10pt;
+            color: #7f8c8d;
+        }
+        
+        .student-info {
+            margin-bottom: 30px;
+            border: 1px solid #bdc3c7;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .student-info h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        
+        .info-grid {
+            display: table;
+            width: 100%;
+        }
+        
+        .info-row {
+            display: table-row;
+        }
+        
+        .info-label {
+            display: table-cell;
+            font-weight: bold;
+            width: 30%;
+            padding: 5px 0;
+            color: #34495e;
+        }
+        
+        .info-value {
+            display: table-cell;
+            padding: 5px 0;
+        }
+        
+        .academic-summary {
+            margin-bottom: 30px;
+            border: 1px solid #bdc3c7;
+            padding: 20px;
+            background-color: #ecf0f1;
+        }
+        
+        .academic-summary h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        
+        .summary-grid {
+            display: table;
+            width: 100%;
+        }
+        
+        .summary-row {
+            display: table-row;
+        }
+        
+        .summary-label {
+            display: table-cell;
+            font-weight: bold;
+            width: 25%;
+            padding: 5px 0;
+            color: #34495e;
+        }
+        
+        .summary-value {
+            display: table-cell;
+            padding: 5px 0;
+        }
+        
+        .courses-section {
+            margin-bottom: 30px;
+        }
+        
+        .courses-section h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        
+        .courses-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .courses-table th {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #2980b9;
+        }
+        
+        .courses-table td {
+            padding: 10px 8px;
+            border: 1px solid #bdc3c7;
+            vertical-align: top;
+        }
+        
+        .courses-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .courses-table tr:hover {
+            background-color: #e8f4fd;
+        }
+        
+        .grade-a {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .grade-b {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .grade-c {
+            color: #e67e22;
+            font-weight: bold;
+        }
+        
+        .grade-d {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .grade-f {
+            color: #c0392b;
+            font-weight: bold;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 10pt;
+            color: #7f8c8d;
+            border-top: 1px solid #bdc3c7;
+            padding-top: 20px;
+        }
+        
+        .signature-section {
+            margin-top: 40px;
+            display: table;
+            width: 100%;
+        }
+        
+        .signature-box {
+            display: table-cell;
+            width: 50%;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-top: 50px;
+            margin-bottom: 5px;
+        }
+        
+        .signature-title {
+            font-size: 10pt;
+            color: #7f8c8d;
+        }
+        
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 48pt;
+            color: rgba(52, 152, 219, 0.1);
+            z-index: -1;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="watermark">OFFICIAL TRANSCRIPT</div>
+    
+    <div class="header">
+        <div class="school-name">SCHOOL MANAGEMENT SYSTEM</div>
+        <div class="document-title">ACADEMIC TRANSCRIPT</div>
+        <div class="date" th:text="${currentDate}">Date</div>
+    </div>
+    
+    <div class="student-info">
+        <h3>Student Information</h3>
+        <div class="info-grid">
+            <div class="info-row">
+                <div class="info-label">Student Name:</div>
+                <div class="info-value" th:text="${transcript.studentName}">Student Name</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Student ID:</div>
+                <div class="info-value" th:text="${transcript.studentId}">Student ID</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Email:</div>
+                <div class="info-value" th:text="${transcript.studentEmail}">Email</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Enrollment Date:</div>
+                <div class="info-value" th:text="${#temporals.format(transcript.enrollmentDate, 'MMMM dd, yyyy')}">Enrollment Date</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Current Class:</div>
+                <div class="info-value" th:text="${summary.currentClass}">Current Class</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Grade Level:</div>
+                <div class="info-value" th:text="${summary.gradeLevel}">Grade Level</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="academic-summary">
+        <h3>Academic Summary</h3>
+        <div class="summary-grid">
+            <div class="summary-row">
+                <div class="summary-label">Overall GPA:</div>
+                <div class="summary-value" th:text="${gpaFormatted}">GPA</div>
+            </div>
+            <div class="summary-row">
+                <div class="summary-label">Total Credits:</div>
+                <div class="summary-value" th:text="${totalCredits}">Credits</div>
+            </div>
+            <div class="summary-row">
+                <div class="summary-label">Total Courses:</div>
+                <div class="summary-value" th:text="${summary.totalCourses}">Courses</div>
+            </div>
+            <div class="summary-row">
+                <div class="summary-label">Academic Standing:</div>
+                <div class="summary-value" th:text="${transcript.academicStanding}">Standing</div>
+            </div>
+            <div class="summary-row">
+                <div class="summary-label">Attendance Rate:</div>
+                <div class="summary-value" th:text="${#numbers.formatDecimal(summary.attendancePercentage, 1, 1)} + '%'">Attendance</div>
+            </div>
+            <div class="summary-row">
+                <div class="summary-label">Total Absences:</div>
+                <div class="summary-value" th:text="${summary.totalAbsences}">Absences</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="courses-section">
+        <h3>Course Grades</h3>
+        <table class="courses-table">
+            <thead>
+                <tr>
+                    <th>Course Code</th>
+                    <th>Course Name</th>
+                    <th>Teacher</th>
+                    <th>Grade</th>
+                    <th>Letter Grade</th>
+                    <th>Credits</th>
+                    <th>Date Graded</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="course : ${courses}">
+                    <td th:text="${course.courseCode}">Course Code</td>
+                    <td th:text="${course.courseName}">Course Name</td>
+                    <td th:text="${course.teacherName}">Teacher</td>
+                    <td th:text="${#numbers.formatDecimal(course.grade, 1, 1)}">Grade</td>
+                    <td th:class="${'grade-' + course.gradeLetter.toLowerCase()}" th:text="${course.gradeLetter}">Letter</td>
+                    <td th:text="${course.credits}">Credits</td>
+                    <td th:text="${#temporals.format(course.gradedDate, 'MM/dd/yyyy')}">Date</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="signature-section">
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-title">Registrar's Signature</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-title">School Principal</div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>This is an official transcript from the School Management System.</p>
+        <p>Generated on <span th:text="${currentDate}">Date</span></p>
+        <p>For verification, please contact the school administration.</p>
+    </div>
+</body>
+</html> 

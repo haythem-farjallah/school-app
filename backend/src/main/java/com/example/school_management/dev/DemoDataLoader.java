@@ -29,7 +29,6 @@ class DemoDataLoader implements CommandLineRunner {
     private final TeacherRepository            teacherRepo;
     private final StudentRepository            studentRepo;
     private final CourseRepository             courseRepo;
-    private final LevelRepository              levelRepo;
     private final ClassRepository              classRepo;
     private final TeachingAssignmentRepository assignmentRepo;
     private final PasswordEncoder              encoder;
@@ -65,7 +64,6 @@ class DemoDataLoader implements CommandLineRunner {
                     t.setStatus(Status.ACTIVE);
                     t.setQualifications(faker.educator().course());
                     t.setSubjectsTaught(faker.job().field());
-                    t.setAvailableHours(faker.number().numberBetween(10, 25));
                     t.setSchedulePreferences("Morning");
                     return t;
                 }).map(teacherRepo::save).toList();
@@ -81,8 +79,6 @@ class DemoDataLoader implements CommandLineRunner {
                     s.setPassword(encoder.encode("password"));
                     s.setRole(UserRole.STUDENT);
                     s.setStatus(Status.ACTIVE);
-                    s.setGradeLevel("G-" + faker.number().numberBetween(1, 6));
-                    s.setEnrollmentYear(faker.number().numberBetween(2020, 2025));
                     return s;
                 }).map(studentRepo::save).toList());
         log.info("🧑‍🎓  Inserted {} students", students.size());
@@ -94,7 +90,8 @@ class DemoDataLoader implements CommandLineRunner {
                 Course c = new Course();
                 c.setName(faker.educator().course()+" "+(courses.size()+1));
                 c.setColor("#"+faker.color().hex().substring(1,7));
-                c.setCoefficient(faker.number().randomDouble(1,1,5));
+                c.setCredit((float) faker.number().randomDouble(1,1,5));
+                c.setWeeklyCapacity(faker.number().numberBetween(2, 6));
                 c.setTeacher(t);
                 courses.add(courseRepo.save(c));
             }
@@ -105,14 +102,11 @@ class DemoDataLoader implements CommandLineRunner {
         Random rnd = new Random();
         for (int lvIdx = 1; lvIdx <= LEVELS; lvIdx++) {
 
-            Level level = new Level();
-            level.setName("Level "+lvIdx);
-            levelRepo.save(level);
 
             for (int cIdx = 0; cIdx < CLASSES_PER_LEVEL; cIdx++) {
                 ClassEntity clazz = new ClassEntity();
                 clazz.setName(lvIdx+"-"+ (char)('A'+cIdx));
-                clazz.setLevel(level);
+
 
                 /* pick 18-25 random students */
                 Collections.shuffle(students);

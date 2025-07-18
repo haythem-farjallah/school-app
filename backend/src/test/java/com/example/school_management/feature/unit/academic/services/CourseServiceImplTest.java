@@ -7,8 +7,11 @@ import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.CourseRepository;
 import com.example.school_management.feature.academic.service.CourseService;
 import com.example.school_management.feature.academic.service.impl.CourseServiceImpl;
+import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Teacher;
+import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.operational.service.AuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,13 +38,17 @@ class CourseServiceImplTest {
     @Mock CourseRepository  courseRepo;
     @Mock
     TeacherRepository teacherRepo;
+    @Mock
+    AuditService auditService;
+    @Mock
+    BaseUserRepository<BaseUser> userRepo;
 
     AcademicMapper mapper = Mappers.getMapper(AcademicMapper.class);
     CourseService  service;
 
     @BeforeEach
     void init() {
-        service = new CourseServiceImpl(courseRepo, teacherRepo, mapper);
+        service = new CourseServiceImpl(courseRepo, teacherRepo, mapper, auditService, userRepo);
     }
 
     @Test
@@ -57,7 +64,7 @@ class CourseServiceImplTest {
         });
 
         CourseDto dto = service.create(
-                new CreateCourseRequest("Physics", "#ffffff", 2.0, 9L));
+                new CreateCourseRequest("Physics", "#ffffff", 2.0f, 3, 9L));
 
         assertThat(dto.teacherId()).isEqualTo(9L);
         assertThat(dto.id()).isEqualTo(5L);

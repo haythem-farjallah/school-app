@@ -1,57 +1,111 @@
 import * as React from "react";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+import { type Parser, useQueryState, useQueryStates, parseAsInteger, parseAsString } from "nuqs";
 
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Users, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Users, TrendingUp, Plus } from "lucide-react";
 
 import { useCourses, useDeleteCourse } from "../hooks/use-courses";
 import { getCoursesColumns } from "./course-columns";
-import { AddCourseSheet } from "./course-sheet";
 import type { Course } from "@/types/course";
 
 export function CoursesTable() {
-  const [page, setPage] = React.useState(0);
-  const [pageSize, setPageSize] = React.useState(10);
-  const [search, setSearch] = React.useState("");
-  const [sorting] = React.useState<{
-    field?: string;
-    order?: "asc" | "desc";
-  }>({});
-
-  const { courses, totalElements, totalPages, isLoading, error, refetch } = useCourses({
-    page,
-    size: pageSize,
-    search: search || undefined,
-    sortBy: sorting.field,
-    sortOrder: sorting.order,
-  });
-
+  const navigate = useNavigate();
   const deleteMutation = useDeleteCourse();
 
-  const handleView = React.useCallback((course: Course) => {
-    toast(`Viewing course: ${course.name}`);
-    // Implement view logic here
+  // URL pagination parameters (managed by useDataTable)
+  const [urlPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize] = useQueryState("perPage", parseAsInteger.withDefault(10));
+  const currentPageIndex = urlPage - 1;
+
+  // Build filter parsers dynamically - we'll define columns later
+  const filterParsers = React.useMemo(() => {
+    const parsers: Record<string, Parser<string>> = {};
+    // Define the parsers based on known filterable columns
+    const filterableColumns = [
+      { key: "name", enableColumnFilter: true },
+      { key: "credit", enableColumnFilter: true },
+      { key: "weeklyCapacity", enableColumnFilter: true },
+      { key: "teacherId", enableColumnFilter: true },
+    ];
+    
+    filterableColumns.forEach((col) => {
+      if (col.enableColumnFilter) {
+        parsers[col.key] = parseAsString.withDefault("").withOptions({ shallow: true });
+      }
+    });
+    return parsers;
   }, []);
+
+  const [filterValues] = useQueryStates(filterParsers);
+
+  // Map frontend column keys to backend filter parameter names
+  const apiParams = React.useMemo(() => {
+    const keyMap: Record<string, string> = {
+      name: "nameLike",
+      credit: "credit",
+      weeklyCapacity: "weeklyCapacity", 
+      teacherId: "teacherId",
+    };
+
+    const params: Record<string, unknown> = {};
+
+    Object.entries(filterValues).forEach(([key, val]) => {
+      if (typeof val === "string" && val.trim()) {
+        const backendKey = keyMap[key] ?? key;
+        params[backendKey] = val.trim();
+      }
+    });
+
+    return params;
+  }, [filterValues]);
+
+  const { data: coursesResponse, isLoading, error, refetch } = useCourses({
+    page: currentPageIndex,
+    size: pageSize,
+    ...apiParams,
+  });
+
+  const courses = coursesResponse?.data ?? [];
+  const totalItems = coursesResponse?.totalItems ?? 0;
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  const handleView = React.useCallback((course: Course) => {
+    console.log("👁️ CoursesTable - Viewing course:", course);
+    navigate(`/admin/courses/view/${course.id}`);
+  }, [navigate]);
 
   const handleEdit = React.useCallback((course: Course) => {
+    console.log("✏️ CoursesTable - Editing course:", course);
     // Edit logic is now handled by the EditCourseSheet component
-    console.log(`Editing course: ${course.name}`);
   }, []);
 
-  const handleDelete = React.useCallback(async (course: Course) => {
-    if (window.confirm(`Are you sure you want to delete "${course.name}"?`)) {
-      try {
-        await deleteMutation.mutateAsync(course.id);
-        toast.success(`Course "${course.name}" deleted successfully`);
-             } catch {
-         toast.error("Failed to delete course");
-       }
+  const handleDelete = React.useCallback((course: Course) => {
+    console.log("🗑️ CoursesTable - Deleting course:", course);
+    if (window.confirm(`Are you sure you want to delete the course "${course.name}"?`)) {
+      deleteMutation.mutate(course.id, {
+        onSuccess: () => {
+          toast.success("Course deleted successfully");
+          refetch();
+        },
+        onError: (error) => {
+          console.error("❌ CoursesTable - Delete error:", error);
+          toast.error("Failed to delete course");
+        },
+      });
     }
-  }, [deleteMutation]);
+  }, [deleteMutation, refetch]);
+
+  const handleCreate = React.useCallback(() => {
+    console.log("➕ CoursesTable - Creating new course");
+    navigate("/admin/courses/create");
+  }, [navigate]);
 
   const columns = React.useMemo(
     () => getCoursesColumns({
@@ -69,35 +123,14 @@ export function CoursesTable() {
     pageCount: totalPages,
     initialState: {
       pagination: {
-        pageIndex: page,
+        pageIndex: currentPageIndex,
         pageSize,
       },
     },
-    enableAdvancedFilter: false,
   });
 
-  // Update page when table pagination changes
-  React.useEffect(() => {
-    const pagination = table.getState().pagination;
-    if (pagination.pageIndex !== page) {
-      setPage(pagination.pageIndex);
-    }
-    if (pagination.pageSize !== pageSize) {
-      setPageSize(pagination.pageSize);
-    }
-  }, [table.getState().pagination, page, pageSize]);
-
-  // Handle search from URL or toolbar
-  React.useEffect(() => {
-    const columnFilters = table.getState().columnFilters;
-    const nameFilter = columnFilters.find(filter => filter.id === "name");
-    const searchValue = nameFilter?.value as string || "";
-    if (searchValue !== search) {
-      setSearch(searchValue);
-    }
-  }, [table.getState().columnFilters, search]);
-
   if (error) {
+    console.error("❌ CoursesTable - Error loading courses:", error);
     return (
       <Card className="border-red-200 shadow-lg">
         <CardContent className="pt-6">
@@ -123,7 +156,13 @@ export function CoursesTable() {
                 Manage and organize your courses efficiently
               </CardDescription>
             </div>
-            <AddCourseSheet onSuccess={() => refetch()} />
+            <Button
+              onClick={handleCreate}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Course
+            </Button>
           </div>
         </CardHeader>
       </Card>
@@ -136,7 +175,7 @@ export function CoursesTable() {
             <BookOpen className="h-6 w-6 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-700">{totalElements}</div>
+                            <div className="text-3xl font-bold text-blue-700">{totalItems}</div>
             <p className="text-blue-600/70 text-sm mt-1">Active courses in system</p>
           </CardContent>
         </Card>

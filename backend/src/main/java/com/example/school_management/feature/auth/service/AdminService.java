@@ -6,6 +6,7 @@ import com.example.school_management.feature.auth.dto.ParentCreateDto;
 import com.example.school_management.feature.auth.dto.StudentDtoCreate;
 import com.example.school_management.feature.auth.dto.UserProfileDTO;
 import com.example.school_management.feature.auth.entity.*;
+import com.example.school_management.feature.auth.entity.enums.ContactMethod;
 import com.example.school_management.feature.auth.repository.ParentRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +46,6 @@ public class AdminService {
         Student student = new Student();
         populateCommon(student, studentProfile);
         String studentPw = generateAndSetPassword(student);
-        student.setGradeLevel(sd.gradeLevel());
-        student.setEnrollmentYear(sd.enrollmentYear());
         student.setStatus(Status.ACTIVE);
         studentRepo.save(student);
         log.info("Created STUDENT {} (id={})", student.getEmail(), student.getId());
@@ -71,7 +70,18 @@ public class AdminService {
                     );
             Parent parent = new Parent();
             populateCommon(parent, parentProfile);
-            parent.setPreferredContactMethod(pd.preferredContactMethod());
+            // Set preferred contact method from DTO, default to EMAIL if not provided
+            if (pd.preferredContactMethod() != null && !pd.preferredContactMethod().trim().isEmpty()) {
+                try {
+                    parent.setPreferredContactMethod(ContactMethod.valueOf(pd.preferredContactMethod().toUpperCase()));
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid preferred contact method '{}' for parent {}, defaulting to EMAIL", 
+                            pd.preferredContactMethod(), pd.profile().email());
+                    parent.setPreferredContactMethod(ContactMethod.EMAIL);
+                }
+            } else {
+                parent.setPreferredContactMethod(ContactMethod.EMAIL);
+            }
             parent.setStatus(Status.ACTIVE);
             String parentPw = generateAndSetPassword(parent);
             parent.getChildren().add(student);

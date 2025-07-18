@@ -3,6 +3,7 @@ package com.example.school_management.feature.academic.mapper;
 import com.example.school_management.feature.academic.dto.*;
 import com.example.school_management.feature.academic.entity.*;
 import com.example.school_management.feature.auth.entity.Student;
+import com.example.school_management.feature.auth.entity.Teacher;
 import org.mapstruct.*;
 
 import java.util.Set;
@@ -14,19 +15,17 @@ public interface AcademicMapper {
     /* ─────────────────────── ENTITY ➜ DTO ─────────────────────── */
 
     /* ---------- Class ---------- */
-    @Mapping(target = "levelId",    source = "level.id")
     @Mapping(target = "studentIds", source = "students", qualifiedByName = "studentIdSet")
     @Mapping(target = "courseIds",  source = "courses",  qualifiedByName = "courseIdSet")
-    @Mapping(target = "scheduleId", source = "schedule.id")
+    @Mapping(target = "teacherIds", source = "teachers", qualifiedByName = "teacherIdSet")
+    @Mapping(target = "assignedRoomId", source = "assignedRoom.id")
     ClassDto toClassDto(ClassEntity entity);
 
     /* ---------- Course ---------- */
     @Mapping(target = "teacherId", source = "teacher.id")
     CourseDto toCourseDto(Course entity);
 
-    /* ---------- Level ---------- */
-    @Mapping(target = "courseIds", source = "courses", qualifiedByName = "courseIdSet")
-    LevelDto toLevelDto(Level entity);
+
 
     /* ─────────────────────── UPDATE PATCHERS ───────────────────── */
 
@@ -34,10 +33,11 @@ public interface AcademicMapper {
     void updateClassEntity(UpdateClassRequest src, @MappingTarget ClassEntity target);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "teacher", ignore = true)
+    @Mapping(target = "timetableSlots", ignore = true)
+    @Mapping(target = "classes", ignore = true)
+    @Mapping(target = "learningResources", ignore = true)
     void updateCourseEntity(UpdateCourseRequest src, @MappingTarget Course target);
-
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    void updateLevelEntity(UpdateLevelRequest  src, @MappingTarget Level target);
 
     /* ─────────────────────── HELPERS ───────────────────────────── */
 
@@ -51,13 +51,17 @@ public interface AcademicMapper {
         return courses.stream().map(Course::getId).collect(Collectors.toSet());
     }
 
+    @Named("teacherIdSet")
+    static Set<Long> mapTeachers(Set<Teacher> teachers) {
+        return teachers.stream().map(Teacher::getId).collect(Collectors.toSet());
+    }
+
     @Named("classEntityIdSet")
     static Set<Long> mapClasses(Set<ClassEntity> classes) {
         return classes.stream().map(ClassEntity::getId).collect(Collectors.toSet());
     }
 
     /* CARD ------------------------------------------------- */
-    @Mapping(target = "levelName",   source = "e.level.name")   // <-- tell MapStruct
     @Mapping(target = "studentCount",  expression = "java((int) stCnt)")  // cast required
     @Mapping(target = "courseCount",   expression = "java((int) crsCnt)")
     @Mapping(target = "teacherCount",  expression = "java((int) tchCnt)")

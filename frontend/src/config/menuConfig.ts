@@ -3,7 +3,6 @@ import {
   School,
   User,
   Users,
-  BookOpen,
   ClipboardList,
   Calendar,
   MessageCircle,
@@ -15,7 +14,13 @@ import {
   FileText,
   Bell,
   Mail,
-  Layers,
+  // Add new icons
+  Library,
+  DoorOpen,
+  BarChart3,
+  UserPlus,
+  CalendarDays,
+  Users2,
 } from 'lucide-react';
 
 export type MenuItem = {
@@ -45,15 +50,19 @@ export const menuConfig: Record<string, MenuSection[]> = {
         { icon: Users, label: 'Students', href: '/admin/students' },
         { icon: User, label: 'Teachers', href: '/admin/teachers' },
         { icon: User2, label: 'Parents', href: '/admin/parents' },
-        { icon: BookOpen, label: 'Subjects', href: '/admin/subjects' },
+        { icon: Users2, label: 'Staff', href: '/admin/staff' },
         { icon: BookMarked, label: 'Courses', href: '/admin/courses' },
         { icon: ClipboardList, label: 'Classes', href: '/admin/classes' },
-        { icon: Layers, label: 'Levels', href: '/admin/levels' },
+        { icon: Library, label: 'Learning Resources', href: '/admin/learning-resources' },
+        { icon: BarChart3, label: 'Grades', href: '/admin/grades' },
+        { icon: UserPlus, label: 'Enrollments', href: '/admin/enrollments' },
       ],
     },
     {
       title: 'OPERATIONS',
       items: [
+        { icon: CalendarDays, label: 'Timetables', href: '/admin/timetables' },
+        { icon: DoorOpen, label: 'Rooms', href: '/admin/rooms' },
         { icon: Calendar, label: 'Schedule', href: '/admin/schedule' },
         { icon: Megaphone, label: 'Announcements', href: '/admin/announcements' },
         { icon: Settings, label: 'Settings', href: '/admin/settings' },
@@ -74,7 +83,7 @@ export const menuConfig: Record<string, MenuSection[]> = {
         { icon: FileText, label: 'Assignments', href: '/teacher/assignments' },
         { icon: ClipboardList, label: 'Grades', href: '/teacher/grades' },
         { icon: Calendar, label: 'Schedule', href: '/teacher/schedule' },
-        { icon: Layers, label: 'Levels', href: '/teacher/levels' },
+        { icon: Library, label: 'Learning Resources', href: '/teacher/learning-resources' },
       ],
     },
     {
@@ -99,6 +108,7 @@ export const menuConfig: Record<string, MenuSection[]> = {
         { icon: FileText, label: 'Assignments', href: '/student/assignments' },
         { icon: GraduationCap, label: 'Grades', href: '/student/grades' },
         { icon: Calendar, label: 'Schedule', href: '/student/schedule' },
+        { icon: Library, label: 'Learning Resources', href: '/student/learning-resources' },
       ],
     },
     {

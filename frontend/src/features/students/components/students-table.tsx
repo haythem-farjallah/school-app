@@ -1,52 +1,75 @@
 import * as React from "react";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+
 
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCheck, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, UserCheck, TrendingUp, Plus } from "lucide-react";
+import { type Parser, useQueryState, useQueryStates, parseAsInteger, parseAsString } from "nuqs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 
 import { useStudents, useDeleteStudent } from "../hooks/use-students";
 import { getStudentsColumns } from "./student-columns.tsx";
-import { AddStudentSheet } from "./student-sheet";
 import type { Student } from "@/types/student";
 
 export function StudentsTable() {
-  const [page, setPage] = React.useState(0);
-  const [pageSize, setPageSize] = React.useState(10);
-  const [search, setSearch] = React.useState("");
-
-  const { data: studentsResponse, isLoading, error, refetch } = useStudents({ size: pageSize });
-  
-  const students = studentsResponse?.data || [];
-  const totalElements = studentsResponse?.totalItems || 0;
-  const totalPages = studentsResponse?.totalPages || 0;
+  const navigate = useNavigate();
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [studentToDelete, setStudentToDelete] = React.useState<Student | null>(null);
 
   const deleteMutation = useDeleteStudent();
 
   const handleView = React.useCallback((student: Student) => {
-    toast(`Viewing student: ${student.firstName} ${student.lastName}`);
-    // Implement view logic here
-  }, []);
+    console.log("👁️ StudentsTable - Viewing student:", student);
+    navigate(`/admin/students/view/${student.id}`);
+  }, [navigate]);
 
   const handleEdit = React.useCallback((student: Student) => {
+    console.log("✏️ StudentsTable - Editing student:", student);
     // Edit logic is now handled by the EditStudentSheet component
-    console.log(`Editing student: ${student.firstName} ${student.lastName}`);
   }, []);
 
-  const handleDelete = React.useCallback(async (student: Student) => {
-    if (window.confirm(`Are you sure you want to delete "${student.firstName} ${student.lastName}"?`)) {
-      try {
-        await deleteMutation.mutateAsync(student.id);
-        toast.success(`Student "${student.firstName} ${student.lastName}" deleted successfully`);
-        refetch();
-      } catch {
-        toast.error("Failed to delete student");
-      }
+  const handleDelete = React.useCallback((student: Student) => {
+    console.log("🗑️ StudentsTable - Deleting student:", student);
+    setStudentToDelete(student);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const confirmDelete = React.useCallback(async () => {
+    if (!studentToDelete) return;
+    
+    console.log("✅ StudentsTable - Confirming delete for:", studentToDelete);
+    
+    try {
+      await deleteMutation.mutateAsync(studentToDelete.id);
+      toast.success(`Student "${studentToDelete.firstName} ${studentToDelete.lastName}" deleted successfully`);
+      refetch();
+    } catch (error) {
+      console.error("❌ StudentsTable - Delete failed:", error);
+      toast.error("Failed to delete student");
+    } finally {
+      setDeleteDialogOpen(false);
+      setStudentToDelete(null);
     }
-  }, [deleteMutation, refetch]);
+  }, [deleteMutation, studentToDelete]);
+
+  const handleCreate = React.useCallback(() => {
+    console.log("➕ StudentsTable - Creating new student");
+    navigate("/admin/students/create");
+  }, [navigate]);
 
   const columns = React.useMemo(
     () => getStudentsColumns({
@@ -55,8 +78,63 @@ export function StudentsTable() {
       onDelete: handleDelete,
       onSuccess: () => refetch(),
     }),
-    [handleView, handleEdit, handleDelete, refetch]
+    [handleView, handleEdit, handleDelete]
   );
+
+  // URL pagination parameters (managed by useDataTable)
+  const [urlPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize] = useQueryState("perPage", parseAsInteger.withDefault(10));
+  const currentPageIndex = urlPage - 1;
+
+  // Build filter parsers dynamically from column definitions
+  const filterParsers = React.useMemo(() => {
+    const parsers: Record<string, Parser<string>> = {};
+    columns.forEach((col) => {
+      // We need to derive a stable key for the column – prefer `id`, fallback to `accessorKey` when it exists.
+      const accessorKey = (col as { accessorKey?: unknown }).accessorKey;
+      const key = (col.id ?? (typeof accessorKey === "string" ? accessorKey : undefined)) as
+        | string
+        | undefined;
+      if (key && col.enableColumnFilter) {
+        parsers[key] = parseAsString.withDefault("").withOptions({ shallow: true });
+      }
+    });
+    return parsers;
+  }, [columns]);
+
+  const [filterValues] = useQueryStates(filterParsers);
+
+  // Map frontend column keys to backend filter parameter names
+  const apiParams = React.useMemo(() => {
+    const keyMap: Record<string, string> = {
+      firstName: "firstNameLike",
+      lastName: "lastNameLike",
+      email: "emailLike",
+      gradeLevel: "gradeLevel", // same name
+      enrollmentYear: "enrollmentYear", // same name
+    };
+
+    const params: Record<string, unknown> = {};
+
+    Object.entries(filterValues).forEach(([key, val]) => {
+      if (typeof val === "string" && val.trim()) {
+        const backendKey = keyMap[key] ?? key;
+        params[backendKey] = val.trim();
+      }
+    });
+
+    return params;
+  }, [filterValues]);
+
+  const { data: studentsResponse, isLoading, error, refetch } = useStudents({
+    page: currentPageIndex,
+    size: pageSize,
+    ...apiParams,
+  });
+
+  const students = studentsResponse?.data ?? [];
+  const totalElements = studentsResponse?.totalItems ?? 0;
+  const totalPages = studentsResponse?.totalPages ?? 0;
 
   const { table } = useDataTable({
     data: students,
@@ -64,35 +142,15 @@ export function StudentsTable() {
     pageCount: totalPages,
     initialState: {
       pagination: {
-        pageIndex: page,
+        pageIndex: currentPageIndex,
         pageSize,
       },
     },
     enableAdvancedFilter: false,
   });
 
-  // Update page when table pagination changes
-  React.useEffect(() => {
-    const pagination = table.getState().pagination;
-    if (pagination.pageIndex !== page) {
-      setPage(pagination.pageIndex);
-    }
-    if (pagination.pageSize !== pageSize) {
-      setPageSize(pagination.pageSize);
-    }
-  }, [table, page, pageSize]);
-
-  // Handle search from URL or toolbar
-  React.useEffect(() => {
-    const columnFilters = table.getState().columnFilters;
-    const nameFilter = columnFilters.find(filter => filter.id === "firstName");
-    const searchValue = nameFilter?.value as string || "";
-    if (searchValue !== search) {
-      setSearch(searchValue);
-    }
-  }, [table, search]);
-
   if (error) {
+    console.error("❌ StudentsTable - Error loading students:", error);
     return (
       <Card className="border-red-200 shadow-lg">
         <CardContent className="pt-6">
@@ -118,7 +176,13 @@ export function StudentsTable() {
                 Manage and organize your student body efficiently
               </CardDescription>
             </div>
-            <AddStudentSheet onSuccess={() => refetch()} />
+            <Button 
+              onClick={handleCreate}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Student
+            </Button>
           </div>
         </CardHeader>
       </Card>
@@ -180,6 +244,37 @@ export function StudentsTable() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you absolutely sure?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the student{" "}
+              <span className="font-semibold">
+                {studentToDelete?.firstName} {studentToDelete?.lastName}
+              </span>{" "}
+              and remove their data from our servers.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

@@ -27,7 +27,7 @@ class CustomUserDetailsServiceTest {
     ParentRepository parentRepo;
     @Mock
     AdministrationRepository adminRepo;
-    @Mock WorkerRepository         workerRepo;
+    @Mock StaffRepository         staffRepo;
     @Mock RolePermissionRepo       rolePermRepo;
 
     @InjectMocks CustomUserDetailsService uds;
@@ -35,19 +35,19 @@ class CustomUserDetailsServiceTest {
     @Test
     void authorities_mergeRoleDefaultsAndOverrides() {
         // given
-        Worker u = new Worker();
-        u.setRole(UserRole.WORKER);
+        Staff u = new Staff();
+        u.setRole(UserRole.STAFF);
         u.setEmail("worker@test");
         u.setPassword("dummy");
         Permission extra = new Permission();
         extra.setCode("STUDENT_CREATE");
         u.setPermissions(Set.of(extra));
 
-        when(rolePermRepo.findAllCodesByRole(UserRole.WORKER))
+        when(rolePermRepo.findAllCodesByRole(UserRole.STAFF))
                 .thenReturn(Set.of("STUDENT_READ"));
 
         // this repo will return the user; the others stay Optional.empty()
-        when(workerRepo.findByEmail("worker@test"))
+        when(staffRepo.findByEmail("worker@test"))
                 .thenReturn(Optional.of(u));
 
         // when

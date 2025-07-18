@@ -3,5 +3,16 @@
     "logout": "Sign out",
     "form": {
         "submit": "Sign in"
-     }
+    },
+    "First Name": "First Name",
+    "Last Name": "Last Name",
+    "Email Address": "Email Address",
+    "Phone Number": "Phone Number",
+    "Birthday": "Birthday",
+    "Gender": "Gender",
+    "Address": "Address",
+    "Qualifications": "Qualifications",
+    "Subjects Taught": "Subjects Taught",
+    "Available Hours": "Available Hours",
+    "Schedule Preferences": "Schedule Preferences"
 }

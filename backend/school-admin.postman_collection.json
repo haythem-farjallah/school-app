@@ -64,7 +64,7 @@
       ]
     },
     {
-      "name": "Workers",
+      "name": "Students",
       "item": [
         {
           "name": "Get paged list",
@@ -73,47 +73,177 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
             ],
-            "url": "{{HOST}}/api/admin/workers?page=0&size=10"
+            "url": "{{HOST}}/api/v1/students?page=0&size=10"
           }
         },
         {
-          "name": "Create worker",
+          "name": "Get paged list with filters",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students?page=0&size=10&firstNameLike=john&gradeLevel=HIGH&enrollmentYear=2024"
+          }
+        },
+        {
+          "name": "Get student by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/1"
+          }
+        },
+        {
+          "name": "Create student",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
               { "key": "Content-Type",  "value": "application/json" }
             ],
-            "url": "{{HOST}}/api/admin/workers",
+            "url": "{{HOST}}/api/v1/students",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"profile\": {\n    \"firstName\": \"Kevin\",\n    \"lastName\": \"Lee\",\n    \"email\": \"kevin.lee@school.test\",\n    \"telephone\": \"+886-900-888-222\",\n    \"birthday\": \"1983-03-10\",\n    \"gender\": \"M\",\n    \"address\": \"8 Worker Ln\",\n    \"role\": \"WORKER\"\n  },\n  \"department\": \"Maintenance\",\n  \"jobRole\": \"Electrician\"\n}"
+              "raw": "{\n  \"profile\": {\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"john.doe@school.test\",\n    \"telephone\": \"+1-555-123-4567\",\n    \"birthday\": \"2008-05-15\",\n    \"gender\": \"M\",\n    \"address\": \"123 Student St, City\",\n    \"role\": \"STUDENT\"\n  },\n  \"gradeLevel\": \"HIGH\",\n  \"enrollmentYear\": 2024\n}"
             }
           }
         },
         {
-          "name": "Patch worker (id=REPLACE)",
+          "name": "Update student (id=REPLACE)",
           "request": {
             "method": "PATCH",
             "header": [
               { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
               { "key": "Content-Type",  "value": "application/json" }
             ],
-            "url": "{{HOST}}/api/admin/workers/REPLACE",
+            "url": "{{HOST}}/api/v1/students/REPLACE",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"jobRole\": \"Senior Electrician\"\n}"
+              "raw": "{\n  \"firstName\": \"John Updated\",\n  \"lastName\": \"Doe Updated\",\n  \"gradeLevel\": \"HIGH\",\n  \"enrollmentYear\": 2024\n}"
             }
           }
         },
         {
-          "name": "Delete worker (id=REPLACE)",
+          "name": "Delete student (id=REPLACE)",
           "request": {
             "method": "DELETE",
             "header": [
               { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
             ],
-            "url": "{{HOST}}/api/admin/workers/REPLACE"
+            "url": "{{HOST}}/api/v1/students/REPLACE"
+          }
+        },
+        {
+          "name": "Bulk delete students",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/students/bulk",
+            "body": {
+              "mode": "raw",
+              "raw": "[1, 2, 3]"
+            }
+          }
+        },
+        {
+          "name": "Search students",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/search?q=john&page=0&size=10"
+          }
+        },
+        {
+          "name": "Get student statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/stats"
+          }
+        },
+        {
+          "name": "Advanced Filter Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/filter?page=0&size=10&firstName_like=john&lastName_contains=doe&gradeLevel_in=GRADE_10,GRADE_11&enrollmentYear_gte=2023&sort=firstName:asc"
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Staff",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/staff?page=0&size=10"
+          }
+        },
+        {
+          "name": "Create staff member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/staff",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"firstName\": \"Kevin\",\n    \"lastName\": \"Lee\",\n    \"email\": \"kevin.lee@school.test\",\n    \"telephone\": \"+886-900-888-222\",\n    \"birthday\": \"1983-03-10T00:00:00\",\n    \"gender\": \"M\",\n    \"address\": \"8 Staff Ln\",\n    \"role\": \"STAFF\"\n  },\n  \"staffType\": \"MAINTENANCE\",\n  \"department\": \"Maintenance\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get staff member by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/staff/1"
+          }
+        },
+        {
+          "name": "Update staff member (id=REPLACE)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/staff/REPLACE",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"telephone\": \"+886-900-888-333\",\n    \"address\": \"9 Staff Ln\"\n  },\n  \"staffType\": \"SECURITY\",\n  \"department\": \"Security\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete staff member (id=REPLACE)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/admin/staff/REPLACE"
           }
         }
       ]
@@ -388,6 +518,1055 @@
       ]
     },
     {
+      "name": "Learning Resources",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources?page=0&size=10"
+          }
+        },
+        {
+          "name": "Create learning resource (URL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/learning-resources",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Introduction to Physics\",\n  \"description\": \"Basic concepts of physics for beginners\",\n  \"url\": \"https://www.youtube.com/watch?v=example\",\n  \"type\": \"VIDEO\",\n  \"thumbnailUrl\": \"https://img.youtube.com/vi/example/default.jpg\",\n  \"duration\": 45,\n  \"isPublic\": true,\n  \"teacherIds\": [1],\n  \"classIds\": [1, 2],\n  \"courseIds\": [1]\n}"
+            }
+          }
+        },
+        {
+          "name": "Upload learning resource file",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/learning-resources/upload",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "title",
+                  "value": "Physics Lecture Notes",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Comprehensive notes on Newton's Laws",
+                  "type": "text"
+                },
+                {
+                  "key": "thumbnailUrl",
+                  "value": "https://example.com/thumbnail.jpg",
+                  "type": "text"
+                },
+                {
+                  "key": "duration",
+                  "value": "60",
+                  "type": "text"
+                },
+                {
+                  "key": "isPublic",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "classIds",
+                  "value": "[1, 2]",
+                  "type": "text"
+                },
+                {
+                  "key": "courseIds",
+                  "value": "[1]",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get resource by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources/1"
+          }
+        },
+        {
+          "name": "Update learning resource",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/learning-resources/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Physics Introduction\",\n  \"description\": \"Updated description with more details\",\n  \"isPublic\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete learning resource",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources/1"
+          }
+        },
+        {
+          "name": "Download resource file",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources/files/filename.pdf"
+          }
+        },
+        {
+          "name": "Filter by type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources?type=VIDEO&page=0&size=10"
+          }
+        },
+        {
+          "name": "Filter by teacher",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources?teacherId=1&page=0&size=10"
+          }
+        },
+        {
+          "name": "Filter by class",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources?classId=1&page=0&size=10"
+          }
+        },
+        {
+          "name": "Search by title/description",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources?search=physics&page=0&size=10"
+          }
+        },
+        {
+          "name": "Add target classes",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/learning-resources/1/classes",
+            "body": {
+              "mode": "raw",
+              "raw": "[1, 2, 3]"
+            }
+          }
+        },
+        {
+          "name": "Add target courses",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/learning-resources/1/courses",
+            "body": {
+              "mode": "raw",
+              "raw": "[1, 2]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resource Comments",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/resource-comments?page=0&size=10"
+          }
+        },
+        {
+          "name": "Create comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/resource-comments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This is a very helpful resource for understanding physics concepts!\",\n  \"resourceId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Get comment by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/resource-comments/1"
+          }
+        },
+        {
+          "name": "Delete comment",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/resource-comments/1"
+          }
+        },
+        {
+          "name": "Get comments by resource",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/resource-comments/resource/1?page=0&size=10"
+          }
+        },
+        {
+          "name": "Get comments by user",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/resource-comments/user/1?page=0&size=10"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Feeds",
+      "item": [
+        {
+          "name": "Get paged list",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds?page=0&size=20"
+          }
+        },
+        {
+          "name": "Get feed by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/1"
+          }
+        },
+        {
+          "name": "Delete feed",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/1"
+          }
+        },
+        {
+          "name": "Mark feed as read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/1/read"
+          }
+        },
+        {
+          "name": "Mark all feeds as read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/read-all"
+          }
+        },
+        {
+          "name": "Filter by event type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/event-type/USER_CREATED?page=0&size=20"
+          }
+        },
+        {
+          "name": "Filter by notification type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/notification-type/GRADE_ADDED?page=0&size=20"
+          }
+        },
+        {
+          "name": "Filter by severity",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/severity/ERROR?page=0&size=20"
+          }
+        },
+        {
+          "name": "Filter by entity type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/entity-type/User?page=0&size=20"
+          }
+        },
+        {
+          "name": "Filter by triggered user",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/triggered-by/1?page=0&size=20"
+          }
+        },
+        {
+          "name": "Filter by target user",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/target-user/1?page=0&size=20"
+          }
+        },
+        {
+          "name": "Get unread feeds",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/unread?page=0&size=20"
+          }
+        },
+        {
+          "name": "Get high priority feeds",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/high-priority?page=0&size=20"
+          }
+        },
+        {
+          "name": "Filter by date range",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/date-range?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59&page=0&size=20"
+          }
+        },
+        {
+          "name": "Get recent feeds",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/recent?limit=10"
+          }
+        },
+        {
+          "name": "Get feed statistics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/stats"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 Room Management",
+      "item": [
+        {
+          "name": "Create Room",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Science Lab A\",\n  \"capacity\": 30,\n  \"roomType\": \"LABORATORY\"\n}"
+            },
+            "url": "{{HOST}}/api/v1/rooms"
+          }
+        },
+        {
+          "name": "Get Room by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/rooms/1"
+          }
+        },
+        {
+          "name": "Update Room",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Science Lab A\",\n  \"capacity\": 35,\n  \"roomType\": \"LABORATORY\"\n}"
+            },
+            "url": "{{HOST}}/api/v1/rooms/1"
+          }
+        },
+        {
+          "name": "Delete Room",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/rooms/1"
+          }
+        },
+        {
+          "name": "List All Rooms",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/rooms?page=0&size=10"
+          }
+        },
+        {
+          "name": "Get Available Rooms",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/rooms/available"
+          }
+        },
+        {
+          "name": "Get Rooms by Type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/rooms/by-type/CLASSROOM"
+          }
+        },
+        {
+          "name": "Get Rooms by Capacity",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/rooms/by-capacity/25"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📅 Timetable Management",
+      "item": [
+        {
+          "name": "Create Timetable",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/timetables",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fall 2024 Timetable\",\n  \"description\": \"Main timetable for Fall 2024 semester\",\n  \"academicYear\": \"2024-2025\",\n  \"semester\": \"FALL\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List All Timetables",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables?page=0&size=10"
+          }
+        },
+        {
+          "name": "List Timetables with Filters",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables?page=0&size=10&academicYear=2024-2025&semester=FALL"
+          }
+        },
+        {
+          "name": "Get Timetable by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/1"
+          }
+        },
+        {
+          "name": "Update Timetable",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/timetables/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Fall 2024 Timetable\",\n  \"description\": \"Updated description\",\n  \"academicYear\": \"2024-2025\",\n  \"semester\": \"FALL\",\n  \"classIds\": [1, 2, 3, 4],\n  \"teacherIds\": [1, 2, 3, 4, 5],\n  \"roomIds\": [1, 2, 3, 4, 5, 6]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Timetable",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/1"
+          }
+        },
+        {
+          "name": "Get Timetables by Academic Year",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/academic-year/2024-2025"
+          }
+        },
+        {
+          "name": "Get Timetables by Academic Year and Semester",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/academic-year/2024-2025/semester/FALL"
+          }
+        },
+        {
+          "name": "Optimize Timetable",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/1/optimize"
+          }
+        },
+        {
+          "name": "Get Class Timetable",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/class/1"
+          }
+        },
+        {
+          "name": "Get Teacher Timetable",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/teacher/1"
+          }
+        },
+        {
+          "name": "Create Timetable Slot",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/timetables/slots",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dayOfWeek\": \"MONDAY\",\n  \"description\": \"Mathematics Class\",\n  \"period\": {\"id\": 1},\n  \"forClass\": {\"id\": 1},\n  \"forCourse\": {\"id\": 1},\n  \"teacher\": {\"id\": 1},\n  \"room\": {\"id\": 1},\n  \"timetable\": {\"id\": 1}\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Timetable Slot",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/timetables/slots/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dayOfWeek\": \"TUESDAY\",\n  \"description\": \"Advanced Mathematics\",\n  \"period\": {\"id\": 2},\n  \"forClass\": {\"id\": 1},\n  \"forCourse\": {\"id\": 1},\n  \"teacher\": {\"id\": 1},\n  \"room\": {\"id\": 2}\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Timetable Slot",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/slots/1"
+          }
+        },
+        {
+          "name": "Export Timetable as PDF",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/1/export/pdf"
+          }
+        },
+        {
+          "name": "Export Class Timetable as PDF",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/class/1/export/pdf"
+          }
+        },
+        {
+          "name": "Export Teacher Timetable as PDF",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/timetables/teacher/1/export/pdf"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📚 Enrollment Management",
+      "item": [
+        {
+          "name": "Enroll Student in Class",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/enroll",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": 1,\n  \"classId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Transfer Student to New Class",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/1/transfer",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newClassId\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Enrollment Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/1/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUSPENDED\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Drop Enrollment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/1/drop",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Student request\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Enrollment by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/1"
+          }
+        },
+        {
+          "name": "Get Student Enrollments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/student/1?page=0&size=10"
+          }
+        },
+        {
+          "name": "Get Class Enrollments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/class/1?page=0&size=10"
+          }
+        },
+        {
+          "name": "Get Enrollments by Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/status/ACTIVE?page=0&size=10"
+          }
+        },
+        {
+          "name": "Get Enrollments by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/date-range?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59&page=0&size=10"
+          }
+        },
+        {
+          "name": "Get Class Enrollment Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/stats/class/1"
+          }
+        },
+        {
+          "name": "Get Student Enrollment Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/stats/student/1"
+          }
+        },
+        {
+          "name": "Bulk Enroll Students",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/bulk-enroll",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"classId\": 1,\n  \"studentIds\": [1, 2, 3, 4, 5]\n}"
+            }
+          }
+        },
+        {
+          "name": "Check Can Enroll Student",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/can-enroll?studentId=1&classId=1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Dashboard APIs",
+      "item": [
+        {
+          "name": "Get System Overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/overview"
+          }
+        },
+        {
+          "name": "Get User Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/user-summary"
+          }
+        },
+        {
+          "name": "Get Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/admin"
+          }
+        },
+        {
+          "name": "Get Teacher Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/teacher"
+          }
+        },
+        {
+          "name": "Get Parent Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/parent"
+          }
+        },
+        {
+          "name": "Get Student Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/student"
+          }
+        },
+        {
+          "name": "Get Student Dashboard (by ID)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/student/1"
+          }
+        },
+        {
+          "name": "Get Teacher Dashboard (by ID)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/teacher/1"
+          }
+        },
+        {
+          "name": "Get Parent Dashboard (by ID)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/parent/1"
+          }
+        },
+        {
+          "name": "Get Quick Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/dashboard/quick-stats"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔍 Advanced Filtering",
+      "item": [
+        {
+          "name": "Filter Students - Basic",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/filter?page=0&size=10&firstName_like=john&gradeLevel_eq=GRADE_10"
+          }
+        },
+        {
+          "name": "Filter Students - Advanced",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/filter?page=0&size=10&search=john&gradeLevel_in=GRADE_10,GRADE_11&enrollmentYear_gte=2023&sort=firstName:asc,lastName:desc&fuzzy=true"
+          }
+        },
+        {
+          "name": "Filter Students - Date Range",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/filter?page=0&size=10&enrolledAt_from=2024-01-01&enrolledAt_to=2024-12-31&status_eq=ACTIVE"
+          }
+        },
+        {
+          "name": "Filter Grades - Basic",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/grades/filter?page=0&size=20&score_gte=15&content_like=mathematics"
+          }
+        },
+        {
+          "name": "Filter Grades - Advanced",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/grades/filter?page=0&size=20&score_range=15,20&gradedAt_from=2024-01-01&search=exam&weight_gte=1.0&sort=score:desc,gradedAt:desc"
+          }
+        },
+        {
+          "name": "Filter Grades - Student Specific",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/grades/filter?page=0&size=20&enrollment.student.id_eq=1&gradedAt_from=2024-09-01&score_gte=10"
+          }
+        },
+        {
+          "name": "Filter Attendance",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/attendance/filter?page=0&size=20&date_from=2024-01-01&date_to=2024-12-31&status_eq=PRESENT"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔗 WebSocket Testing",
+      "item": [
+        {
+          "name": "WebSocket Connection Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/ws",
+            "description": "WebSocket endpoint: ws://{{HOST}}/ws\nUse WebSocket client to connect.\n\nTopics:\n- /topic/admin-feeds (Admin activity feeds)\n- /topic/notifications/admin (Admin notifications)\n- /topic/notifications/teacher (Teacher notifications)\n- /topic/notifications/parent (Parent notifications)\n- /topic/notifications/student (Student notifications)\n- /topic/system-alerts (System alerts)\n- /queue/user/{userId}/notifications (Personal notifications)\n\nTest messages:\n- /app/test (Echo test)\n- /app/admin/broadcast (Admin broadcast)\n- /app/broadcast/roles (Role-specific broadcast)"
+          }
+        },
+        {
+          "name": "Test Echo Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/app/echo",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Test echo message\",\n  \"timestamp\": \"2024-01-01T12:00:00\"\n}",
+              "description": "Send via WebSocket to /app/echo. Response will be on /topic/echo"
+            }
+          }
+        },
+        {
+          "name": "Admin Broadcast Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/app/admin/broadcast",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"System Maintenance\",\n  \"message\": \"System will be down for maintenance from 2AM to 4AM tomorrow.\",\n  \"priority\": \"HIGH\"\n}",
+              "description": "Send via WebSocket to /app/admin/broadcast. All users will receive this."
+            }
+          }
+        },
+        {
+          "name": "Role-Specific Broadcast",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/app/broadcast/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Grade Submission Reminder\",\n  \"message\": \"Please submit all grades for the midterm exam by Friday.\",\n  \"priority\": \"MEDIUM\",\n  \"targetRoles\": [\"TEACHER\"]\n}",
+              "description": "Send via WebSocket to /app/broadcast/roles. Only specified roles will receive this."
+            }
+          }
+        },
+        {
+          "name": "System Alert Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/app/admin/system-alert",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Database Connection Alert\",\n  \"message\": \"High database connection usage detected. Please monitor system performance.\",\n  \"priority\": \"HIGH\"\n}",
+              "description": "Send via WebSocket to /app/admin/system-alert. Admins will receive this on /topic/system-alerts."
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Auth",
       "item": [
         {
@@ -409,7 +1588,7 @@
               "script": {
                 "exec": [
                   "const jsonData = pm.response.json();",
-                  "pm.environment.set(\"TOKEN\", jsonData.data.token);"
+                  "pm.environment.set(\"TOKEN\", jsonData.data.accessToken);"
                 ],
                 "type": "text/javascript"
               }

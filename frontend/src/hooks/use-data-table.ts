@@ -141,11 +141,29 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     [pagination, setPage, setPerPage],
   );
 
+  /**
+   * Derive a stable and unique identifier for a column.
+   * If an explicit `id` is provided, prefer it, otherwise fall back to `accessorKey`.
+   * (TanStack Table internally uses `accessorKey` as the id when `id` is absent,
+   *  but that value isn’t present on the static column definition we receive here.)
+   */
+  const getColumnKey = React.useCallback(
+    (column: { id?: string; accessorKey?: unknown }) => {
+      return (
+        column.id ??
+        (typeof column.accessorKey === "string" ? column.accessorKey : undefined)
+      );
+    },
+    [],
+  );
+
   const columnIds = React.useMemo(() => {
     return new Set(
-      columns.map((column) => column.id).filter(Boolean) as string[],
+      columns
+        .map((column) => getColumnKey(column))
+        .filter(Boolean) as string[],
     );
-  }, [columns]);
+  }, [columns, getColumnKey]);
 
   const [sorting, setSorting] = useQueryState(
     SORT_KEY,
@@ -176,17 +194,19 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     return filterableColumns.reduce<
       Record<string, Parser<string> | Parser<string[]>>
     >((acc, column) => {
+      const key = getColumnKey(column) ?? ""; // fallback to empty string (shouldn’t happen)
+
       if (column.meta?.options) {
-        acc[column.id ?? ""] = parseAsArrayOf(
+        acc[key] = parseAsArrayOf(
           parseAsString,
           ARRAY_SEPARATOR,
         ).withOptions(queryStateOptions);
       } else {
-        acc[column.id ?? ""] = parseAsString.withOptions(queryStateOptions);
+        acc[key] = parseAsString.withOptions(queryStateOptions);
       }
       return acc;
     }, {});
-  }, [filterableColumns, queryStateOptions, enableAdvancedFilter]);
+  }, [filterableColumns, queryStateOptions, enableAdvancedFilter, getColumnKey]);
 
   const [filterValues, setFilterValues] = useQueryStates(filterParsers);
 
@@ -237,7 +257,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
         const filterUpdates = next.reduce<
           Record<string, string | string[] | null>
         >((acc, filter) => {
-          if (filterableColumns.find((column) => column.id === filter.id)) {
+          if (filterableColumns.find((column) => getColumnKey(column) === filter.id)) {
             acc[filter.id] = filter.value as string | string[];
           }
           return acc;

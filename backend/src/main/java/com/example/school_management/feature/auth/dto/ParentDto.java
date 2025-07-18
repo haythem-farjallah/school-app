@@ -1,6 +1,7 @@
 package com.example.school_management.feature.auth.dto;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 public record ParentDto(
         /* ------------ identity ------------ */
@@ -16,5 +17,9 @@ public record ParentDto(
         String address,
 
         /* ------------ parent-specific ------------ */
-        String preferredContactMethod
+        String preferredContactMethod,
+        String relation,
+        
+        /* ------------ children ------------ */
+        Set<StudentDto> children
 ) {} 

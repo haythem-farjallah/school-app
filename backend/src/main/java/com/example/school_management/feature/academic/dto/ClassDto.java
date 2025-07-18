@@ -7,9 +7,13 @@ import java.util.Set;
 
 @JsonFilter("fieldFilter")
 @JsonResource("class")
-public record ClassDto(Long id,
-                       String name,
-                       Long levelId,
-                       Set<Long> studentIds,
-                       Set<Long> courseIds,
-                       Long scheduleId) { }
+public record ClassDto(
+        Long id,
+        String name,
+        Integer yearOfStudy,
+        Integer maxStudents,
+        Set<Long> studentIds,
+        Set<Long> courseIds,
+        Set<Long> teacherIds,
+        Long assignedRoomId
+) { }

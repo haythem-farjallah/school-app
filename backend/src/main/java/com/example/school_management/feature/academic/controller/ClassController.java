@@ -77,9 +77,8 @@ public class ClassController {
     public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> list(
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
-            @Parameter(description = "Filter by level ID (optional)") @RequestParam(required = false) Long levelId,
             @Parameter(description = "Filter by name pattern (optional)") @RequestParam(required = false) String nameLike) {
-        var dto = new PageDto<>(service.list(PageRequest.of(page, size), levelId, nameLike));
+        var dto = new PageDto<>(service.list(PageRequest.of(page, size), nameLike));
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
 

@@ -1,0 +1,1612 @@
+{
+  "info": {
+    "name": "School Management – Admin API (Apidog Enhanced)",
+    "description": "Comprehensive API collection for School Management System with full test coverage",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
+  },
+  "variable": [
+    { 
+      "key": "HOST", 
+      "value": "localhost:8088",
+      "description": "API server host"
+    },
+    { 
+      "key": "TOKEN", 
+      "value": "",
+      "description": "JWT authentication token"
+    },
+    {
+      "key": "USER_ID",
+      "value": "1",
+      "description": "Sample user ID for testing"
+    },
+    {
+      "key": "ROLE",
+      "value": "TEACHER",
+      "description": "Sample role for permission testing"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script",
+          "console.log('Starting request to: ' + pm.request.url);",
+          "",
+          "// Set timestamp for requests",
+          "pm.globals.set('timestamp', new Date().toISOString());",
+          "",
+          "// Validate token exists for protected routes",
+          "if (pm.request.url.toString().includes('/api/') && !pm.request.url.toString().includes('/auth/')) {",
+          "    const token = pm.environment.get('TOKEN') || pm.collectionVariables.get('TOKEN');",
+          "    if (!token) {",
+          "        console.warn('No token found - request may fail');",
+          "    }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script",
+          "pm.test('Response time is acceptable', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "pm.test('Response has proper content type', function () {",
+          "    if (pm.response.code === 200) {",
+          "        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "    }",
+          "});",
+          "",
+          "// Log response for debugging",
+          "console.log('Response Status:', pm.response.status);",
+          "console.log('Response Time:', pm.response.responseTime + 'ms');"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "description": "Authentication endpoints for login, register, and password management",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@school.test\",\n  \"password\": \"adminpass\"\n}"
+            },
+            "description": "Authenticate user and receive JWT token"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has token', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "    pm.expect(jsonData.data).to.have.property('token');",
+                  "    pm.expect(jsonData.data.token).to.be.a('string');",
+                  "    pm.expect(jsonData.data.token.length).to.be.above(10);",
+                  "});",
+                  "",
+                  "pm.test('Response has user info', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('user');",
+                  "    pm.expect(jsonData.data.user).to.have.property('email');",
+                  "    pm.expect(jsonData.data.user).to.have.property('role');",
+                  "});",
+                  "",
+                  "// Store token for subsequent requests",
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('TOKEN', jsonData.data.token);",
+                  "    pm.environment.set('USER_ID', jsonData.data.user.id);",
+                  "    pm.environment.set('USER_ROLE', jsonData.data.user.role);",
+                  "    console.log('Token stored successfully');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser{{$randomInt}}@school.test\",\n  \"password\": \"securepass123\",\n  \"firstName\": \"{{$randomFirstName}}\",\n  \"lastName\": \"{{$randomLastName}}\"\n}"
+            },
+            "description": "Register a new user account"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration successful', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response contains user data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "    pm.expect(jsonData.data).to.have.property('user');",
+                  "    pm.expect(jsonData.data.user).to.have.property('email');",
+                  "});",
+                  "",
+                  "pm.test('Password not returned in response', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.user).to.not.have.property('password');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/auth/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@school.test\"\n}"
+            },
+            "description": "Request password reset for user"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Password reset request successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response confirms email sent', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👨‍🎓 Students",
+      "description": "Student management endpoints with filtering and CRUD operations",
+      "item": [
+        {
+          "name": "Get Students (Paged)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students",
+              "query": [
+                { "key": "page", "value": "0", "description": "Page number (0-based)" },
+                { "key": "size", "value": "10", "description": "Items per page" },
+                { "key": "sort", "value": "firstName:asc", "description": "Sort criteria", "disabled": true }
+              ]
+            },
+            "description": "Retrieve paginated list of students"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get students successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has pagination info', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "    pm.expect(jsonData.data).to.have.property('content');",
+                  "    pm.expect(jsonData.data).to.have.property('totalElements');",
+                  "    pm.expect(jsonData.data).to.have.property('totalPages');",
+                  "    pm.expect(jsonData.data).to.have.property('number');",
+                  "    pm.expect(jsonData.data).to.have.property('size');",
+                  "});",
+                  "",
+                  "pm.test('Students array is valid', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "    ",
+                  "    if (jsonData.data.content.length > 0) {",
+                  "        const student = jsonData.data.content[0];",
+                  "        pm.expect(student).to.have.property('id');",
+                  "        pm.expect(student).to.have.property('profile');",
+                  "        pm.expect(student.profile).to.have.property('firstName');",
+                  "        pm.expect(student.profile).to.have.property('lastName');",
+                  "        pm.expect(student.profile).to.have.property('email');",
+                  "        ",
+                  "        // Store first student ID for other tests",
+                  "        pm.environment.set('FIRST_STUDENT_ID', student.id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/students",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"firstName\": \"{{$randomFirstName}}\",\n    \"lastName\": \"{{$randomLastName}}\",\n    \"email\": \"student{{$randomInt}}@school.test\",\n    \"telephone\": \"+1-555-{{$randomInt}}\",\n    \"birthday\": \"2008-05-15\",\n    \"gender\": \"{{$randomArrayElement(['M', 'F'])}}\",\n    \"address\": \"{{$randomInt}} Student St, {{$randomCity}}\",\n    \"role\": \"STUDENT\"\n  },\n  \"gradeLevel\": \"{{$randomArrayElement(['ELEMENTARY', 'MIDDLE', 'HIGH'])}}\",\n  \"enrollmentYear\": {{$randomInt}}\n}"
+            },
+            "description": "Create a new student with profile information"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Created student has valid structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "    pm.expect(jsonData.data).to.have.property('profile');",
+                  "    pm.expect(jsonData.data.profile).to.have.property('firstName');",
+                  "    pm.expect(jsonData.data.profile).to.have.property('lastName');",
+                  "    pm.expect(jsonData.data.profile).to.have.property('email');",
+                  "    pm.expect(jsonData.data.profile.role).to.equal('STUDENT');",
+                  "});",
+                  "",
+                  "pm.test('Student ID is valid', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.id).to.be.a('number');",
+                  "    pm.expect(jsonData.data.id).to.be.above(0);",
+                  "    ",
+                  "    // Store created student ID for cleanup",
+                  "    pm.environment.set('CREATED_STUDENT_ID', jsonData.data.id);",
+                  "});",
+                  "",
+                  "pm.test('Email format is valid', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const email = jsonData.data.profile.email;",
+                  "    pm.expect(email).to.match(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Student by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/{{FIRST_STUDENT_ID}}",
+            "description": "Retrieve specific student by ID"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get student by ID successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Student data is complete', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "    pm.expect(jsonData.data).to.have.property('profile');",
+                  "    pm.expect(jsonData.data).to.have.property('gradeLevel');",
+                  "    pm.expect(jsonData.data).to.have.property('enrollmentYear');",
+                  "});",
+                  "",
+                  "pm.test('Returned student ID matches requested', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const requestedId = pm.environment.get('FIRST_STUDENT_ID');",
+                  "    pm.expect(jsonData.data.id.toString()).to.equal(requestedId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students/search",
+              "query": [
+                { "key": "q", "value": "john", "description": "Search query" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Search students by name or other criteria"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Search executed successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Search results have pagination', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('content');",
+                  "    pm.expect(jsonData.data).to.have.property('totalElements');",
+                  "});",
+                  "",
+                  "pm.test('Search results are relevant', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const searchTerm = 'john';",
+                  "    ",
+                  "    if (jsonData.data.content.length > 0) {",
+                  "        // At least one result should contain the search term",
+                  "        const hasRelevantResult = jsonData.data.content.some(student => {",
+                  "            const fullName = (student.profile.firstName + ' ' + student.profile.lastName).toLowerCase();",
+                  "            return fullName.includes(searchTerm.toLowerCase());",
+                  "        });",
+                  "        pm.expect(hasRelevantResult).to.be.true;",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Advanced Filter Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students/filter",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" },
+                { "key": "gradeLevel_eq", "value": "HIGH", "description": "Filter by grade level" },
+                { "key": "enrollmentYear_gte", "value": "2023", "description": "Enrolled after year" },
+                { "key": "sort", "value": "firstName:asc", "description": "Sort order" }
+              ]
+            },
+            "description": "Advanced filtering with multiple criteria"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Filter executed successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Filter results match criteria', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    ",
+                  "    if (jsonData.data.content.length > 0) {",
+                  "        jsonData.data.content.forEach(student => {",
+                  "            // Check grade level filter",
+                  "            pm.expect(student.gradeLevel).to.equal('HIGH');",
+                  "            ",
+                  "            // Check enrollment year filter",
+                  "            pm.expect(student.enrollmentYear).to.be.at.least(2023);",
+                  "        });",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Results are properly sorted', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    ",
+                  "    if (jsonData.data.content.length > 1) {",
+                  "        for (let i = 1; i < jsonData.data.content.length; i++) {",
+                  "            const prev = jsonData.data.content[i-1].profile.firstName.toLowerCase();",
+                  "            const curr = jsonData.data.content[i].profile.firstName.toLowerCase();",
+                  "            pm.expect(prev <= curr).to.be.true;",
+                  "        }",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/students/{{CREATED_STUDENT_ID}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Updated Name\",\n  \"telephone\": \"+1-555-999-8888\",\n  \"gradeLevel\": \"HIGH\"\n}"
+            },
+            "description": "Update student information"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student updated successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Updated fields are reflected', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.profile.firstName).to.equal('Updated Name');",
+                  "    pm.expect(jsonData.data.profile.telephone).to.equal('+1-555-999-8888');",
+                  "    pm.expect(jsonData.data.gradeLevel).to.equal('HIGH');",
+                  "});",
+                  "",
+                  "pm.test('Other fields remain unchanged', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.profile).to.have.property('email');",
+                  "    pm.expect(jsonData.data.profile).to.have.property('lastName');",
+                  "    pm.expect(jsonData.data).to.have.property('enrollmentYear');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Student Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": "{{HOST}}/api/v1/students/stats",
+            "description": "Get statistical overview of students"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statistics retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Statistics contain expected metrics', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('total');",
+                  "    pm.expect(jsonData.data.total).to.be.a('number');",
+                  "    pm.expect(jsonData.data.total).to.be.at.least(0);",
+                  "});",
+                  "",
+                  "pm.test('Statistics include breakdown by grade level', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data.total > 0) {",
+                  "        pm.expect(jsonData.data).to.have.property('byGradeLevel');",
+                  "        pm.expect(jsonData.data.byGradeLevel).to.be.an('object');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👨‍🏫 Teachers",
+      "description": "Teacher management endpoints",
+      "item": [
+        {
+          "name": "Get Teachers (Paged)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/admin/teachers",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Retrieve paginated list of teachers"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get teachers successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Teachers have required fields', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    ",
+                  "    if (jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "        const teacher = jsonData.data.content[0];",
+                  "        pm.expect(teacher).to.have.property('profile');",
+                  "        pm.expect(teacher).to.have.property('qualifications');",
+                  "        pm.expect(teacher).to.have.property('subjectsTaught');",
+                  "        pm.expect(teacher).to.have.property('availableHours');",
+                  "        pm.expect(teacher.profile.role).to.equal('TEACHER');",
+                  "        ",
+                  "        pm.environment.set('FIRST_TEACHER_ID', teacher.id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Teacher",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/admin/teachers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"firstName\": \"{{$randomFirstName}}\",\n    \"lastName\": \"{{$randomLastName}}\",\n    \"email\": \"teacher{{$randomInt}}@school.test\",\n    \"telephone\": \"+1-555-{{$randomInt}}\",\n    \"birthday\": \"1985-07-21\",\n    \"gender\": \"{{$randomArrayElement(['M', 'F'])}}\",\n    \"address\": \"{{$randomInt}} Teacher Rd, {{$randomCity}}\",\n    \"role\": \"TEACHER\"\n  },\n  \"qualifications\": \"{{$randomArrayElement(['M.Ed', 'Ph.D', 'B.Ed', 'M.A'])}}\",\n  \"subjectsTaught\": \"{{$randomArrayElement(['Mathematics', 'English', 'Science', 'History'])}}\",\n  \"availableHours\": {{$randomInt}},\n  \"schedulePreferences\": \"{{$randomArrayElement(['Morning classes preferred', 'Afternoon preferred', 'Flexible schedule'])}}\"\n}"
+            },
+            "description": "Create a new teacher with qualifications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Teacher created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Created teacher has valid structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('profile');",
+                  "    pm.expect(jsonData.data).to.have.property('qualifications');",
+                  "    pm.expect(jsonData.data).to.have.property('subjectsTaught');",
+                  "    pm.expect(jsonData.data).to.have.property('availableHours');",
+                  "    pm.expect(jsonData.data.profile.role).to.equal('TEACHER');",
+                  "    ",
+                  "    pm.environment.set('CREATED_TEACHER_ID', jsonData.data.id);",
+                  "});",
+                  "",
+                  "pm.test('Available hours is valid number', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.availableHours).to.be.a('number');",
+                  "    pm.expect(jsonData.data.availableHours).to.be.at.least(0);",
+                  "    pm.expect(jsonData.data.availableHours).to.be.at.most(40);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📚 Classes & Courses",
+      "description": "Academic class and course management",
+      "item": [
+        {
+          "name": "Get Classes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/classes",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Retrieve all classes with pagination"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get classes successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Classes have required structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    ",
+                  "    if (jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "        const classItem = jsonData.data.content[0];",
+                  "        pm.expect(classItem).to.have.property('id');",
+                  "        pm.expect(classItem).to.have.property('name');",
+                  "        pm.expect(classItem).to.have.property('levelId');",
+                  "        ",
+                  "        pm.environment.set('FIRST_CLASS_ID', classItem.id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Class",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/classes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test-Class-{{$randomInt}}\",\n  \"levelId\": 1\n}"
+            },
+            "description": "Create a new class"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Class created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Created class has valid data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "    pm.expect(jsonData.data).to.have.property('name');",
+                  "    pm.expect(jsonData.data).to.have.property('levelId');",
+                  "    pm.expect(jsonData.data.name).to.include('Test-Class-');",
+                  "    ",
+                  "    pm.environment.set('CREATED_CLASS_ID', jsonData.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Courses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/courses",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Retrieve all courses with pagination"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get courses successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Courses have required structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    ",
+                  "    if (jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "        const course = jsonData.data.content[0];",
+                  "        pm.expect(course).to.have.property('id');",
+                  "        pm.expect(course).to.have.property('name');",
+                  "        pm.expect(course).to.have.property('coefficient');",
+                  "        pm.expect(course.coefficient).to.be.a('number');",
+                  "        ",
+                  "        pm.environment.set('FIRST_COURSE_ID', course.id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/courses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{$randomArrayElement(['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History'])}}\",\n  \"color\": \"{{$randomColor}}\",\n  \"coefficient\": {{$randomInt}}.0,\n  \"teacherId\": {{FIRST_TEACHER_ID}}\n}"
+            },
+            "description": "Create a new course"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Course created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Created course has valid data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "    pm.expect(jsonData.data).to.have.property('name');",
+                  "    pm.expect(jsonData.data).to.have.property('color');",
+                  "    pm.expect(jsonData.data).to.have.property('coefficient');",
+                  "    pm.expect(jsonData.data.coefficient).to.be.a('number');",
+                  "    ",
+                  "    pm.environment.set('CREATED_COURSE_ID', jsonData.data.id);",
+                  "});",
+                  "",
+                  "pm.test('Color is valid hex format', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.color).to.match(/^#[0-9A-Fa-f]{6}$/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📋 Learning Resources",
+      "description": "Educational content and resource management",
+      "item": [
+        {
+          "name": "Get Learning Resources",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/learning-resources",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Retrieve learning resources with pagination"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get resources successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Resources have required structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    ",
+                  "    if (jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "        const resource = jsonData.data.content[0];",
+                  "        pm.expect(resource).to.have.property('id');",
+                  "        pm.expect(resource).to.have.property('title');",
+                  "        pm.expect(resource).to.have.property('type');",
+                  "        pm.expect(resource).to.have.property('isPublic');",
+                  "        ",
+                  "        pm.environment.set('FIRST_RESOURCE_ID', resource.id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Learning Resource (URL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/learning-resources",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{$randomCatchPhrase}} Tutorial\",\n  \"description\": \"{{$randomLoremSentence}}\",\n  \"url\": \"https://www.youtube.com/watch?v={{$randomAlphaNumeric}}\",\n  \"type\": \"VIDEO\",\n  \"thumbnailUrl\": \"https://img.youtube.com/vi/{{$randomAlphaNumeric}}/default.jpg\",\n  \"duration\": {{$randomInt}},\n  \"isPublic\": {{$randomBoolean}},\n  \"teacherIds\": [{{FIRST_TEACHER_ID}}],\n  \"classIds\": [{{FIRST_CLASS_ID}}],\n  \"courseIds\": [{{FIRST_COURSE_ID}}]\n}"
+            },
+            "description": "Create a new learning resource with URL"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Resource created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Created resource has valid data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "    pm.expect(jsonData.data).to.have.property('title');",
+                  "    pm.expect(jsonData.data).to.have.property('type');",
+                  "    pm.expect(jsonData.data).to.have.property('url');",
+                  "    pm.expect(jsonData.data.type).to.equal('VIDEO');",
+                  "    ",
+                  "    pm.environment.set('CREATED_RESOURCE_ID', jsonData.data.id);",
+                  "});",
+                  "",
+                  "pm.test('URL is valid format', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.url).to.match(/^https?:\\/\\/.+/);",
+                  "});",
+                  "",
+                  "pm.test('Duration is valid', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.duration).to.be.a('number');",
+                  "    pm.expect(jsonData.data.duration).to.be.at.least(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter Resources by Type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/learning-resources",
+              "query": [
+                { "key": "type", "value": "VIDEO" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Filter resources by type"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Filter by type successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('All results match filter', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    ",
+                  "    if (jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "        jsonData.data.content.forEach(resource => {",
+                  "            pm.expect(resource.type).to.equal('VIDEO');",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "💬 Resource Comments",
+      "description": "Comments and feedback on learning resources",
+      "item": [
+        {
+          "name": "Create Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/resource-comments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"{{$randomLoremSentence}} This resource is very helpful!\",\n  \"resourceId\": {{FIRST_RESOURCE_ID}}\n}"
+            },
+            "description": "Create a comment on a learning resource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Comment created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Created comment has valid data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "    pm.expect(jsonData.data).to.have.property('content');",
+                  "    pm.expect(jsonData.data).to.have.property('resourceId');",
+                  "    pm.expect(jsonData.data).to.have.property('createdAt');",
+                  "    ",
+                  "    pm.environment.set('CREATED_COMMENT_ID', jsonData.data.id);",
+                  "});",
+                  "",
+                  "pm.test('Comment content is not empty', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.content.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Comments by Resource",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/resource-comments/resource/{{FIRST_RESOURCE_ID}}",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Get all comments for a specific resource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get comments successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Comments belong to correct resource', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const resourceId = pm.environment.get('FIRST_RESOURCE_ID');",
+                  "    ",
+                  "    if (jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "        jsonData.data.content.forEach(comment => {",
+                  "            pm.expect(comment.resourceId.toString()).to.equal(resourceId);",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📊 Admin Dashboard",
+      "description": "Administrative dashboard and analytics",
+      "item": [
+        {
+          "name": "Get System Overview",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/dashboard/overview",
+            "description": "Get comprehensive system overview"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('System overview retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Overview contains key metrics', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('totalStudents');",
+                  "    pm.expect(jsonData.data).to.have.property('totalTeachers');",
+                  "    pm.expect(jsonData.data).to.have.property('totalClasses');",
+                  "    pm.expect(jsonData.data).to.have.property('totalCourses');",
+                  "});",
+                  "",
+                  "pm.test('Metrics are valid numbers', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.totalStudents).to.be.a('number');",
+                  "    pm.expect(jsonData.data.totalTeachers).to.be.a('number');",
+                  "    pm.expect(jsonData.data.totalClasses).to.be.a('number');",
+                  "    pm.expect(jsonData.data.totalCourses).to.be.a('number');",
+                  "    ",
+                  "    // All should be non-negative",
+                  "    pm.expect(jsonData.data.totalStudents).to.be.at.least(0);",
+                  "    pm.expect(jsonData.data.totalTeachers).to.be.at.least(0);",
+                  "    pm.expect(jsonData.data.totalClasses).to.be.at.least(0);",
+                  "    pm.expect(jsonData.data.totalCourses).to.be.at.least(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/dashboard/admin",
+            "description": "Get admin-specific dashboard data"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin dashboard retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Dashboard contains admin-specific data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.be.an('object');",
+                  "    // Add specific assertions based on your admin dashboard structure",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔔 Admin Feeds",
+      "description": "Activity feeds and notifications for administrators",
+      "item": [
+        {
+          "name": "Get Admin Feeds",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/admin-feeds",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "Get paginated admin activity feeds"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin feeds retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Feeds have required structure', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('content');",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "    ",
+                  "    if (jsonData.data.content.length > 0) {",
+                  "        const feed = jsonData.data.content[0];",
+                  "        pm.expect(feed).to.have.property('id');",
+                  "        pm.expect(feed).to.have.property('eventType');",
+                  "        pm.expect(feed).to.have.property('createdAt');",
+                  "        ",
+                  "        pm.environment.set('FIRST_FEED_ID', feed.id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark Feed as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/admin-feeds/{{FIRST_FEED_ID}}/read",
+            "description": "Mark a specific feed as read"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Feed marked as read successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Feed status updated', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.expect(jsonData.data.isRead).to.be.true;",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Unread Feeds",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/admin-feeds/unread",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "Get only unread admin feeds"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unread feeds retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('All returned feeds are unread', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    ",
+                  "    if (jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "        jsonData.data.content.forEach(feed => {",
+                  "            pm.expect(feed.isRead).to.be.false;",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🎓 Enrollment Management",
+      "description": "Student enrollment and class management",
+      "item": [
+        {
+          "name": "Enroll Student in Class",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{HOST}}/api/v1/enrollments/enroll",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": {{FIRST_STUDENT_ID}},\n  \"classId\": {{FIRST_CLASS_ID}}\n}"
+            },
+            "description": "Enroll a student in a specific class"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Enrollment created successfully', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Enrollment has valid data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "    pm.expect(jsonData.data).to.have.property('studentId');",
+                  "    pm.expect(jsonData.data).to.have.property('classId');",
+                  "    pm.expect(jsonData.data).to.have.property('status');",
+                  "    pm.expect(jsonData.data).to.have.property('enrolledAt');",
+                  "    ",
+                  "    pm.environment.set('CREATED_ENROLLMENT_ID', jsonData.data.id);",
+                  "});",
+                  "",
+                  "pm.test('Enrollment status is ACTIVE', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.status).to.equal('ACTIVE');",
+                  "});",
+                  "",
+                  "pm.test('Student and class IDs match request', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const studentId = pm.environment.get('FIRST_STUDENT_ID');",
+                  "    const classId = pm.environment.get('FIRST_CLASS_ID');",
+                  "    ",
+                  "    pm.expect(jsonData.data.studentId.toString()).to.equal(studentId);",
+                  "    pm.expect(jsonData.data.classId.toString()).to.equal(classId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Student Enrollments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/enrollments/student/{{FIRST_STUDENT_ID}}",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Get all enrollments for a specific student"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student enrollments retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('All enrollments belong to correct student', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const studentId = pm.environment.get('FIRST_STUDENT_ID');",
+                  "    ",
+                  "    if (jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "        jsonData.data.content.forEach(enrollment => {",
+                  "            pm.expect(enrollment.studentId.toString()).to.equal(studentId);",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Can Enroll Student",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": {
+              "raw": "{{HOST}}/api/v1/enrollments/can-enroll",
+              "query": [
+                { "key": "studentId", "value": "{{FIRST_STUDENT_ID}}" },
+                { "key": "classId", "value": "{{CREATED_CLASS_ID}}" }
+              ]
+            },
+            "description": "Check if a student can be enrolled in a specific class"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Enrollment check completed successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response indicates enrollment possibility', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('canEnroll');",
+                  "    pm.expect(jsonData.data.canEnroll).to.be.a('boolean');",
+                  "    ",
+                  "    if (!jsonData.data.canEnroll) {",
+                  "        pm.expect(jsonData.data).to.have.property('reason');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔐 Permissions",
+      "description": "Role-based permission management",
+      "item": [
+        {
+          "name": "Get Permission Catalogue",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/admin/permissions",
+            "description": "Get all available permission codes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Permission catalogue retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Permissions list is valid', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "    ",
+                  "    if (jsonData.data.length > 0) {",
+                  "        jsonData.data.forEach(permission => {",
+                  "            pm.expect(permission).to.be.a('string');",
+                  "            pm.expect(permission.length).to.be.above(0);",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Role Default Permissions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/admin/permissions/roles/{{ROLE}}",
+            "description": "Get default permissions for a specific role"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Role permissions retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Role permissions are valid', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('codes');",
+                  "    pm.expect(jsonData.data.codes).to.be.an('array');",
+                  "    ",
+                  "    if (jsonData.data.codes.length > 0) {",
+                  "        jsonData.data.codes.forEach(code => {",
+                  "            pm.expect(code).to.be.a('string');",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🧹 Cleanup",
+      "description": "Cleanup test data (run last)",
+      "item": [
+        {
+          "name": "Delete Created Student",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/students/{{CREATED_STUDENT_ID}}",
+            "description": "Delete the student created during testing"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student deleted successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Clear the environment variable",
+                  "pm.environment.unset('CREATED_STUDENT_ID');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Created Teacher",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/admin/teachers/{{CREATED_TEACHER_ID}}",
+            "description": "Delete the teacher created during testing"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Teacher deleted successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.environment.unset('CREATED_TEACHER_ID');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Created Class",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/classes/{{CREATED_CLASS_ID}}",
+            "description": "Delete the class created during testing"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Class deleted successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.environment.unset('CREATED_CLASS_ID');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Created Course",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/courses/{{CREATED_COURSE_ID}}",
+            "description": "Delete the course created during testing"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Course deleted successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.environment.unset('CREATED_COURSE_ID');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Created Resource",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/learning-resources/{{CREATED_RESOURCE_ID}}",
+            "description": "Delete the learning resource created during testing"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Resource deleted successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.environment.unset('CREATED_RESOURCE_ID');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Created Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+            "url": "{{HOST}}/api/v1/resource-comments/{{CREATED_COMMENT_ID}}",
+            "description": "Delete the comment created during testing"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Comment deleted successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.environment.unset('CREATED_COMMENT_ID');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+} 

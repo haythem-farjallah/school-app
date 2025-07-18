@@ -51,13 +51,17 @@ export function getTeachersColumns(actions?: {
       ),
       cell: ({ row }) => {
         const firstName = row.getValue("firstName") as string;
+        const teacher = row.original;
         return (
-          <div className="flex items-center space-x-3">
+          <div 
+            className="flex items-center space-x-3 cursor-pointer hover:bg-blue-50 rounded-lg p-2 -m-2 transition-colors duration-200"
+            onClick={() => actions?.onView?.(teacher)}
+          >
             <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 border border-blue-200/60 flex items-center justify-center">
               <User className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <div className="font-semibold text-slate-900">{firstName}</div>
+              <div className="font-semibold text-slate-900 hover:text-blue-700 transition-colors duration-200">{firstName}</div>
             </div>
           </div>
         );
@@ -76,8 +80,14 @@ export function getTeachersColumns(actions?: {
       ),
       cell: ({ row }) => {
         const lastName = row.getValue("lastName") as string;
+        const teacher = row.original;
         return (
-          <div className="font-semibold text-slate-900">{lastName}</div>
+          <div 
+            className="font-semibold text-slate-900 hover:text-blue-700 cursor-pointer transition-colors duration-200"
+            onClick={() => actions?.onView?.(teacher)}
+          >
+            {lastName}
+          </div>
         );
       },
       enableColumnFilter: true,

@@ -2,6 +2,16 @@ import { z } from "zod";
 import type { BaseField } from "@/form/types";
 import { User, Mail, Phone, Calendar, Home, GraduationCap, BookOpen } from "lucide-react";
 
+// Utility to generate academic years like "2024-2025"
+const generateAcademicYears = (span = 5): { value: string; label: string }[] => {
+  const current = new Date().getFullYear();
+  return Array.from({ length: span }, (_, i) => {
+    const start = current + i;
+    const end = start + 1;
+    return { value: `${start}`, label: `${start}-${end}` };
+  });
+};
+
 /* ---------- Zod schema ---------- */
 export const studentSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
@@ -9,10 +19,10 @@ export const studentSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   telephone: z.string().optional(),
   birthday: z.string().optional(),
-  gender: z.string().optional(),
+  gender: z.enum(["M", "F", "O"]).optional(),
   address: z.string().optional(),
   gradeLevel: z.string().min(1, "Grade level is required").max(20, "Grade level must be less than 20 characters"),
-  enrollmentYear: z.number().min(1900, "Enrollment year must be at least 1900").max(2100, "Enrollment year cannot exceed 2100"),
+  enrollmentYear: z.coerce.number().min(1900, "Enrollment year must be at least 1900").max(2100, "Enrollment year cannot exceed 2100").optional(),
 });
 
 export type StudentValues = z.infer<typeof studentSchema>;
@@ -42,48 +52,57 @@ export const studentFields: BaseField[] = [
   },
   {
     name: "telephone",
-    type: "text",
+    type: "number",
     label: "Phone Number",
     placeholder: "Enter phone number (optional)",
     icon: Phone,
   },
   {
     name: "birthday",
-    type: "text",
+    type: "date",
     label: "Birthday",
-    placeholder: "Enter birthday (YYYY-MM-DD) (optional)",
+    placeholder: "Select date…",
     icon: Calendar,
   },
   {
     name: "gender",
-    type: "text",
+    type: "select",
     label: "Gender",
-    placeholder: "Enter gender (M/F/O) (optional)",
+    placeholder: "Select gender",
     icon: User,
+    options: [
+      { value: "M", label: "Male" },
+      { value: "F", label: "Female" },
+      { value: "O", label: "Other" },
+    ],
   },
   {
     name: "address",
     type: "text",
     label: "Address",
-    placeholder: "Enter address (optional)",
+    placeholder: "Enter complete address (optional)",
     icon: Home,
   },
   {
     name: "gradeLevel",
-    type: "text",
+    type: "select",
     label: "Grade Level",
-    placeholder: "Enter grade level (e.g., 5th, Grade 10)",
+    placeholder: "Select grade level",
     icon: GraduationCap,
+    options: [
+      { value: "KINDERGARTEN", label: "Kindergarten" },
+      { value: "ELEMENTARY", label: "Elementary" },
+      { value: "MIDDLE", label: "Middle" },
+      { value: "HIGH", label: "High" },
+      { value: "UNIVERSITY", label: "University" },
+    ],
   },
   {
     name: "enrollmentYear",
-    type: "number",
+    type: "select",
     label: "Enrollment Year",
-    placeholder: "Enter enrollment year",
+    placeholder: "Select year",
     icon: BookOpen,
-    props: {
-      min: "1900",
-      max: "2100"
-    },
+    options: generateAcademicYears(6),
   },
 ]; 

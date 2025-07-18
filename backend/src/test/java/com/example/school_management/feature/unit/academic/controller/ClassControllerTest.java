@@ -63,8 +63,8 @@ class ClassControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void createClass_returnsSuccessJson() throws Exception {
-        CreateClassRequest req = new CreateClassRequest("3-A", null);
-        ClassDto dto = new ClassDto(1L, "3-A", null, Set.of(), Set.of(), null);
+        CreateClassRequest req = new CreateClassRequest("3-A");
+        ClassDto dto = new ClassDto(1L, "3-A", null, null, Set.of(), Set.of(), Set.of(), null);
 
         when(classService.create(any(CreateClassRequest.class)))
                 .thenReturn(dto);
@@ -85,8 +85,8 @@ class ClassControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void listClasses_withFilter() throws Exception {
-        ClassDto dto = new ClassDto(3L, "Science-A", null, Set.of(), Set.of(), null);
-        when(classService.list(any(PageRequest.class), any(), anyString()))
+        ClassDto dto = new ClassDto(3L, "Science-A", null, null, Set.of(), Set.of(), Set.of(), null);
+        when(classService.list(any(PageRequest.class), anyString()))
                 .thenReturn(new PageImpl<>(List.of(dto)));
 
         mockMvc.perform(get("/api/v1/classes")
@@ -97,7 +97,7 @@ class ClassControllerTest {
                 .andExpect(jsonPath("$.data.content[0].id", is(3)));
 
         verify(classService)
-                .list(PageRequest.of(0, 10), null, "Sci");
+                .list(PageRequest.of(0, 10), "Sci");
     }
 
     /* ───────────────────────── add single student ───────────── */
@@ -105,7 +105,7 @@ class ClassControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void addStudent_callsServiceAndReturnsDto() throws Exception {
-        ClassDto dto = new ClassDto(1L, "3-A", null, Set.of(99L), Set.of(), null);
+        ClassDto dto = new ClassDto(1L, "3-A", null, null, Set.of(99L), Set.of(), Set.of(), null);
 
         when(classService.addStudent(1L, 99L))
                 .thenReturn(dto);

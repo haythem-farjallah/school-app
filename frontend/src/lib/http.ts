@@ -47,7 +47,7 @@ http.interceptors.response.use(
           const {
             data: { accessToken },
           } = await http.post<{ accessToken: string }>(
-            "/users/refresh-token",
+            "/auth/refresh-token",
             { refreshToken: token.refresh },
             { skipAuth: true } as RetryableRequest  // <- cast so skipAuth is allowed
           );

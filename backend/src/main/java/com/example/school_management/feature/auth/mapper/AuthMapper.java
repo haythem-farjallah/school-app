@@ -27,8 +27,9 @@ public interface AuthMapper {
     @Mapping(target="profileSettings", ignore = true)
     Administration toAdmin(RegisterRequest rq);
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "permissions", ignore = true)
-    @Mapping(target = "profileSettings", ignore = true)
-    Worker toWorker(RegisterRequest rq);
+    @Mapping(target="id", ignore = true)
+    @Mapping(target="permissions", ignore = true)
+    @Mapping(target="profileSettings", ignore = true)
+    Staff toStaff(RegisterRequest rq);
+
 }

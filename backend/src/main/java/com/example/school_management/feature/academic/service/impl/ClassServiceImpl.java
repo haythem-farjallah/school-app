@@ -9,11 +9,16 @@ import com.example.school_management.feature.academic.entity.*;
 import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.*;
 import com.example.school_management.feature.academic.service.ClassService;
+import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.operational.service.AuditService;
+import com.example.school_management.feature.operational.entity.enums.AuditEventType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,11 +39,12 @@ import static com.example.school_management.feature.academic.dto.BatchIdsRequest
 public class ClassServiceImpl implements ClassService {
 
     private final ClassRepository   classRepo;
-    private final LevelRepository   levelRepo;
     private final CourseRepository  courseRepo;
     private final StudentRepository studentRepo;
     private final AcademicMapper    mapper;
     private final TeachingAssignmentRepository  assignmentRepo;
+    private final AuditService auditService;
+    private final BaseUserRepository<BaseUser> userRepo;
 
     /* ─────────────────── CRUD ─────────────────── */
 
@@ -52,11 +58,29 @@ public class ClassServiceImpl implements ClassService {
 
         ClassEntity entity = new ClassEntity();
         entity.setName(r.name());
-        if (r.levelId() != null)
-            entity.setLevel(fetch(levelRepo, r.levelId(), "Level"));
 
-        ClassDto dto = mapper.toClassDto(classRepo.save(entity));
+        ClassEntity savedEntity = classRepo.save(entity);
+        ClassDto dto = mapper.toClassDto(savedEntity);
         log.info("Class created id={}", dto.id());
+        
+        // Create audit event
+        try {
+            BaseUser currentUser = getCurrentUser();
+            String summary = "New class created";
+            String details = String.format("Class created: %s (ID: %d)", savedEntity.getName(), savedEntity.getId());
+            
+            auditService.createAuditEvent(
+                AuditEventType.CLASS_CREATED,
+                "Class",
+                savedEntity.getId(),
+                summary,
+                details,
+                currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to create audit event for class creation: {}", e.getMessage());
+        }
+        
         return dto;
     }
 
@@ -64,14 +88,59 @@ public class ClassServiceImpl implements ClassService {
     public ClassDto update(Long id, UpdateClassRequest r) {
         log.debug("Updating class {} with {}", id, r);
         ClassEntity entity = fetch(classRepo, id, "Class");
+        String oldName = entity.getName();
+        
         mapper.updateClassEntity(r, entity);
+        
+        // Create audit event
+        try {
+            BaseUser currentUser = getCurrentUser();
+            String summary = "Class updated";
+            String details = String.format("Class updated: ID %d, old name: %s, new name: %s", 
+                id, oldName, entity.getName());
+            
+            auditService.createAuditEvent(
+                AuditEventType.CLASS_UPDATED,
+                "Class",
+                id,
+                summary,
+                details,
+                currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to create audit event for class update: {}", e.getMessage());
+        }
+        
         return mapper.toClassDto(entity);
     }
 
     @Override
     public void delete(Long id) {
         log.info("Deleting class {}", id);
+        
+        // Get class details before deletion for audit
+        ClassEntity entity = fetch(classRepo, id, "Class");
+        String className = entity.getName();
+        
         classRepo.deleteById(id);
+        
+        // Create audit event
+        try {
+            BaseUser currentUser = getCurrentUser();
+            String summary = "Class deleted";
+            String details = String.format("Class deleted: %s (ID: %d)", className, id);
+            
+            auditService.createAuditEvent(
+                AuditEventType.CLASS_DELETED,
+                "Class",
+                id,
+                summary,
+                details,
+                currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to create audit event for class deletion: {}", e.getMessage());
+        }
     }
 
     @Override
@@ -84,14 +153,11 @@ public class ClassServiceImpl implements ClassService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ClassDto> list(Pageable page, Long levelId, String nameLike) {
+    public Page<ClassDto> list(Pageable page, String nameLike) {
 
-        log.trace("Listing classes levelId={} nameLike={} {}", levelId, nameLike, page);
+        log.trace("Listing classes nameLike={} {}", nameLike, page);
 
         Specification<ClassEntity> spec = (root, q, cb) -> cb.conjunction();
-
-        if (levelId != null)
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("level").get("id"), levelId));
 
         if (nameLike != null && !nameLike.isBlank())
             spec = spec.and((root, q, cb) ->
@@ -209,5 +275,14 @@ public class ClassServiceImpl implements ClassService {
                 .map(mapper::toAssignmentDto)
                 .toList();
         return new ClassViewDto(c.getId(), c.getName(), list);
+    }
+    
+    /**
+     * Get the current authenticated user
+     */
+    private BaseUser getCurrentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepo.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Current user not found: " + email));
     }
 }

@@ -1,0 +1,18 @@
+{
+    "welcome": "Bienvenue",
+    "logout": "Se déconnecter",
+    "form": {
+        "submit": "Se connecter"
+    },
+    "First Name": "Prénom",
+    "Last Name": "Nom de famille",
+    "Email Address": "Adresse e-mail",
+    "Phone Number": "Numéro de téléphone",
+    "Birthday": "Date de naissance",
+    "Gender": "Genre",
+    "Address": "Adresse",
+    "Qualifications": "Qualifications",
+    "Subjects Taught": "Matières enseignées",
+    "Available Hours": "Heures disponibles",
+    "Schedule Preferences": "Préférences d'horaire"
+} 

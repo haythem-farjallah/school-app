@@ -29,3 +29,12 @@ export interface Teacher {
     schedulePreferences: string;
   }
 
+  export interface UpdateTeacherData {
+    telephone?: string | null;
+    address?: string | null;
+    qualifications?: string;
+    subjectsTaught?: string;
+    availableHours?: number;
+    schedulePreferences?: string;
+  }
+

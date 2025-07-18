@@ -5,6 +5,7 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Course } from "@/types/course";
 import { CourseActions } from "./course-actions";
+import { Link } from "react-router-dom";
 
 export function getCoursesColumns(actions?: {
   onView?: (course: Course) => void;
@@ -62,9 +63,15 @@ export function getCoursesColumns(actions?: {
       ),
       cell: ({ row }) => {
         const name = row.getValue("name") as string;
+        const id = row.original.id;
         return (
           <div className="flex items-center space-x-3">
-            <div className="font-semibold text-slate-900 group-hover:text-blue-900 transition-colors duration-200">{name}</div>
+            <Link
+              to={`/admin/courses/view/${id}`}
+              className="font-semibold text-slate-900 group-hover:text-blue-900 transition-colors duration-200 hover:underline"
+            >
+              {name}
+            </Link>
           </div>
         );
       },
@@ -95,27 +102,50 @@ export function getCoursesColumns(actions?: {
       size: 150,
     },
     {
-      accessorKey: "coefficient",
+      accessorKey: "credit",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Coefficient" />
+        <DataTableColumnHeader column={column} title="Credit" />
       ),
       cell: ({ row }) => {
-        const coefficient = row.getValue("coefficient") as number;
+        const credit = row.getValue("credit") as number;
         return (
           <Badge 
             variant="secondary" 
             className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 hover:from-blue-200 hover:to-indigo-200 border border-blue-200/60 font-semibold transition-colors duration-200"
           >
-            {coefficient.toFixed(1)}
+            {credit ? credit.toFixed(1) : 'N/A'}
           </Badge>
         );
       },
       enableColumnFilter: true,
       meta: {
         variant: "range",
-        label: "Coefficient",
+        label: "Credit",
       },
       size: 100,
+    },
+    {
+      accessorKey: "weeklyCapacity",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Weekly Hours" />
+      ),
+      cell: ({ row }) => {
+        const weeklyCapacity = row.getValue("weeklyCapacity") as number;
+        return (
+          <Badge 
+            variant="outline" 
+            className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 hover:from-green-200 hover:to-emerald-200 border border-green-200/60 font-semibold transition-colors duration-200"
+          >
+            {weeklyCapacity ? `${weeklyCapacity}h/week` : 'N/A'}
+          </Badge>
+        );
+      },
+      enableColumnFilter: true,
+      meta: {
+        variant: "range",
+        label: "Weekly Hours",
+      },
+      size: 120,
     },
     {
       accessorKey: "teacherId",

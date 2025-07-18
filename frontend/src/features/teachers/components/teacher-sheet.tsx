@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Plus, User, Edit } from "lucide-react"
+import { Plus, User, Edit, Mail, Phone } from "lucide-react"
 import toast from "react-hot-toast"
 
 import { Button } from "@/components/ui/button"
@@ -15,8 +15,9 @@ import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
 import { useMutationApi } from "@/hooks/useMutationApi"
 import { http } from "@/lib/http"
-import type { Teacher, CreateTeacherData } from "@/types/teacher"
-import { teacherSchema, teacherFields, type TeacherValues } from "../teacherForm.definition"
+import type { Teacher, CreateTeacherData, UpdateTeacherData } from "@/types/teacher"
+import { teacherSchema, teacherFields, teacherUpdateSchema, teacherUpdateFields, type TeacherValues, type TeacherUpdateValues } from "../teacherForm.definition"
+import { useUpdateTeacher } from "../hooks/use-teachers"
 
 interface AddTeacherSheetProps {
   onSuccess?: () => void
@@ -27,8 +28,8 @@ export function AddTeacherSheet({ onSuccess }: AddTeacherSheetProps) {
 
   const addTeacherMutation = useMutationApi<Teacher, CreateTeacherData>(
     async (data) => {
-      const response = await http.post<Teacher>("/admin/teachers", data)
-      return response.data
+      const response = await http.post<{ status: string; data: Teacher }>("/admin/teachers", data)
+      return (response as unknown as { status: string; data: Teacher }).data
     },
     {
       onSuccess: () => {
@@ -63,7 +64,9 @@ export function AddTeacherSheet({ onSuccess }: AddTeacherSheetProps) {
         },
         qualifications: formValues.qualifications,
         subjectsTaught: formValues.subjectsTaught,
-        availableHours: formValues.availableHours,
+        availableHours: typeof formValues.availableHours === 'string' 
+          ? parseInt(formValues.availableHours, 10) 
+          : formValues.availableHours,
         schedulePreferences: formValues.schedulePreferences,
       };
       await addTeacherMutation.mutateAsync(teacherData);
@@ -129,34 +132,85 @@ interface EditTeacherSheetProps {
 export function EditTeacherSheet({ teacher, trigger, onSuccess }: EditTeacherSheetProps) {
   const [open, setOpen] = React.useState(false)
 
-  const editTeacherMutation = useMutationApi<Teacher, TeacherValues>(
-    async (data) => {
-      const response = await http.patch<Teacher>(`/admin/teachers/${teacher.id}`, data)
-      return response.data
-    },
-    {
-      onSuccess: () => {
-        toast.success("Teacher updated successfully!")
-        setOpen(false)
-        onSuccess?.()
-      },
-      onError: (error: unknown) => {
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to update teacher"
-        toast.error(message)
-      },
+  const editTeacherMutation = useUpdateTeacher()
+
+  // Debug: Log the teacher data and form fields
+  React.useEffect(() => {
+    if (open) {
+      console.log("🔍 EditTeacherSheet - Teacher data:", teacher);
+      console.log("🔍 EditTeacherSheet - Update fields:", teacherUpdateFields);
+      console.log("🔍 EditTeacherSheet - Default values:", {
+        telephone: teacher.telephone || "",
+        address: teacher.address || "",
+        qualifications: teacher.qualifications,
+        subjectsTaught: teacher.subjectsTaught,
+        availableHours: teacher.availableHours,
+        schedulePreferences: teacher.schedulePreferences,
+      });
     }
-  )
+  }, [open, teacher]);
 
   const editTeacherRecipe: FormRecipe = {
-    schema: teacherSchema,
-    fields: teacherFields,
+    schema: teacherUpdateSchema,
+    fields: teacherUpdateFields,
     onSubmit: async (values: unknown) => {
-      await editTeacherMutation.mutateAsync(values as TeacherValues)
+      const formValues = values as TeacherUpdateValues;
+      
+      // Debug: Log the raw form values
+      console.log("🔍 EditTeacherSheet - Raw form values:", formValues);
+      console.log("🔍 EditTeacherSheet - Telephone value:", formValues.telephone, "Type:", typeof formValues.telephone);
+      console.log("🔍 EditTeacherSheet - Address value:", formValues.address, "Type:", typeof formValues.address);
+      
+      // For updates, send the data in the format expected by TeacherUpdateDto (flat structure)
+      const teacherData: UpdateTeacherData & { id: number } = {
+        id: teacher.id,
+        // Send fields directly (not nested in profile) as expected by TeacherUpdateDto
+        telephone: formValues.telephone && formValues.telephone.trim() !== "" ? formValues.telephone : null,
+        address: formValues.address && formValues.address.trim() !== "" ? formValues.address : null,
+        qualifications: formValues.qualifications,
+        subjectsTaught: formValues.subjectsTaught,
+        availableHours: typeof formValues.availableHours === 'string' 
+          ? parseInt(formValues.availableHours, 10) 
+          : formValues.availableHours,
+        schedulePreferences: formValues.schedulePreferences,
+      };
+      console.log("✏️ EditTeacherSheet - Transformed data:", teacherData)
+      await editTeacherMutation.mutateAsync(teacherData)
     },
   }
+
+  // Handle success and error states with useCallback to prevent infinite loops
+  const handleSuccess = React.useCallback(() => {
+    toast.success("Teacher updated successfully!")
+    setOpen(false)
+    // Call onSuccess callback if provided
+    if (onSuccess) {
+      onSuccess()
+    }
+    // Reset the mutation state to prevent infinite loops
+    editTeacherMutation.reset()
+  }, [onSuccess, editTeacherMutation])
+
+  const handleError = React.useCallback(() => {
+    console.error("❌ EditTeacherSheet - Update failed:", editTeacherMutation.error)
+    const error = editTeacherMutation.error as { response?: { data?: { message?: string } } };
+    const message = error?.response?.data?.message || "Failed to update teacher"
+    toast.error(message)
+    // Reset the mutation state to prevent infinite loops
+    editTeacherMutation.reset()
+  }, [editTeacherMutation])
+
+  React.useEffect(() => {
+    if (editTeacherMutation.isSuccess) {
+      handleSuccess()
+    }
+  }, [editTeacherMutation.isSuccess, handleSuccess])
+
+  React.useEffect(() => {
+    if (editTeacherMutation.isError) {
+      handleError()
+    }
+  }, [editTeacherMutation.isError, handleError])
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -186,15 +240,37 @@ export function EditTeacherSheet({ teacher, trigger, onSuccess }: EditTeacherShe
         </SheetHeader>
 
         <div className="py-6">
+          {/* Display non-editable fields as read-only information */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Teacher Information (Read-only)</h3>
+            <div className="grid grid-cols-1 gap-3">
+              <div className="flex items-center space-x-2">
+                <User className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">
+                  <span className="font-medium">Name:</span> {teacher.firstName} {teacher.lastName}
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Mail className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">
+                  <span className="font-medium">Email:</span> {teacher.email}
+                </span>
+              </div>
+              {teacher.telephone && (
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">
+                    <span className="font-medium">Phone:</span> {teacher.telephone}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          
           <AutoForm
             recipe={editTeacherRecipe}
             defaultValues={{
-              firstName: teacher.firstName,
-              lastName: teacher.lastName,
-              email: teacher.email,
               telephone: teacher.telephone || "",
-              birthday: teacher.birthday || "",
-              gender: teacher.gender || "",
               address: teacher.address || "",
               qualifications: teacher.qualifications,
               subjectsTaught: teacher.subjectsTaught,
@@ -204,6 +280,20 @@ export function EditTeacherSheet({ teacher, trigger, onSuccess }: EditTeacherShe
             submitLabel="Update Teacher"
             submitClassName="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300"
           />
+          
+          {/* Debug: Show current form state */}
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">Form Debug Info:</h4>
+            <div className="text-xs text-blue-700 space-y-1">
+              <div>Teacher ID: {teacher.id}</div>
+              <div>Current telephone in teacher data: '{teacher.telephone || 'null'}'</div>
+              <div>Current address in teacher data: '{teacher.address || 'null'}'</div>
+              <div>Form fields count: {teacherUpdateFields.length}</div>
+              <div>Form field names: {teacherUpdateFields.map(f => f.name).join(', ')}</div>
+            </div>
+          </div>
+          
+
         </div>
       </SheetContent>
     </Sheet>

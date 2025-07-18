@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { BaseField } from "@/form/types";
-import { User, Mail, Phone, Calendar, Home, MessageCircle } from "lucide-react";
+import { User, Mail, Phone, Calendar, Home, MessageCircle, Users } from "lucide-react";
 
 /* ---------- Zod schema ---------- */
 export const parentSchema = z.object({
@@ -11,10 +11,21 @@ export const parentSchema = z.object({
   birthday: z.string().optional(),
   gender: z.string().optional(),
   address: z.string().optional(),
-  preferredContactMethod: z.string().optional(),
+  preferredContactMethod: z.enum(['EMAIL', 'PHONE', 'SMS', 'WHATSAPP', 'IN_PERSON']).optional(),
+  relation: z.enum(['FATHER', 'MOTHER', 'GUARDIAN', 'SIBLING', 'OTHER']).optional(),
+  children: z.array(z.any()).optional(), // Array of selected students
 });
-
 export type ParentValues = z.infer<typeof parentSchema>;
+
+/* ---------- Schema for updates (only updatable fields) ---------- */
+export const parentUpdateSchema = z.object({
+  telephone: z.string().optional(),
+  address: z.string().optional(),
+  preferredContactMethod: z.enum(['EMAIL', 'PHONE', 'SMS', 'WHATSAPP', 'IN_PERSON']).optional(),
+  relation: z.enum(['FATHER', 'MOTHER', 'GUARDIAN', 'SIBLING', 'OTHER']).optional(),
+  children: z.array(z.any()).optional(), // Add children assignment to edit
+});
+export type ParentUpdateValues = z.infer<typeof parentUpdateSchema>;
 
 /* ---------- Field list ---------- */
 export const parentFields: BaseField[] = [
@@ -38,6 +49,9 @@ export const parentFields: BaseField[] = [
     label: "Email Address",
     placeholder: "Enter email address",
     icon: Mail,
+    props: {
+      type: "email"
+    },
   },
   {
     name: "telephone",
@@ -45,20 +59,28 @@ export const parentFields: BaseField[] = [
     label: "Phone Number",
     placeholder: "Enter phone number (optional)",
     icon: Phone,
+    props: {
+      type: "tel"
+    },
   },
   {
     name: "birthday",
-    type: "text",
+    type: "date",
     label: "Birthday",
-    placeholder: "Enter birthday (YYYY-MM-DD) (optional)",
+    placeholder: "Select birthday (optional)",
     icon: Calendar,
   },
   {
     name: "gender",
-    type: "text",
+    type: "select",
     label: "Gender",
-    placeholder: "Enter gender (M/F/O) (optional)",
+    placeholder: "Select gender (optional)",
     icon: User,
+    options: [
+      { value: "M", label: "Male" },
+      { value: "F", label: "Female" },
+      { value: "O", label: "Other" },
+    ],
   },
   {
     name: "address",
@@ -69,9 +91,93 @@ export const parentFields: BaseField[] = [
   },
   {
     name: "preferredContactMethod",
-    type: "text",
+    type: "select",
     label: "Preferred Contact Method",
-    placeholder: "Enter preferred contact method (e.g., email, phone, sms) (optional)",
+    placeholder: "Select preferred contact method (optional)",
     icon: MessageCircle,
+    options: [
+      { value: "EMAIL", label: "Email" },
+      { value: "PHONE", label: "Phone" },
+      { value: "SMS", label: "SMS" },
+      { value: "WHATSAPP", label: "WhatsApp" },
+      { value: "IN_PERSON", label: "In Person" },
+    ],
+  },
+  {
+    name: "relation",
+    type: "select",
+    label: "Relation to Child",
+    placeholder: "Select relation (optional)",
+    icon: Users,
+    options: [
+      { value: "FATHER", label: "Father" },
+      { value: "MOTHER", label: "Mother" },
+      { value: "GUARDIAN", label: "Guardian" },
+      { value: "SIBLING", label: "Sibling" },
+      { value: "OTHER", label: "Other" },
+    ],
+  },
+  {
+    name: "children",
+    type: "student-search",
+    label: "Assign Children",
+    placeholder: "Search and select children to assign...",
+    icon: Users,
+  },
+];
+
+/* ---------- Field list for updates (only updatable fields) ---------- */
+export const parentUpdateFields: BaseField[] = [
+  {
+    name: "telephone",
+    type: "text",
+    label: "Phone Number",
+    placeholder: "Enter phone number (optional)",
+    icon: Phone,
+    props: {
+      type: "tel"
+    },
+  },
+  {
+    name: "address",
+    type: "text",
+    label: "Address",
+    placeholder: "Enter address (optional)",
+    icon: Home,
+  },
+  {
+    name: "preferredContactMethod",
+    type: "select",
+    label: "Preferred Contact Method",
+    placeholder: "Select preferred contact method (optional)",
+    icon: MessageCircle,
+    options: [
+      { value: "EMAIL", label: "Email" },
+      { value: "PHONE", label: "Phone" },
+      { value: "SMS", label: "SMS" },
+      { value: "WHATSAPP", label: "WhatsApp" },
+      { value: "IN_PERSON", label: "In Person" },
+    ],
+  },
+  {
+    name: "relation",
+    type: "select",
+    label: "Relation to Child",
+    placeholder: "Select relation (optional)",
+    icon: Users,
+    options: [
+      { value: "FATHER", label: "Father" },
+      { value: "MOTHER", label: "Mother" },
+      { value: "GUARDIAN", label: "Guardian" },
+      { value: "SIBLING", label: "Sibling" },
+      { value: "OTHER", label: "Other" },
+    ],
+  },
+  {
+    name: "children",
+    type: "student-search",
+    label: "Assign Children",
+    placeholder: "Search and select children to assign...",
+    icon: Users,
   },
 ]; 

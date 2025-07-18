@@ -6,9 +6,9 @@ import com.fasterxml.jackson.annotation.JsonFilter;
 @JsonFilter("fieldFilter")
 @JsonResource("classCard")
 public record ClassCardDto(
-        Long   id,
+        Long id,
         String name,
-        String levelName,
-        int    studentCount,
-        int    courseCount,
-        int    teacherCount) { }
+        Integer studentCount,
+        Integer courseCount,
+        Integer teacherCount
+) { }

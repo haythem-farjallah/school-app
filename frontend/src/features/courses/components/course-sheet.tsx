@@ -50,7 +50,16 @@ export function AddCourseSheet({ onSuccess }: AddCourseSheetProps) {
     schema: courseSchema,
     fields: courseFields,
     onSubmit: async (values: unknown) => {
-      await addCourseMutation.mutateAsync(values as CourseValues)
+      console.log("📝 Course form values:", values);
+      const typedValues = values as CourseValues;
+      console.log("📝 Values types:", {
+        name: typeof typedValues.name,
+        color: typeof typedValues.color,
+        credit: typeof typedValues.credit,
+        weeklyCapacity: typeof typedValues.weeklyCapacity,
+        teacherId: typeof typedValues.teacherId,
+      });
+      await addCourseMutation.mutateAsync(typedValues)
     },
   }
 
@@ -85,8 +94,9 @@ export function AddCourseSheet({ onSuccess }: AddCourseSheetProps) {
             defaultValues={{
               name: "",
               color: "#3B82F6",
-              coefficient: 1.0,
-              teacherId: 1,
+              credit: 1.0,
+              weeklyCapacity: 3,
+              teacherId: undefined,
             }}
             submitLabel="Add Course"
             submitClassName="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
@@ -131,7 +141,16 @@ export function EditCourseSheet({ course, trigger, onSuccess }: EditCourseSheetP
     schema: courseSchema,
     fields: courseFields,
     onSubmit: async (values: unknown) => {
-      await editCourseMutation.mutateAsync(values as CourseValues)
+      console.log("📝 Edit course form values:", values);
+      const typedValues = values as CourseValues;
+      console.log("📝 Edit values types:", {
+        name: typeof typedValues.name,
+        color: typeof typedValues.color,
+        credit: typeof typedValues.credit,
+        weeklyCapacity: typeof typedValues.weeklyCapacity,
+        teacherId: typeof typedValues.teacherId,
+      });
+      await editCourseMutation.mutateAsync(typedValues)
     },
   }
 
@@ -168,7 +187,8 @@ export function EditCourseSheet({ course, trigger, onSuccess }: EditCourseSheetP
             defaultValues={{
               name: course.name,
               color: course.color,
-              coefficient: course.coefficient,
+              credit: course.credit,
+              weeklyCapacity: course.weeklyCapacity,
               teacherId: course.teacherId,
             }}
             submitLabel="Update Course"

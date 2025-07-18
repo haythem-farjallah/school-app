@@ -10,16 +10,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EditCourseSheet } from "./course-sheet";
 import type { Course } from "@/types/course";
+import { useNavigate } from "react-router-dom";
 
 interface CourseActionsProps {
   course: Course;
-  onView?: (course: Course) => void;
   onEdit?: (course: Course) => void;
   onDelete?: (course: Course) => void;
   onSuccess?: () => void;
 }
 
-export function CourseActions({ course, onView,  onDelete, onSuccess }: CourseActionsProps) {
+export function CourseActions({ course, onDelete, onSuccess }: CourseActionsProps) {
+  const navigate = useNavigate();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -34,7 +35,7 @@ export function CourseActions({ course, onView,  onDelete, onSuccess }: CourseAc
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-sm border border-slate-200/80 shadow-xl">
         <DropdownMenuItem 
-          onClick={() => onView?.(course)}
+          onClick={() => navigate(`/admin/courses/view/${course.id}`)}
           className="cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-blue-50 focus:to-indigo-50"
         >
           <Eye className="mr-3 h-4 w-4 text-blue-600" />

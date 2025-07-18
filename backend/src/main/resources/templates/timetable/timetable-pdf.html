@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Timetable - PDF Export</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .header .subtitle {
+            color: #7f8c8d;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .timetable-info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .timetable-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .timetable-info td {
+            padding: 5px 10px;
+            border: none;
+        }
+        
+        .timetable-info td:first-child {
+            font-weight: bold;
+            width: 120px;
+        }
+        
+        .timetable-grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .timetable-grid th {
+            background-color: #2c3e50;
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid #34495e;
+        }
+        
+        .timetable-grid td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            vertical-align: top;
+            min-height: 60px;
+        }
+        
+        .time-slot {
+            background-color: #ecf0f1;
+            font-weight: bold;
+            width: 80px;
+        }
+        
+        .lesson-slot {
+            background-color: #e8f5e8;
+            border: 1px solid #27ae60;
+        }
+        
+        .lesson-slot.empty {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+        }
+        
+        .lesson-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 3px;
+        }
+        
+        .lesson-details {
+            font-size: 10px;
+            color: #7f8c8d;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 10px;
+            color: #7f8c8d;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>School Timetable</h1>
+        <div class="subtitle" th:text="${timetable.name}">Timetable Name</div>
+        <div class="subtitle" th:text="${timetable.academicYear + ' - ' + timetable.semester}">Academic Year - Semester</div>
+    </div>
+    
+    <div class="timetable-info">
+        <table>
+            <tr>
+                <td>Description:</td>
+                <td th:text="${timetable.description}">Description</td>
+            </tr>
+            <tr>
+                <td>Classes:</td>
+                <td th:text="${#strings.listJoin(timetable.classes.![name], ', ')}">Classes</td>
+            </tr>
+            <tr>
+                <td>Teachers:</td>
+                <td th:text="${#strings.listJoin(timetable.teachers.![firstName + ' ' + lastName], ', ')}">Teachers</td>
+            </tr>
+            <tr>
+                <td>Generated:</td>
+                <td th:text="${#dates.format(generatedAt, 'dd/MM/yyyy HH:mm')}">Generated Date</td>
+            </tr>
+        </table>
+    </div>
+    
+    <table class="timetable-grid">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th th:each="day : ${daysOfWeek}" th:text="${day}">Day</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- This is a simplified version - in a real implementation, you'd need to define time slots -->
+            <tr th:each="timeSlot : ${#numbers.sequence(8, 16)}">
+                <td class="time-slot" th:text="${timeSlot + ':00'}">8:00</td>
+                <td th:each="day : ${daysOfWeek}" 
+                    th:class="${slotsByDay.get(day) != null and #lists.contains(slotsByDay.get(day).![startTime], timeSlot + ':00') ? 'lesson-slot' : 'lesson-slot empty'}">
+                    <div th:if="${slotsByDay.get(day) != null and #lists.contains(slotsByDay.get(day).![startTime], timeSlot + ':00')}">
+                        <div th:each="slot : ${slotsByDay.get(day)}" 
+                             th:if="${slot.startTime == timeSlot + ':00'}"
+                             class="lesson-slot">
+                            <div class="lesson-title" th:text="${slot.course != null ? slot.course.name : 'N/A'}">Course Name</div>
+                            <div class="lesson-details" th:text="${slot.teacher != null ? slot.teacher.firstName + ' ' + slot.teacher.lastName : 'N/A'}">Teacher</div>
+                            <div class="lesson-details" th:text="${slot.room != null ? slot.room.name : 'N/A'}">Room</div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        <p>Generated on <span th:text="${#dates.format(generatedAt, 'dd/MM/yyyy HH:mm:ss')}">Date</span></p>
+        <p>School Management System - Timetable Export</p>
+    </div>
+</body>
+</html> 

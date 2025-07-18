@@ -37,7 +37,7 @@ public class AuthService {
     private final TeacherRepository teacherRepository;
     private final ParentRepository parentRepository;
     private final AdministrationRepository administrationRepository;
-    private final WorkerRepository workerRepository;
+    private final StaffRepository staffRepository;
 
     /**
      * Authenticate a user and return JWT tokens plus user profile data.
@@ -84,9 +84,9 @@ public class AuthService {
                 Administration user = authMapper.toAdmin(request);
                 finalizeAndSave(user, administrationRepository);
             }
-            case WORKER -> {
-                Worker user = authMapper.toWorker(request);
-                finalizeAndSave(user, workerRepository);
+            case STAFF -> {
+                Staff user = authMapper.toStaff(request);
+                finalizeAndSave(user, staffRepository);
             }
             default -> throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,

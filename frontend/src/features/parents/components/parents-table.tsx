@@ -1,52 +1,73 @@
 import * as React from "react";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCheck, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, UserCheck, TrendingUp, Plus } from "lucide-react";
+import { type Parser, useQueryState, useQueryStates, parseAsInteger, parseAsString } from "nuqs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { useParents, useDeleteParent } from "../hooks/use-parents";
 import { getParentsColumns } from "./parent-columns.tsx";
-import { AddParentSheet } from "./parent-sheet";
 import type { Parent } from "@/types/parent";
 
 export function ParentsTable() {
-  const [page, setPage] = React.useState(0);
-  const [pageSize, setPageSize] = React.useState(10);
-  const [search, setSearch] = React.useState("");
-
-  const { data: pageData, isLoading, error, refetch } = useParents({ size: pageSize });
-  
-  const parents = pageData?.data || [];
-  const totalElements = pageData?.totalItems || 0;
-  const totalPages = pageData?.totalPages || 0;
+  const navigate = useNavigate();
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [parentToDelete, setParentToDelete] = React.useState<Parent | null>(null);
 
   const deleteMutation = useDeleteParent();
 
   const handleView = React.useCallback((parent: Parent) => {
-    toast(`Viewing parent: ${parent.firstName} ${parent.lastName}`);
-    // Implement view logic here
-  }, []);
+    console.log("👁️ ParentsTable - Viewing parent:", parent);
+    navigate(`/admin/parents/view/${parent.id}`);
+  }, [navigate]);
 
   const handleEdit = React.useCallback((parent: Parent) => {
+    console.log("✏️ ParentsTable - Editing parent:", parent);
     // Edit logic is now handled by the EditParentSheet component
-    console.log(`Editing parent: ${parent.firstName} ${parent.lastName}`);
   }, []);
 
-  const handleDelete = React.useCallback(async (parent: Parent) => {
-    if (window.confirm(`Are you sure you want to delete "${parent.firstName} ${parent.lastName}"?`)) {
-      try {
-        await deleteMutation.mutateAsync(parent.id);
-        toast.success(`Parent "${parent.firstName} ${parent.lastName}" deleted successfully`);
-        refetch();
-      } catch {
-        toast.error("Failed to delete parent");
-      }
+  const handleDelete = React.useCallback((parent: Parent) => {
+    console.log("🗑️ ParentsTable - Deleting parent:", parent);
+    setParentToDelete(parent);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const confirmDelete = React.useCallback(async () => {
+    if (!parentToDelete) return;
+    
+    console.log("✅ ParentsTable - Confirming delete for:", parentToDelete);
+    
+    try {
+      await deleteMutation.mutateAsync(parentToDelete.id);
+      toast.success(`Parent "${parentToDelete.firstName} ${parentToDelete.lastName}" deleted successfully`);
+      refetch();
+    } catch (error) {
+      console.error("❌ ParentsTable - Delete failed:", error);
+      toast.error("Failed to delete parent");
+    } finally {
+      setDeleteDialogOpen(false);
+      setParentToDelete(null);
     }
-  }, [deleteMutation, refetch]);
+  }, [deleteMutation, parentToDelete]);
+
+  const handleCreate = React.useCallback(() => {
+    console.log("➕ ParentsTable - Creating new parent");
+    navigate("/admin/parents/create");
+  }, [navigate]);
 
   const columns = React.useMemo(
     () => getParentsColumns({
@@ -55,8 +76,63 @@ export function ParentsTable() {
       onDelete: handleDelete,
       onSuccess: () => refetch(),
     }),
-    [handleView, handleEdit, handleDelete, refetch]
+    [handleView, handleEdit, handleDelete]
   );
+
+  // URL pagination parameters (managed by useDataTable)
+  const [urlPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize] = useQueryState("perPage", parseAsInteger.withDefault(10));
+  const currentPageIndex = urlPage - 1;
+
+  // Build filter parsers dynamically from column definitions
+  const filterParsers = React.useMemo(() => {
+    const parsers: Record<string, Parser<string>> = {};
+    columns.forEach((col) => {
+      // We need to derive a stable key for the column – prefer `id`, fallback to `accessorKey` when it exists.
+      const accessorKey = (col as { accessorKey?: unknown }).accessorKey;
+      const key = (col.id ?? (typeof accessorKey === "string" ? accessorKey : undefined)) as
+        | string
+        | undefined;
+      if (key && col.enableColumnFilter) {
+        parsers[key] = parseAsString.withDefault("").withOptions({ shallow: true });
+      }
+    });
+    return parsers;
+  }, [columns]);
+
+  const [filterValues] = useQueryStates(filterParsers);
+
+  // Map frontend column keys to backend filter parameter names
+  const apiParams = React.useMemo(() => {
+    const keyMap: Record<string, string> = {
+      firstName: "firstNameLike",
+      lastName: "lastNameLike",
+      email: "emailLike",
+      telephone: "telephoneLike",
+      preferredContactMethod: "preferredContactMethodLike",
+    };
+
+    const params: Record<string, unknown> = {};
+
+    Object.entries(filterValues).forEach(([key, val]) => {
+      if (typeof val === "string" && val.trim()) {
+        const backendKey = keyMap[key] ?? key;
+        params[backendKey] = val.trim();
+      }
+    });
+
+    return params;
+  }, [filterValues]);
+
+  const { data: parentsResponse, isLoading, error, refetch } = useParents({
+    page: currentPageIndex,
+    size: pageSize,
+    ...apiParams,
+  });
+
+  const parents = parentsResponse?.data ?? [];
+  const totalElements = parentsResponse?.totalItems ?? 0;
+  const totalPages = parentsResponse?.totalPages ?? 0;
 
   const { table } = useDataTable({
     data: parents,
@@ -64,35 +140,15 @@ export function ParentsTable() {
     pageCount: totalPages,
     initialState: {
       pagination: {
-        pageIndex: page,
+        pageIndex: currentPageIndex,
         pageSize,
       },
     },
     enableAdvancedFilter: false,
   });
 
-  // Update page when table pagination changes
-  React.useEffect(() => {
-    const pagination = table.getState().pagination;
-    if (pagination.pageIndex !== page) {
-      setPage(pagination.pageIndex);
-    }
-    if (pagination.pageSize !== pageSize) {
-      setPageSize(pagination.pageSize);
-    }
-  }, [table, page, pageSize]);
-
-  // Handle search from URL or toolbar
-  React.useEffect(() => {
-    const columnFilters = table.getState().columnFilters;
-    const nameFilter = columnFilters.find(filter => filter.id === "firstName");
-    const searchValue = nameFilter?.value as string || "";
-    if (searchValue !== search) {
-      setSearch(searchValue);
-    }
-  }, [table, search]);
-
   if (error) {
+    console.error("❌ ParentsTable - Error loading parents:", error);
     return (
       <Card className="border-red-200 shadow-lg">
         <CardContent className="pt-6">
@@ -118,7 +174,13 @@ export function ParentsTable() {
                 Manage and organize parent information efficiently
               </CardDescription>
             </div>
-            <AddParentSheet onSuccess={() => refetch()} />
+            <Button
+              onClick={handleCreate}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Parent
+            </Button>
           </div>
         </CardHeader>
       </Card>
@@ -180,6 +242,37 @@ export function ParentsTable() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you absolutely sure?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the parent{" "}
+              <span className="font-semibold">
+                {parentToDelete?.firstName} {parentToDelete?.lastName}
+              </span>{" "}
+              and remove their data from our servers.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

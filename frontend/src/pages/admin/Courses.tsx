@@ -12,7 +12,7 @@ const AdminCourses = () => {
           {t('Courses Management')}
         </h1>
         <p className="text-gray-600">
-          {t('Manage and organize your courses, set coefficients, and assign teachers')}
+          {t('Manage and organize your courses, set credits, and assign teachers')}
         </p>
       </div>
       

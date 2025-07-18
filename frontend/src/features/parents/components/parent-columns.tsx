@@ -139,6 +139,17 @@ export function getParentsColumns(actions?: {
       ),
       cell: ({ row }) => {
         const method = row.getValue("preferredContactMethod") as string;
+        const getMethodLabel = (method: string) => {
+          switch (method) {
+            case 'EMAIL': return 'Email';
+            case 'PHONE': return 'Phone';
+            case 'SMS': return 'SMS';
+            case 'WHATSAPP': return 'WhatsApp';
+            case 'IN_PERSON': return 'In Person';
+            default: return method;
+          }
+        };
+        
         return method ? (
           <div className="flex items-center space-x-2">
             <MessageCircle className="h-4 w-4 text-green-600" />
@@ -146,7 +157,7 @@ export function getParentsColumns(actions?: {
               variant="outline" 
               className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 hover:from-green-200 hover:to-emerald-200 border border-green-200/60 font-semibold transition-colors duration-200"
             >
-              {method}
+              {getMethodLabel(method)}
             </Badge>
           </div>
         ) : (

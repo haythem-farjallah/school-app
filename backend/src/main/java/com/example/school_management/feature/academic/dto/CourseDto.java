@@ -5,4 +5,4 @@ import com.fasterxml.jackson.annotation.JsonFilter;
 
 @JsonFilter("fieldFilter")
 @JsonResource("course")
-public record CourseDto(Long id, String name, String color, Double coefficient, Long teacherId) { }
+public record CourseDto(Long id, String name, String color, Float credit, Integer weeklyCapacity, Long teacherId) { }

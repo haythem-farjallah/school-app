@@ -1,13 +1,15 @@
 import { z } from "zod";
 import type { BaseField } from "@/form/types";
-import { BookOpen, Palette, User } from "lucide-react";
+import { BookOpen, Palette, User, Clock } from "lucide-react";
+import { TeacherField } from "./components/teacher-field";
 
 /* ---------- Zod schema ---------- */
 export const courseSchema = z.object({
   name: z.string().min(1, "Course name is required").max(100, "Course name must be less than 100 characters"),
   color: z.string().min(4, "Please select a color").max(7, "Invalid color format"),
-  coefficient: z.number().min(0.1, "Coefficient must be at least 0.1").max(10, "Coefficient must be at most 10"),
-  teacherId: z.number().min(1, "Please select a teacher"),
+  credit: z.number().min(0.1, "Credit must be at least 0.1").max(10, "Credit must be at most 10"),
+  weeklyCapacity: z.number().min(1, "Weekly capacity must be at least 1").max(40, "Weekly capacity must be at most 40"),
+  teacherId: z.number().min(1, "Please select a teacher").optional(),
 });
 export type CourseValues = z.infer<typeof courseSchema>;
 
@@ -27,9 +29,9 @@ export const courseFields: BaseField[] = [
     icon: Palette,
   },
   {
-    name: "coefficient",
+    name: "credit",
     type: "number",
-    label: "Coefficient",
+    label: "Credit",
     placeholder: "1.0",
     props: { 
       step: "0.1",
@@ -38,13 +40,22 @@ export const courseFields: BaseField[] = [
     },
   },
   {
-    name: "teacherId",
+    name: "weeklyCapacity",
     type: "number",
-    label: "Teacher ID",
-    placeholder: "Enter teacher ID",
-    icon: User,
+    label: "Weekly Hours",
+    placeholder: "3",
+    icon: Clock,
     props: {
-      min: "1"
+      min: "1",
+      max: "40"
     },
+  },
+  {
+    name: "teacherId",
+    type: "custom",
+    label: "Assigned Teacher",
+    placeholder: "Select a teacher",
+    icon: User,
+    component: TeacherField,
   },
 ]; 

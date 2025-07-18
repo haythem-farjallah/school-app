@@ -2,7 +2,8 @@ export interface Course {
   id: number;
   name: string;
   color: string;
-  coefficient: number;
+  credit: number;
+  weeklyCapacity: number;
   teacherId: number;
 }
 

@@ -40,7 +40,6 @@ class AuthServiceTest {
     @Mock TeacherRepository teacherRepository;
     @Mock ParentRepository parentRepository;
     @Mock AdministrationRepository administrationRepository;
-    @Mock WorkerRepository workerRepository;
 
     @InjectMocks AuthService authService;
 

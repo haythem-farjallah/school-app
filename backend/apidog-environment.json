@@ -1,0 +1,154 @@
+{
+  "name": "School Management Environment",
+  "values": [
+    {
+      "key": "HOST",
+      "value": "localhost:8088",
+      "enabled": true,
+      "type": "default",
+      "description": "API server host address"
+    },
+    {
+      "key": "TOKEN",
+      "value": "",
+      "enabled": true,
+      "type": "secret",
+      "description": "JWT authentication token (auto-populated after login)"
+    },
+    {
+      "key": "USER_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "Current user ID (auto-populated after login)"
+    },
+    {
+      "key": "USER_ROLE",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "Current user role (auto-populated after login)"
+    },
+    {
+      "key": "ROLE",
+      "value": "TEACHER",
+      "enabled": true,
+      "type": "default",
+      "description": "Sample role for permission testing"
+    },
+    {
+      "key": "FIRST_STUDENT_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of first student from listing (auto-populated)"
+    },
+    {
+      "key": "FIRST_TEACHER_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of first teacher from listing (auto-populated)"
+    },
+    {
+      "key": "FIRST_CLASS_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of first class from listing (auto-populated)"
+    },
+    {
+      "key": "FIRST_COURSE_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of first course from listing (auto-populated)"
+    },
+    {
+      "key": "FIRST_RESOURCE_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of first learning resource from listing (auto-populated)"
+    },
+    {
+      "key": "FIRST_FEED_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of first admin feed from listing (auto-populated)"
+    },
+    {
+      "key": "CREATED_STUDENT_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of student created during testing (for cleanup)"
+    },
+    {
+      "key": "CREATED_TEACHER_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of teacher created during testing (for cleanup)"
+    },
+    {
+      "key": "CREATED_CLASS_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of class created during testing (for cleanup)"
+    },
+    {
+      "key": "CREATED_COURSE_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of course created during testing (for cleanup)"
+    },
+    {
+      "key": "CREATED_RESOURCE_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of learning resource created during testing (for cleanup)"
+    },
+    {
+      "key": "CREATED_COMMENT_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of comment created during testing (for cleanup)"
+    },
+    {
+      "key": "CREATED_ENROLLMENT_ID",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "ID of enrollment created during testing (for cleanup)"
+    },
+    {
+      "key": "API_VERSION",
+      "value": "v1",
+      "enabled": true,
+      "type": "default",
+      "description": "API version for consistent endpoint construction"
+    },
+    {
+      "key": "TEST_EMAIL_DOMAIN",
+      "value": "school.test",
+      "enabled": true,
+      "type": "default",
+      "description": "Domain for test email addresses"
+    }
+  ],
+  "globals": [
+    {
+      "key": "timestamp",
+      "value": "",
+      "enabled": true,
+      "type": "default",
+      "description": "Current timestamp (auto-generated)"
+    }
+  ]
+} 

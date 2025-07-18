@@ -1,0 +1,779 @@
+{
+  "apidogVersion": "2.0.0",
+  "info": {
+    "name": "School Management API",
+    "description": "Comprehensive API collection for School Management System with full test coverage and automation",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "support@school.test"
+    }
+  },
+  "servers": [
+    {
+      "url": "{{HOST}}",
+      "description": "Development Server"
+    },
+    {
+      "url": "https://api.school.prod",
+      "description": "Production Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["ADMIN", "TEACHER", "STUDENT", "PARENT", "WORKER"]
+          }
+        }
+      },
+      "Student": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/UserProfile"
+          },
+          "gradeLevel": {
+            "type": "string",
+            "enum": ["ELEMENTARY", "MIDDLE", "HIGH"]
+          },
+          "enrollmentYear": {
+            "type": "integer"
+          }
+        }
+      },
+      "Teacher": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/UserProfile"
+          },
+          "qualifications": {
+            "type": "string"
+          },
+          "subjectsTaught": {
+            "type": "string"
+          },
+          "availableHours": {
+            "type": "integer"
+          },
+          "schedulePreferences": {
+            "type": "string"
+          }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "birthday": {
+            "type": "string",
+            "format": "date"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["M", "F"]
+          },
+          "address": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["ADMIN", "TEACHER", "STUDENT", "PARENT", "WORKER"]
+          }
+        },
+        "required": ["firstName", "lastName", "email", "role"]
+      },
+      "Class": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "levelId": {
+            "type": "integer"
+          }
+        }
+      },
+      "Course": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "coefficient": {
+            "type": "number",
+            "format": "double"
+          },
+          "teacherId": {
+            "type": "integer"
+          }
+        }
+      },
+      "LearningResource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["VIDEO", "DOCUMENT", "AUDIO", "IMAGE", "LINK"]
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "duration": {
+            "type": "integer"
+          },
+          "isPublic": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PagedResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {}
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {}
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  },
+  "variables": [
+    {
+      "key": "HOST",
+      "value": "localhost:8088",
+      "description": "API server host"
+    },
+    {
+      "key": "TOKEN",
+      "value": "",
+      "description": "JWT authentication token"
+    }
+  ],
+  "folders": [
+    {
+      "id": "auth",
+      "name": "🔐 Authentication",
+      "description": "User authentication and authorization endpoints"
+    },
+    {
+      "id": "students",
+      "name": "👨‍🎓 Students",
+      "description": "Student management operations"
+    },
+    {
+      "id": "teachers",
+      "name": "👨‍🏫 Teachers",
+      "description": "Teacher management operations"
+    },
+    {
+      "id": "classes",
+      "name": "📚 Classes & Courses",
+      "description": "Academic class and course management"
+    },
+    {
+      "id": "resources",
+      "name": "📋 Learning Resources",
+      "description": "Educational content management"
+    },
+    {
+      "id": "comments",
+      "name": "💬 Resource Comments",
+      "description": "Comments and feedback system"
+    },
+    {
+      "id": "dashboard",
+      "name": "📊 Dashboard",
+      "description": "Administrative dashboards and analytics"
+    },
+    {
+      "id": "feeds",
+      "name": "🔔 Admin Feeds",
+      "description": "Activity feeds and notifications"
+    },
+    {
+      "id": "enrollment",
+      "name": "🎓 Enrollment",
+      "description": "Student enrollment management"
+    },
+    {
+      "id": "permissions",
+      "name": "🔐 Permissions",
+      "description": "Role-based permissions"
+    }
+  ],
+  "apis": [
+    {
+      "id": "login",
+      "name": "Login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "folderId": "auth",
+      "description": "Authenticate user and receive JWT token",
+      "request": {
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "json",
+          "json": {
+            "email": "admin@school.test",
+            "password": "adminpass"
+          }
+        }
+      },
+      "response": {
+        "examples": [
+          {
+            "name": "Success",
+            "status": 200,
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "success": true,
+              "message": "Login successful",
+              "data": {
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "user": {
+                  "id": 1,
+                  "email": "admin@school.test",
+                  "firstName": "Admin",
+                  "lastName": "User",
+                  "role": "ADMIN"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requestSchema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          }
+        },
+        "required": ["email", "password"]
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/ApiResponse"
+      },
+      "tests": [
+        {
+          "name": "Login successful",
+          "script": "pm.test('Login successful', function () { pm.response.to.have.status(200); });"
+        },
+        {
+          "name": "Response has token",
+          "script": "pm.test('Response has token', function () { const jsonData = pm.response.json(); pm.expect(jsonData.data).to.have.property('token'); pm.expect(jsonData.data.token).to.be.a('string'); });"
+        },
+        {
+          "name": "Store token",
+          "script": "if (pm.response.code === 200) { const jsonData = pm.response.json(); pm.environment.set('TOKEN', jsonData.data.token); pm.environment.set('USER_ID', jsonData.data.user.id); }"
+        }
+      ]
+    },
+    {
+      "id": "get-students",
+      "name": "Get Students (Paged)",
+      "method": "GET",
+      "path": "/api/v1/students",
+      "folderId": "students",
+      "description": "Retrieve paginated list of students",
+      "security": [{"bearerAuth": []}],
+      "parameters": [
+        {
+          "name": "page",
+          "in": "query",
+          "description": "Page number (0-based)",
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          }
+        },
+        {
+          "name": "size",
+          "in": "query",
+          "description": "Number of items per page",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          }
+        },
+        {
+          "name": "sort",
+          "in": "query",
+          "description": "Sort criteria (field:direction)",
+          "schema": {
+            "type": "string",
+            "example": "firstName:asc"
+          }
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{TOKEN}}"
+          }
+        ]
+      },
+      "response": {
+        "examples": [
+          {
+            "name": "Success",
+            "status": 200,
+            "body": {
+              "success": true,
+              "data": {
+                "content": [
+                  {
+                    "id": 1,
+                    "profile": {
+                      "firstName": "John",
+                      "lastName": "Doe",
+                      "email": "john.doe@school.test",
+                      "role": "STUDENT"
+                    },
+                    "gradeLevel": "HIGH",
+                    "enrollmentYear": 2024
+                  }
+                ],
+                "totalElements": 1,
+                "totalPages": 1,
+                "number": 0,
+                "size": 10
+              }
+            }
+          }
+        ]
+      },
+      "responseSchema": {
+        "allOf": [
+          {"$ref": "#/components/schemas/ApiResponse"},
+          {
+            "properties": {
+              "data": {
+                "allOf": [
+                  {"$ref": "#/components/schemas/PagedResponse"},
+                  {
+                    "properties": {
+                      "content": {
+                        "type": "array",
+                        "items": {"$ref": "#/components/schemas/Student"}
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "tests": [
+        {
+          "name": "Get students successful",
+          "script": "pm.test('Get students successful', function () { pm.response.to.have.status(200); });"
+        },
+        {
+          "name": "Response has pagination",
+          "script": "pm.test('Response has pagination info', function () { const jsonData = pm.response.json(); pm.expect(jsonData.data).to.have.property('content'); pm.expect(jsonData.data).to.have.property('totalElements'); });"
+        },
+        {
+          "name": "Store first student ID",
+          "script": "const jsonData = pm.response.json(); if (jsonData.data.content.length > 0) { pm.environment.set('FIRST_STUDENT_ID', jsonData.data.content[0].id); }"
+        }
+      ]
+    },
+    {
+      "id": "create-student",
+      "name": "Create Student",
+      "method": "POST",
+      "path": "/api/v1/students",
+      "folderId": "students",
+      "description": "Create a new student with profile information",
+      "security": [{"bearerAuth": []}],
+      "request": {
+        "headers": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{TOKEN}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "json",
+          "json": {
+            "profile": {
+              "firstName": "{{$randomFirstName}}",
+              "lastName": "{{$randomLastName}}",
+              "email": "student{{$randomInt}}@school.test",
+              "telephone": "+1-555-{{$randomInt}}",
+              "birthday": "2008-05-15",
+              "gender": "{{$randomArrayElement(['M', 'F'])}}",
+              "address": "{{$randomInt}} Student St, {{$randomCity}}",
+              "role": "STUDENT"
+            },
+            "gradeLevel": "{{$randomArrayElement(['ELEMENTARY', 'MIDDLE', 'HIGH'])}}",
+            "enrollmentYear": 2024
+          }
+        }
+      },
+      "requestSchema": {
+        "type": "object",
+        "properties": {
+          "profile": {"$ref": "#/components/schemas/UserProfile"},
+          "gradeLevel": {
+            "type": "string",
+            "enum": ["ELEMENTARY", "MIDDLE", "HIGH"]
+          },
+          "enrollmentYear": {
+            "type": "integer",
+            "minimum": 2020,
+            "maximum": 2030
+          }
+        },
+        "required": ["profile", "gradeLevel", "enrollmentYear"]
+      },
+      "response": {
+        "examples": [
+          {
+            "name": "Created",
+            "status": 201,
+            "body": {
+              "success": true,
+              "message": "Student created successfully",
+              "data": {
+                "id": 123,
+                "profile": {
+                  "firstName": "Jane",
+                  "lastName": "Smith",
+                  "email": "jane.smith@school.test",
+                  "role": "STUDENT"
+                },
+                "gradeLevel": "HIGH",
+                "enrollmentYear": 2024
+              }
+            }
+          }
+        ]
+      },
+      "responseSchema": {
+        "allOf": [
+          {"$ref": "#/components/schemas/ApiResponse"},
+          {
+            "properties": {
+              "data": {"$ref": "#/components/schemas/Student"}
+            }
+          }
+        ]
+      },
+      "tests": [
+        {
+          "name": "Student created successfully",
+          "script": "pm.test('Student created successfully', function () { pm.response.to.have.status(201); });"
+        },
+        {
+          "name": "Valid student structure",
+          "script": "pm.test('Created student has valid structure', function () { const jsonData = pm.response.json(); pm.expect(jsonData.data).to.have.property('id'); pm.expect(jsonData.data.profile.role).to.equal('STUDENT'); });"
+        },
+        {
+          "name": "Store created student ID",
+          "script": "if (pm.response.code === 201) { const jsonData = pm.response.json(); pm.environment.set('CREATED_STUDENT_ID', jsonData.data.id); }"
+        }
+      ]
+    },
+    {
+      "id": "get-teachers",
+      "name": "Get Teachers (Paged)",
+      "method": "GET",
+      "path": "/api/admin/teachers",
+      "folderId": "teachers",
+      "description": "Retrieve paginated list of teachers",
+      "security": [{"bearerAuth": []}],
+      "parameters": [
+        {
+          "name": "page",
+          "in": "query",
+          "schema": {"type": "integer", "default": 0}
+        },
+        {
+          "name": "size",
+          "in": "query",
+          "schema": {"type": "integer", "default": 10}
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{TOKEN}}"
+          }
+        ]
+      },
+      "responseSchema": {
+        "allOf": [
+          {"$ref": "#/components/schemas/ApiResponse"},
+          {
+            "properties": {
+              "data": {
+                "allOf": [
+                  {"$ref": "#/components/schemas/PagedResponse"},
+                  {
+                    "properties": {
+                      "content": {
+                        "type": "array",
+                        "items": {"$ref": "#/components/schemas/Teacher"}
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "tests": [
+        {
+          "name": "Get teachers successful",
+          "script": "pm.test('Get teachers successful', function () { pm.response.to.have.status(200); });"
+        }
+      ]
+    },
+    {
+      "id": "system-overview",
+      "name": "Get System Overview",
+      "method": "GET",
+      "path": "/api/v1/dashboard/overview",
+      "folderId": "dashboard",
+      "description": "Get comprehensive system overview",
+      "security": [{"bearerAuth": []}],
+      "request": {
+        "headers": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{TOKEN}}"
+          }
+        ]
+      },
+      "response": {
+        "examples": [
+          {
+            "name": "Success",
+            "status": 200,
+            "body": {
+              "success": true,
+              "data": {
+                "totalStudents": 150,
+                "totalTeachers": 25,
+                "totalClasses": 12,
+                "totalCourses": 30
+              }
+            }
+          }
+        ]
+      },
+      "tests": [
+        {
+          "name": "System overview successful",
+          "script": "pm.test('System overview retrieved successfully', function () { pm.response.to.have.status(200); });"
+        },
+        {
+          "name": "Contains metrics",
+          "script": "pm.test('Overview contains key metrics', function () { const jsonData = pm.response.json(); pm.expect(jsonData.data).to.have.property('totalStudents'); pm.expect(jsonData.data).to.have.property('totalTeachers'); });"
+        }
+      ]
+    }
+  ],
+  "globalScripts": {
+    "prerequest": [
+      "// Global pre-request script",
+      "console.log('Starting request to: ' + pm.request.url);",
+      "pm.globals.set('timestamp', new Date().toISOString());",
+      "",
+      "// Validate token exists for protected routes",
+      "if (pm.request.url.toString().includes('/api/') && !pm.request.url.toString().includes('/auth/')) {",
+      "    const token = pm.environment.get('TOKEN');",
+      "    if (!token) {",
+      "        console.warn('No token found - request may fail');",
+      "    }",
+      "}"
+    ],
+    "test": [
+      "// Global test script",
+      "pm.test('Response time is acceptable', function () {",
+      "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+      "});",
+      "",
+      "pm.test('Response has proper content type', function () {",
+      "    if (pm.response.code === 200) {",
+      "        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+      "    }",
+      "});",
+      "",
+      "console.log('Response Status:', pm.response.status);",
+      "console.log('Response Time:', pm.response.responseTime + 'ms');"
+    ]
+  },
+  "environments": [
+    {
+      "name": "Development",
+      "variables": [
+        {"key": "HOST", "value": "localhost:8088"},
+        {"key": "TOKEN", "value": ""},
+        {"key": "USER_ID", "value": ""}
+      ]
+    },
+    {
+      "name": "Production",
+      "variables": [
+        {"key": "HOST", "value": "https://api.school.prod"},
+        {"key": "TOKEN", "value": ""},
+        {"key": "USER_ID", "value": ""}
+      ]
+    }
+  ]
+} 
