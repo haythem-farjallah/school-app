@@ -95,6 +95,9 @@ const AdminDashboard = () => {
             <button className="p-3 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-all duration-200 text-left">
               <span className="text-sm font-medium text-gray-700">Send Notice</span>
             </button>
+            <a href="/admin/timetable" className="p-3 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 text-left block">
+              <span className="text-sm font-medium text-gray-700">Manage Timetables</span>
+            </a>
           </div>
         </div>
       </div>

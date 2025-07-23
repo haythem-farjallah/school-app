@@ -46,6 +46,7 @@ const EnrollmentsView = lazy(() => import("@/pages/admin/EnrollmentsView"));
 const Schedule = lazy(() => import("@/pages/admin/Schedule"));
 const Announcements = lazy(() => import("@/pages/admin/Announcements"));
 const Settings = lazy(() => import("@/pages/admin/Settings"));
+const TimetablePage = lazy(() => import("@/pages/admin/Timetable"));
 
 // Teacher pages
 const TeacherDashboard = lazy(() => import("@/pages/teacher/Dashboard"));
@@ -126,6 +127,7 @@ const router = createBrowserRouter([
           { path: "schedule", element: <Suspense fallback={<Shimmer />}><Schedule /></Suspense> },
           { path: "announcements", element: <Suspense fallback={<Shimmer />}><Announcements /></Suspense> },
           { path: "settings", element: <Suspense fallback={<Shimmer />}><Settings /></Suspense> },
+          { path: "timetable", element: <Suspense fallback={<Shimmer />}><TimetablePage /></Suspense> },
 
         ],
       },
