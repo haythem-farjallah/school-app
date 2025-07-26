@@ -1,5 +1,6 @@
 package com.example.school_management.feature.operational.dto;
 
+import com.example.school_management.feature.operational.entity.TimetableSlot;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
@@ -26,6 +27,8 @@ public class TimetableDto {
     Set<Long> teacherIds;
     @JsonIgnore
     Set<Long> roomIds;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    Set<TimetableSlot> slots;
     
     // Write-only fields
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)

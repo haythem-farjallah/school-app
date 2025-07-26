@@ -45,6 +45,7 @@ public interface OperationalMapper {
     @Mapping(target = "classIds", expression = "java(entity.getClasses() != null ? entity.getClasses().stream().map(c -> c.getId()).collect(java.util.stream.Collectors.toSet()) : java.util.Set.of())")
     @Mapping(target = "teacherIds", expression = "java(entity.getTeachers() != null ? entity.getTeachers().stream().map(t -> t.getId()).collect(java.util.stream.Collectors.toSet()) : java.util.Set.of())")
     @Mapping(target = "roomIds", expression = "java(entity.getRooms() != null ? entity.getRooms().stream().map(r -> r.getId()).collect(java.util.stream.Collectors.toSet()) : java.util.Set.of())")
+    @Mapping(target = "slots", expression = "java(entity.getSlots())")
     TimetableDto toTimetableDto(Timetable entity);
 
     /* ---------- Attendance ---------- */

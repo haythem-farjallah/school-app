@@ -27,4 +27,8 @@ public interface TimetableService {
     TimetableSlot updateSlot(Long slotId, TimetableSlot updatedSlot);
     TimetableSlot createSlot(TimetableSlot newSlot);
     void deleteSlot(Long slotId);
+    
+    // Class-specific operations
+    void saveSlotsForClass(Long classId, List<TimetableSlot> slots);
+    void optimizeTimetableForClass(Long classId);
 } 

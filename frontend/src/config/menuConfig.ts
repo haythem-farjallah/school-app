@@ -61,7 +61,7 @@ export const menuConfig: Record<string, MenuSection[]> = {
     {
       title: 'OPERATIONS',
       items: [
-        { icon: CalendarDays, label: 'Timetables', href: '/admin/timetables' },
+        { icon: CalendarDays, label: 'Timetables', href: '/admin/timetable' },
         { icon: DoorOpen, label: 'Rooms', href: '/admin/rooms' },
         { icon: Calendar, label: 'Schedule', href: '/admin/schedule' },
         { icon: Megaphone, label: 'Announcements', href: '/admin/announcements' },

@@ -128,6 +128,7 @@ const router = createBrowserRouter([
           { path: "announcements", element: <Suspense fallback={<Shimmer />}><Announcements /></Suspense> },
           { path: "settings", element: <Suspense fallback={<Shimmer />}><Settings /></Suspense> },
           { path: "timetable", element: <Suspense fallback={<Shimmer />}><TimetablePage /></Suspense> },
+          { path: "timetable/:classId", element: <Suspense fallback={<Shimmer />}><TimetablePage /></Suspense> },
 
         ],
       },

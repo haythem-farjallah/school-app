@@ -129,10 +129,16 @@ public class TimetableController {
 
     @Operation(summary = "Get class timetable as JSON")
     @GetMapping("/class/{classId}")
-    public ResponseEntity<ApiSuccessResponse<List<TimetableSlot>>> getClassTimetable(@PathVariable Long classId) {
+    public ResponseEntity<ApiSuccessResponse<TimetableDto>> getClassTimetable(@PathVariable Long classId) {
         log.debug("Getting class timetable: {}", classId);
-        List<TimetableSlot> slots = timetableService.getSlotsByClassId(classId);
-        return ResponseEntity.ok(new ApiSuccessResponse<>("Class timetable retrieved successfully", slots));
+        List<Timetable> timetables = timetableRepository.findByClassId(classId);
+        if (timetables.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiSuccessResponse<>("No timetable found for class", null));
+        }
+        Timetable timetable = timetables.get(0); // or apply logic to select the right one
+        TimetableDto dto = timetableService.get(timetable.getId());
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Class timetable retrieved successfully", dto));
     }
 
     @Operation(summary = "Get teacher timetable as JSON")
@@ -208,5 +214,25 @@ public class TimetableController {
         log.debug("Deleting timetable slot: {}", slotId);
         timetableService.deleteSlot(slotId);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Timetable slot deleted successfully", null));
+    }
+
+    @Operation(summary = "Save timetable slots for a class")
+    @PutMapping("/class/{classId}/slots")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiSuccessResponse<String>> saveClassSlots(
+            @PathVariable Long classId,
+            @RequestBody List<TimetableSlot> slots) {
+        log.debug("Saving {} slots for class: {}", slots.size(), classId);
+        timetableService.saveSlotsForClass(classId, slots);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Timetable slots saved successfully", "success"));
+    }
+
+    @Operation(summary = "Optimize timetable for a class")
+    @PostMapping("/class/{classId}/optimize")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiSuccessResponse<String>> optimizeClassTimetable(@PathVariable Long classId) {
+        log.debug("Optimizing timetable for class: {}", classId);
+        timetableService.optimizeTimetableForClass(classId);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Timetable optimization started", "success"));
     }
 } 
