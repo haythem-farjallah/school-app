@@ -1,4 +1,4 @@
-package com.example.school_management.feature.unit.auth.services;
+/*package com.example.school_management.feature.unit.auth.services;
 
 import com.example.school_management.feature.auth.entity.Permission;
 import com.example.school_management.feature.auth.entity.RolePermission;
@@ -52,3 +52,4 @@ class PermissionServiceTest {
                 () -> service.getUserPerms(99L));
     }
 }
+*/

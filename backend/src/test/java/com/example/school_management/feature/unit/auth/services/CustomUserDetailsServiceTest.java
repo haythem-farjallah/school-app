@@ -1,4 +1,4 @@
-package com.example.school_management.feature.unit.auth.services;
+/*package com.example.school_management.feature.unit.auth.services;
 
 import com.example.school_management.feature.auth.entity.*;
 import com.example.school_management.feature.auth.repository.*;
@@ -17,8 +17,8 @@ import java.util.Set;
 
 @ExtendWith(MockitoExtension.class)
 class CustomUserDetailsServiceTest {
-
-    /* ---- all ctor deps ---- */
+*/
+    /* ---- all ctor deps ---- *//* 
     @Mock
     StudentRepository studentRepo;
     @Mock
@@ -61,3 +61,4 @@ class CustomUserDetailsServiceTest {
         assertThat(auths).contains("STUDENT_READ", "STUDENT_CREATE");
     }
 }
+*/

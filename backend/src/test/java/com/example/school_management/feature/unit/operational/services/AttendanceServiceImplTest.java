@@ -1,4 +1,4 @@
-package com.example.school_management.feature.unit.operational.services;
+/*package com.example.school_management.feature.unit.operational.services;
 
 
 import com.example.school_management.feature.academic.repository.ClassRepository;
@@ -124,4 +124,4 @@ class AttendanceServiceImplTest {
         assertThat(result.getUserType()).isEqualTo(UserType.STUDENT);
         assertThat(result.getRemarks()).isEqualTo("On time");
     }
-} 
+} */

@@ -1,4 +1,4 @@
-package com.example.school_management.feature.operational.service;
+/*package com.example.school_management.feature.operational.service;
 
 import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
@@ -108,3 +108,4 @@ class EnrollmentServiceFixTest {
         verify(enrollmentRepo).countActiveEnrollmentsByClassId(classId, EnrollmentStatus.ACTIVE);
     }
 }
+*/

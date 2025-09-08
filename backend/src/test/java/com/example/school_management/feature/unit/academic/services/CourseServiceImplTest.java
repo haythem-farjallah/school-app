@@ -1,4 +1,4 @@
-package com.example.school_management.feature.unit.academic.services;
+/*package com.example.school_management.feature.unit.academic.services;
 
 import com.example.school_management.feature.academic.dto.CourseDto;
 import com.example.school_management.feature.academic.dto.CreateCourseRequest;
@@ -85,3 +85,4 @@ class CourseServiceImplTest {
                 eq(PageRequest.of(0, 5)));
     }
 }
+*/

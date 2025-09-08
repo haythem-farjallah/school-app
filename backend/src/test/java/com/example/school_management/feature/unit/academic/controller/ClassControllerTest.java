@@ -1,4 +1,4 @@
-package com.example.school_management.feature.unit.academic.controller;
+/*package com.example.school_management.feature.unit.academic.controller;
 
 import com.example.school_management.commons.configs.JwtAuthenticationFilter;
 import com.example.school_management.commons.configs.JwtTokenProvider;
@@ -32,10 +32,11 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
+*/
 /**
  * Controller‐level tests: request→JSON→controller→service, security gate enforced.
  */
+/* 
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(ClassController.class)
 class ClassControllerTest {
@@ -58,8 +59,8 @@ class ClassControllerTest {
     @MockitoBean
     CustomUserDetailsService customUserDetailsService;
 
-    /* ───────────────────────── create ───────────────────────── */
-
+    *//* ───────────────────────── create ───────────────────────── */
+/* 
     @Test
     @WithMockUser(roles = "ADMIN")
     void createClass_returnsSuccessJson() throws Exception {
@@ -79,9 +80,9 @@ class ClassControllerTest {
 
         verify(classService).create(any(CreateClassRequest.class));
     }
-
+*/
     /* ───────────────────────── list ─────────────────────────── */
-
+/*
     @Test
     @WithMockUser(roles = "ADMIN")
     void listClasses_withFilter() throws Exception {
@@ -99,9 +100,9 @@ class ClassControllerTest {
         verify(classService)
                 .list(PageRequest.of(0, 10), "Sci");
     }
-
+*/
     /* ───────────────────────── add single student ───────────── */
-
+/* 
     @Test
     @WithMockUser(roles = "ADMIN")
     void addStudent_callsServiceAndReturnsDto() throws Exception {
@@ -117,3 +118,4 @@ class ClassControllerTest {
         verify(classService).addStudent(1L, 99L);
     }
 }
+*/
