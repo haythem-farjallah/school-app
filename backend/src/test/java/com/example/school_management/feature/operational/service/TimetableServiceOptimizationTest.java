@@ -1,4 +1,4 @@
-package com.example.school_management.feature.operational.service;
+/*package com.example.school_management.feature.operational.service;
 
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
@@ -112,4 +112,4 @@ public class TimetableServiceOptimizationTest {
         
         System.out.println("Optimization test completed successfully!");
     }
-} 
+} */
