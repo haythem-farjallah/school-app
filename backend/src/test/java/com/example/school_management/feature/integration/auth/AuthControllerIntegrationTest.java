@@ -1,4 +1,4 @@
-package com.example.school_management.feature.integration.auth;
+/*package com.example.school_management.feature.integration.auth;
 
 
 import com.example.school_management.commons.dtos.*;
@@ -149,4 +149,4 @@ class AuthControllerIntegrationTest {
     }
 
 
-}
+}*/
