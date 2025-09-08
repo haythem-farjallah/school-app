@@ -18,6 +18,7 @@ import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.auth.repository.ParentRepository;
 import com.example.school_management.feature.operational.repository.NotificationRepository;
+import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.service.impl.RealTimeNotificationService;
 import com.example.school_management.feature.operational.service.impl.AttendanceServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,6 +61,9 @@ class AttendanceServiceImplTest {
     @Mock
     private RealTimeNotificationService realTimeNotificationService;
 
+    @Mock
+    private EnrollmentRepository enrollmentRepository;
+
     private OperationalMapper mapper = Mappers.getMapper(OperationalMapper.class);
     private AttendanceServiceImpl attendanceService;
 
@@ -76,6 +80,7 @@ class AttendanceServiceImplTest {
                 teacherRepository,
                 parentRepository,
                 notificationRepository,
+                enrollmentRepository,
                 realTimeNotificationService,
                 mapper
         );

@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.Builder;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+import com.example.school_management.feature.operational.entity.enums.AttendanceStatus;
 import java.util.List;
 
 @Data
