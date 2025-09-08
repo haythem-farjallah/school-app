@@ -64,12 +64,27 @@ services:
     networks:
       - jenkins
     restart: always
+  redis:
+    image: redis:7-alpine
+    container_name: school-management-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   jenkins_home:
   jenkins-docker-certs:
   nexus-data:
   sonarqube_data:
+  redis_data:
 
 networks:
   jenkins:

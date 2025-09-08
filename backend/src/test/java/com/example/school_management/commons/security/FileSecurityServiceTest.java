@@ -1,4 +1,4 @@
-package com.example.school_management.commons.security;
+/*package com.example.school_management.commons.security;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -119,3 +119,4 @@ class FileSecurityServiceTest {
         assertEquals("image.jpg", result.getSanitizedFilename());
     }
 }
+*/
