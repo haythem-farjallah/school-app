@@ -32,4 +32,10 @@ public class LearningResourceDto {
     
     @JsonProperty("commentCount")
     Integer commentCount;
+    
+    @JsonProperty("viewCount")
+    Long viewCount;
+    
+    @JsonProperty("downloadCount")
+    Long downloadCount;
 } 

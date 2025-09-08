@@ -1,15 +1,18 @@
 import * as React from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
 
 
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import { DataTableEnhancedFilterList } from "@/components/data-table/data-table-enhanced-filter-list";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, TrendingUp, Plus } from "lucide-react";
+import { Users, UserCheck, TrendingUp, Plus, Upload } from "lucide-react";
+import { BulkImportDialog } from "@/components/data-table/bulk-import-dialog";
 import { type Parser, useQueryState, useQueryStates, parseAsInteger, parseAsString } from "nuqs";
 import {
   Dialog,
@@ -22,20 +25,33 @@ import {
 
 
 import { useStudents, useDeleteStudent } from "../hooks/use-students";
-import { getStudentsColumns } from "./student-columns.tsx";
+import { useBulkDeleteStudents, useBulkUpdateStudentStatus, useBulkExportStudents, useBulkImportStudents } from "../hooks/use-students-bulk";
+import { getStudentsColumns } from "./student-columns";
 import type { Student } from "@/types/student";
+import { UserBulkActionBar } from "@/components/data-table/user-bulk-action-bar";
 
 export function StudentsTable() {
   const navigate = useNavigate();
+  const userRole = useUserRole();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [studentToDelete, setStudentToDelete] = React.useState<Student | null>(null);
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
 
   const deleteMutation = useDeleteStudent();
+  
+  // Dynamic base path based on user role
+  const basePath = userRole?.toLowerCase() === 'staff' ? '/staff' : '/admin';
+  
+  // Bulk operation hooks
+  const bulkDeleteMutation = useBulkDeleteStudents();
+  const bulkStatusMutation = useBulkUpdateStudentStatus();
+  const bulkExportMutation = useBulkExportStudents();
+  const bulkImportMutation = useBulkImportStudents();
 
   const handleView = React.useCallback((student: Student) => {
     console.log("👁️ StudentsTable - Viewing student:", student);
-    navigate(`/admin/students/view/${student.id}`);
-  }, [navigate]);
+    navigate(`${basePath}/students/view/${student.id}`);
+  }, [navigate, basePath]);
 
   const handleEdit = React.useCallback((student: Student) => {
     console.log("✏️ StudentsTable - Editing student:", student);
@@ -68,8 +84,41 @@ export function StudentsTable() {
 
   const handleCreate = React.useCallback(() => {
     console.log("➕ StudentsTable - Creating new student");
-    navigate("/admin/students/create");
-  }, [navigate]);
+    navigate(`${basePath}/students/create`);
+  }, [navigate, basePath]);
+
+  // Bulk operation handlers
+  const handleBulkDelete = React.useCallback((ids: number[]) => {
+    console.log("🗑️ StudentsTable - Bulk deleting students:", ids);
+    bulkDeleteMutation.mutate(ids);
+  }, [bulkDeleteMutation]);
+
+  const handleBulkStatusUpdate = React.useCallback((ids: number[], status: string) => {
+    console.log("✏️ StudentsTable - Bulk updating status:", { ids, status });
+    bulkStatusMutation.mutate({ ids, status });
+  }, [bulkStatusMutation]);
+
+  const handleBulkExport = React.useCallback((ids: number[], format: 'csv' | 'xlsx') => {
+    console.log("📊 StudentsTable - Bulk exporting:", { ids, format });
+    bulkExportMutation.mutate({ ids, format });
+  }, [bulkExportMutation]);
+
+  const handleBulkEmail = React.useCallback((ids: number[]) => {
+    console.log("📧 StudentsTable - Sending bulk email to students:", ids);
+    // This would open email composition dialog
+    toast.success(`Email dialog would open for ${ids.length} students`);
+  }, []);
+
+  const handleBulkEnrollClasses = React.useCallback((studentIds: number[], classIds: number[]) => {
+    console.log("🎓 StudentsTable - Bulk enrolling students:", { studentIds, classIds });
+    // This would call bulk enrollment API
+    toast.success(`Bulk enrollment dialog would open for ${studentIds.length} students`);
+  }, []);
+
+  const handleBulkImport = React.useCallback(async (file: File) => {
+    console.log("📁 StudentsTable - Importing students from file:", file.name);
+    return await bulkImportMutation.mutateAsync(file);
+  }, [bulkImportMutation]);
 
   const columns = React.useMemo(
     () => getStudentsColumns({
@@ -176,13 +225,23 @@ export function StudentsTable() {
                 Manage and organize your student body efficiently
               </CardDescription>
             </div>
-            <Button 
-              onClick={handleCreate}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Student
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline"
+                onClick={() => setShowImportDialog(true)}
+                className="border-blue-300 text-blue-700 hover:bg-blue-50 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import Students
+              </Button>
+              <Button 
+                onClick={handleCreate}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Student
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -234,11 +293,33 @@ export function StudentsTable() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg">
-              <DataTable table={table} className="bg-white/98">
-                <DataTableToolbar 
-                  table={table} 
-                  className="border-b border-slate-200/60 bg-gradient-to-r from-slate-50/80 to-blue-50/40 px-6 py-4 backdrop-blur-sm"
-                />
+              <DataTable 
+                table={table} 
+                className="bg-white/98"
+                actionBar={
+                  <UserBulkActionBar
+                    table={table}
+                    userType="students"
+                    onBulkDelete={handleBulkDelete}
+                    onBulkStatusUpdate={handleBulkStatusUpdate}
+                    onBulkExport={handleBulkExport}
+                    onBulkEmail={handleBulkEmail}
+                    onBulkImport={handleBulkImport}
+                    onBulkEnrollClasses={handleBulkEnrollClasses}
+                  />
+                }
+              >
+                <div className="border-b border-slate-200/60 bg-gradient-to-r from-slate-50/80 to-blue-50/40 backdrop-blur-sm">
+                  <DataTableToolbar 
+                    table={table} 
+                    className="px-6 py-4"
+                  />
+                  
+                  {/* Enhanced Filter List */}
+                  <div className="px-6 pb-4">
+                    <DataTableEnhancedFilterList table={table} />
+                  </div>
+                </div>
               </DataTable>
             </div>
           )}
@@ -275,6 +356,14 @@ export function StudentsTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Dialog */}
+      <BulkImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        userType="students"
+        onImport={handleBulkImport}
+      />
     </div>
   );
 } 

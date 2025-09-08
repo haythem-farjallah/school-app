@@ -1,5 +1,6 @@
 package com.example.school_management.commons.configs;
 
+import com.example.school_management.commons.filter.RateLimitingFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ import java.util.List;
 public class SecurityConfig {
   private final JwtAuthenticationEntryPoint unauthorizedHandler;
   private final JwtAuthenticationFilter       jwtAuthFilter;
+  private final RateLimitingFilter           rateLimitingFilter;
 
   @Bean
   public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
@@ -56,16 +58,21 @@ public class SecurityConfig {
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/api/auth/**", "/actuator/**", "/api/admin/**").permitAll()
+                    .requestMatchers("/api/auth/**", "/actuator/**").permitAll()
+                    .requestMatchers("/api/v1/debug/**").permitAll() // Allow debug endpoints (NO AUTH)
+                    .requestMatchers("/ws/**", "/ws-native/**").permitAll() // Allow WebSocket endpoints
                     .requestMatchers(
                             "/swagger-ui.html",
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/webjars/**"
-                    ).permitAll()                    .anyRequest().authenticated()
+                    ).permitAll()
+                    .anyRequest().authenticated()
             );
 
 
+    // Add rate limiting filter before JWT authentication
+    http.addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class);
     http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
     return http.build();
   }
@@ -80,6 +87,7 @@ public class SecurityConfig {
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/api/**", cors); // apply to every API route
+    source.registerCorsConfiguration("/ws/**", cors); // apply to WebSocket endpoints
     return source;
   }
 

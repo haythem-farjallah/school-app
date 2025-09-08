@@ -6,6 +6,7 @@ import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.mapper.BaseUserMapper;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
@@ -39,19 +40,22 @@ public abstract class AbstractUserCrudService<
     private final PasswordUtil passwordUtil;
     private final ApplicationEventPublisher events;
     private final AuditService auditService;
+    private final UserRepository userRepository;
 
     protected AbstractUserCrudService(BaseUserRepository<E> repo,
                                       BaseUserMapper<E, C, U,R> mapper,
                                       PasswordEncoder passwordEncoder,
                                       PasswordUtil passwordUtil,
                                       ApplicationEventPublisher events,
-                                      AuditService auditService) {
+                                      AuditService auditService,
+                                      UserRepository userRepository) {
         this.repo             = repo;
         this.mapper           = mapper;
         this.passwordEncoder  = passwordEncoder;
         this.passwordUtil     = passwordUtil;
         this.events           = events;
         this.auditService     = auditService;
+        this.userRepository   = userRepository;
     }
 
     /* ------------------------------------------------------------------ *
@@ -204,7 +208,7 @@ public abstract class AbstractUserCrudService<
      */
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return repo.findByEmail(email)
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalStateException("Current user not found: " + email));
     }
 }

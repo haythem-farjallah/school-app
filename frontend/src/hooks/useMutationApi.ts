@@ -4,6 +4,9 @@ import {
     UseMutationResult,
   } from "@tanstack/react-query";
   import { AxiosError } from "axios";
+
+  // Re-export useQueryApi from the correct location
+  export { useQueryApi } from './useQueryApi';
   
   /**
    * Typed wrapper around `useMutation` (React‑Query v5).

@@ -8,7 +8,8 @@ import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users2, UserCheck, TrendingUp, Plus } from "lucide-react";
+import { Users2, UserCheck, TrendingUp, Plus, Upload } from "lucide-react";
+import { BulkImportDialog } from "@/components/data-table/bulk-import-dialog";
 import { type Parser, useQueryState, useQueryStates, parseAsInteger, parseAsString } from "nuqs";
 import {
   Dialog,
@@ -20,15 +21,24 @@ import {
 } from "@/components/ui/dialog";
 
 import { useStaff, useDeleteStaff } from "../hooks/use-staff";
+import { useBulkDeleteStaff, useBulkUpdateStaffStatus, useBulkExportStaff, useBulkImportStaff } from "../hooks/use-staff-bulk";
 import { getStaffColumns } from "./staff-columns";
 import type { Staff } from "@/types/staff";
+import { UserBulkActionBar } from "@/components/data-table/user-bulk-action-bar";
 
 export function StaffTable() {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [staffToDelete, setStaffToDelete] = React.useState<Staff | null>(null);
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
 
   const deleteMutation = useDeleteStaff();
+
+  // Bulk operation hooks
+  const bulkDeleteMutation = useBulkDeleteStaff();
+  const bulkStatusMutation = useBulkUpdateStaffStatus();
+  const bulkExportMutation = useBulkExportStaff();
+  const bulkImportMutation = useBulkImportStaff();
 
   const handleView = React.useCallback((staff: Staff) => {
     navigate(`/admin/staff/view/${staff.id}`);
@@ -67,6 +77,32 @@ export function StaffTable() {
     console.log("➕ StaffTable - Creating new staff");
     navigate("/admin/staff/create");
   }, [navigate]);
+
+  // Bulk operation handlers
+  const handleBulkDelete = React.useCallback((ids: number[]) => {
+    console.log("🗑️ StaffTable - Bulk deleting staff:", ids);
+    bulkDeleteMutation.mutate(ids);
+  }, [bulkDeleteMutation]);
+
+  const handleBulkStatusUpdate = React.useCallback((ids: number[], status: string) => {
+    console.log("✏️ StaffTable - Bulk updating status:", { ids, status });
+    bulkStatusMutation.mutate({ ids, status });
+  }, [bulkStatusMutation]);
+
+  const handleBulkExport = React.useCallback((ids: number[], format: 'csv' | 'xlsx') => {
+    console.log("📊 StaffTable - Bulk exporting:", { ids, format });
+    bulkExportMutation.mutate({ ids, format });
+  }, [bulkExportMutation]);
+
+  const handleBulkEmail = React.useCallback((ids: number[]) => {
+    console.log("📧 StaffTable - Sending bulk email to staff:", ids);
+    toast.success(`Email dialog would open for ${ids.length} staff members`);
+  }, []);
+
+  const handleBulkImport = React.useCallback(async (file: File) => {
+    console.log("📁 StaffTable - Importing staff from file:", file.name);
+    return await bulkImportMutation.mutateAsync(file);
+  }, [bulkImportMutation]);
 
   const columns = React.useMemo(
     () => getStaffColumns({
@@ -173,13 +209,23 @@ export function StaffTable() {
                 Manage and organize your support staff efficiently
               </CardDescription>
             </div>
-            <Button
-              onClick={handleCreate}
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Staff
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline"
+                onClick={() => setShowImportDialog(true)}
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import Staff
+              </Button>
+              <Button
+                onClick={handleCreate}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Staff
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -231,7 +277,21 @@ export function StaffTable() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg">
-              <DataTable table={table} className="bg-white/98">
+              <DataTable 
+                table={table} 
+                className="bg-white/98"
+                actionBar={
+                  <UserBulkActionBar
+                    table={table}
+                    userType="staff"
+                    onBulkDelete={handleBulkDelete}
+                    onBulkStatusUpdate={handleBulkStatusUpdate}
+                    onBulkExport={handleBulkExport}
+                    onBulkEmail={handleBulkEmail}
+                    onBulkImport={handleBulkImport}
+                  />
+                }
+              >
                 <DataTableToolbar 
                   table={table} 
                   className="border-b border-slate-200/60 bg-gradient-to-r from-slate-50/80 to-emerald-50/40 px-6 py-4 backdrop-blur-sm"
@@ -272,6 +332,14 @@ export function StaffTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Dialog */}
+      <BulkImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        userType="staff"
+        onImport={handleBulkImport}
+      />
     </div>
   );
 } 

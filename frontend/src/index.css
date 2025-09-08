@@ -1,6 +1,9 @@
 /* src/index.css */
 
-/* 1) Tailwind directives */
+/* 1) Import statements must come first */
+@import './styles/role-themes.css';
+
+/* 2) Tailwind directives */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

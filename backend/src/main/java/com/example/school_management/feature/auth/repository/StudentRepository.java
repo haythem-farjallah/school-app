@@ -14,4 +14,13 @@ public interface StudentRepository extends BaseUserRepository<Student>, JpaSpeci
     // Find students by parent ID through the parent_students join table
     @Query("SELECT s FROM Student s, Parent p WHERE s MEMBER OF p.children AND p.id = :parentId")
     List<Student> findByParentId(@Param("parentId") Long parentId);
+    
+    // Find students by class IDs through enrollments
+    @Query("""
+        SELECT DISTINCT s FROM Student s 
+        JOIN s.enrollments e 
+        WHERE e.classEntity.id IN :classIds 
+        AND e.status = 'ACTIVE'
+    """)
+    List<Student> findByClassIds(@Param("classIds") List<Long> classIds);
 }

@@ -50,6 +50,12 @@ public class LearningResource {
     private boolean isPublic = true;
     @EqualsAndHashCode.Include
     private String status = "ACTIVE";
+    
+    @Column(name = "view_count", nullable = false)
+    private Long viewCount = 0L;
+    
+    @Column(name = "download_count", nullable = false)
+    private Long downloadCount = 0L;
 
     @CreatedDate
     private LocalDateTime createdAt;

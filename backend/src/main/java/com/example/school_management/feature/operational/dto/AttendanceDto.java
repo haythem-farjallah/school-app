@@ -2,62 +2,66 @@ package com.example.school_management.feature.operational.dto;
 
 import com.example.school_management.feature.operational.entity.enums.AttendanceStatus;
 import com.example.school_management.feature.operational.entity.enums.UserType;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class AttendanceDto {
-    // Read-only fields
-    @JsonIgnore
+    // Read-only fields (for serialization)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Long id;
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String userName;
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String courseName;
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String className;
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String recordedByName;
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private Long teacherId;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private String teacherName;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private LocalDateTime createdAt;
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private LocalDateTime updatedAt;
     
-    // Write-only fields
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    // Read-write fields (for both input and output)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     @NotNull 
     private Long userId;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     private Long courseId;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     private Long classId;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     private Long timetableSlotId;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     @NotNull 
     private LocalDate date;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     @NotNull 
     private AttendanceStatus status;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     @NotNull 
     private UserType userType;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     private String remarks;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     private String excuse;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     private String medicalNote;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     private Long recordedById;
 
     // Constructor
     public AttendanceDto() {}
 
     public AttendanceDto(Long id, String userName, String courseName, String className, 
-                        String recordedByName, LocalDateTime createdAt, LocalDateTime updatedAt,
+                        String recordedByName, Long teacherId, String teacherName,
+                        LocalDateTime createdAt, LocalDateTime updatedAt,
                         Long userId, Long courseId, Long classId, Long timetableSlotId,
                         LocalDate date, AttendanceStatus status, UserType userType,
                         String remarks, String excuse, String medicalNote, Long recordedById) {
@@ -66,6 +70,8 @@ public class AttendanceDto {
         this.courseName = courseName;
         this.className = className;
         this.recordedByName = recordedByName;
+        this.teacherId = teacherId;
+        this.teacherName = teacherName;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.userId = userId;
@@ -87,6 +93,8 @@ public class AttendanceDto {
     public String getCourseName() { return courseName; }
     public String getClassName() { return className; }
     public String getRecordedByName() { return recordedByName; }
+    public Long getTeacherId() { return teacherId; }
+    public String getTeacherName() { return teacherName; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public Long getUserId() { return userId; }
@@ -107,6 +115,8 @@ public class AttendanceDto {
     public void setCourseName(String courseName) { this.courseName = courseName; }
     public void setClassName(String className) { this.className = className; }
     public void setRecordedByName(String recordedByName) { this.recordedByName = recordedByName; }
+    public void setTeacherId(Long teacherId) { this.teacherId = teacherId; }
+    public void setTeacherName(String teacherName) { this.teacherName = teacherName; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public void setUserId(Long userId) { this.userId = userId; }

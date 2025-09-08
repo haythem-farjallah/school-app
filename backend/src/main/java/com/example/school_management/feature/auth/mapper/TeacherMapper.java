@@ -29,7 +29,7 @@ public interface TeacherMapper
             @Mapping(target = "birthday",  source = "profile.birthday"),
             @Mapping(target = "gender",    source = "profile.gender"),
             @Mapping(target = "address",   source = "profile.address"),
-            @Mapping(target = "role",      source = "profile.role"),
+            @Mapping(target = "role",      constant = "TEACHER"),
             @Mapping(target = "qualifications", source = "qualifications"),
             @Mapping(target = "subjectsTaught", source = "subjectsTaught"),
             @Mapping(target = "weeklyCapacity", source = "availableHours"),

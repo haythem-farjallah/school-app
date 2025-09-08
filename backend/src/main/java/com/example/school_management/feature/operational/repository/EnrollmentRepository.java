@@ -40,11 +40,11 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
                                             @Param("endDate") LocalDateTime endDate, 
                                             Pageable pageable);
 
-    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.classEntity.id = :classId AND e.status = 'ACTIVE'")
-    Long countActiveEnrollmentsByClassId(@Param("classId") Long classId);
+    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.classEntity.id = :classId AND e.status = :status")
+    Long countActiveEnrollmentsByClassId(@Param("classId") Long classId, @Param("status") EnrollmentStatus status);
 
-    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.student.id = :studentId AND e.status = 'ACTIVE'")
-    Long countActiveEnrollmentsByStudentId(@Param("studentId") Long studentId);
+    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.student.id = :studentId AND e.status = :status")
+    Long countActiveEnrollmentsByStudentId(@Param("studentId") Long studentId, @Param("status") EnrollmentStatus status);
     
     // Count all enrollments for a student (regardless of status)
     @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.student.id = :studentId")
@@ -70,4 +70,12 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
            "LOWER(e.classEntity.name) LIKE LOWER(CONCAT('%', :search, '%'))" +
            ") ORDER BY e.enrolledAt DESC")
     Page<Enrollment> findBySearchAndStatus(@Param("search") String search, @Param("status") EnrollmentStatus status, Pageable pageable);
+    
+    // Get all enrollments for a student (regardless of status)
+    @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId ORDER BY e.enrolledAt DESC")
+    List<Enrollment> findAllByStudentId(@Param("studentId") Long studentId);
+    
+    // Get all enrollments for a class (regardless of status)
+    @Query("SELECT e FROM Enrollment e WHERE e.classEntity.id = :classId ORDER BY e.enrolledAt DESC")
+    List<Enrollment> findAllByClassId(@Param("classId") Long classId);
 } 

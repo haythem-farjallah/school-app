@@ -6,17 +6,27 @@ import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Library, BookOpen, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Library, BookOpen, TrendingUp, Upload, Eye, Settings } from "lucide-react";
 
 import { useLearningResources, useDeleteLearningResource, useDownloadResource } from "../hooks/use-learning-resources";
 import { getLearningResourceColumns } from "./learning-resource-columns";
 import { AddLearningResourceSheet } from "./learning-resource-sheet";
+import { ResourceViewDialog } from "./resource-view-dialog";
+import { ResourceUploadDialog } from "./resource-upload-dialog";
+import { ResourceVisibilityDialog } from "./resource-visibility-dialog";
 import type { LearningResource } from "@/types/learning-resource";
 
 export function LearningResourcesTable() {
   const [page, setPage] = React.useState(0);
   const [pageSize, setPageSize] = React.useState(10);
   const [search, setSearch] = React.useState("");
+
+  // Dialog states
+  const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
+  const [visibilityDialogOpen, setVisibilityDialogOpen] = React.useState(false);
+  const [selectedResource, setSelectedResource] = React.useState<LearningResource | null>(null);
 
   const { data: pageData, isLoading, error, refetch } = useLearningResources({ size: pageSize });
 
@@ -28,8 +38,8 @@ export function LearningResourcesTable() {
   const downloadMutation = useDownloadResource();
 
   const handleView = React.useCallback((resource: LearningResource) => {
-    toast(`Viewing resource: ${resource.title}`);
-    // TODO: Implement view dialog with resource details
+    setSelectedResource(resource);
+    setViewDialogOpen(true);
   }, []);
 
   const handleEdit = React.useCallback((resource: LearningResource) => {
@@ -48,6 +58,11 @@ export function LearningResourcesTable() {
       }
     }
   }, [deleteMutation, refetch]);
+
+  const handleVisibility = React.useCallback((resource: LearningResource) => {
+    setSelectedResource(resource);
+    setVisibilityDialogOpen(true);
+  }, []);
 
   const handleDownload = React.useCallback(async (resource: LearningResource) => {
     if (!resource.filename) {
@@ -77,9 +92,10 @@ export function LearningResourcesTable() {
       onEdit: handleEdit,
       onDelete: handleDelete,
       onDownload: handleDownload,
+      onVisibility: handleVisibility,
       onSuccess: () => refetch(),
     }),
-    [handleView, handleEdit, handleDelete, handleDownload, refetch]
+    [handleView, handleEdit, handleDelete, handleDownload, handleVisibility, refetch]
   );
 
   const { table } = useDataTable({
@@ -133,17 +149,26 @@ export function LearningResourcesTable() {
       {/* Header */}
       <Card className="border-indigo-200/60 bg-gradient-to-br from-indigo-50/80 via-purple-50/40 to-pink-50/20 shadow-xl backdrop-blur-sm">
         <CardHeader className="pb-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-indigo-900 via-purple-800 to-pink-700 bg-clip-text text-transparent">
-                Learning Resources
-              </CardTitle>
-              <CardDescription className="text-indigo-700/80 text-lg">
-                Manage educational content, videos, documents, and learning materials
-              </CardDescription>
+                      <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <CardTitle className="text-3xl font-bold bg-gradient-to-r from-indigo-900 via-purple-800 to-pink-700 bg-clip-text text-transparent">
+                  Learning Resources
+                </CardTitle>
+                <CardDescription className="text-indigo-700/80 text-lg">
+                  Manage educational content, videos, documents, and learning materials
+                </CardDescription>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Button
+                  onClick={() => setUploadDialogOpen(true)}
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Files
+                </Button>
+                <AddLearningResourceSheet onSuccess={() => refetch()} />
+              </div>
             </div>
-            <AddLearningResourceSheet onSuccess={() => refetch()} />
-          </div>
         </CardHeader>
       </Card>
 
@@ -204,6 +229,33 @@ export function LearningResourcesTable() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <ResourceViewDialog
+        resource={selectedResource}
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+        onDownload={handleDownload}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
+
+      <ResourceUploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        onSuccess={() => refetch()}
+      />
+
+      <ResourceVisibilityDialog
+        resource={selectedResource}
+        open={visibilityDialogOpen}
+        onOpenChange={setVisibilityDialogOpen}
+        onSave={async (resourceId, settings) => {
+          // TODO: Implement visibility settings save
+          console.log('Saving visibility settings:', resourceId, settings);
+          toast.success("Visibility settings updated");
+        }}
+      />
     </div>
   );
 } 

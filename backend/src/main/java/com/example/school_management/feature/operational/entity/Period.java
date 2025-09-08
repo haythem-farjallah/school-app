@@ -1,5 +1,6 @@
 package com.example.school_management.feature.operational.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -28,5 +29,6 @@ public class Period {
     private LocalTime endTime;
 
     @OneToMany(mappedBy = "period")
+    @JsonIgnore
     private Set<TimetableSlot> timetableSlots = new HashSet<>();
 } 

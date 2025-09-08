@@ -11,6 +11,7 @@ import {
 import { EditClassSheet } from "./class-sheet";
 import type { Class } from "@/types/class";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ClassActionsProps {
   classItem: Class;
@@ -22,6 +23,8 @@ interface ClassActionsProps {
 
 export function ClassActions({ classItem, onView, onDelete, onSuccess }: ClassActionsProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isTeacher = user?.role === 'TEACHER';
   
   return (
     <DropdownMenu>
@@ -41,7 +44,10 @@ export function ClassActions({ classItem, onView, onDelete, onSuccess }: ClassAc
             if (onView) {
               onView(classItem);
             } else {
-              navigate(`/admin/classes/view/${classItem.id}`);
+              const viewPath = isTeacher 
+                ? `/teacher/classes/${classItem.id}` 
+                : `/admin/classes/view/${classItem.id}`;
+              navigate(viewPath);
             }
           }}
           className="cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-blue-50 focus:to-indigo-50"
@@ -49,30 +55,36 @@ export function ClassActions({ classItem, onView, onDelete, onSuccess }: ClassAc
           <Eye className="mr-3 h-4 w-4 text-blue-600" />
           <span className="font-medium">View Details</span>
         </DropdownMenuItem>
-        <EditClassSheet 
-          classItem={classItem} 
-          onSuccess={onSuccess}
-          trigger={
+        
+        {/* Only show edit and delete actions for non-teachers */}
+        {!isTeacher && (
+          <>
+            <EditClassSheet 
+              classItem={classItem} 
+              onSuccess={onSuccess}
+              trigger={
+                <DropdownMenuItem 
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    // The sheet trigger will handle opening the sheet
+                  }}
+                  className="cursor-pointer hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-green-50 focus:to-emerald-50"
+                >
+                  <Edit className="mr-3 h-4 w-4 text-green-600" />
+                  <span className="font-medium">Edit Class</span>
+                </DropdownMenuItem>
+              }
+            />
+            <DropdownMenuSeparator className="bg-slate-200/60" />
             <DropdownMenuItem 
-              onSelect={(e) => {
-                e.preventDefault();
-                // The sheet trigger will handle opening the sheet
-              }}
-              className="cursor-pointer hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-green-50 focus:to-emerald-50"
+              onClick={() => onDelete?.(classItem)}
+              className="cursor-pointer hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-red-50 focus:to-rose-50 text-red-600"
             >
-              <Edit className="mr-3 h-4 w-4 text-green-600" />
-              <span className="font-medium">Edit Class</span>
+              <Trash2 className="mr-3 h-4 w-4" />
+              <span className="font-medium">Delete Class</span>
             </DropdownMenuItem>
-          }
-        />
-        <DropdownMenuSeparator className="bg-slate-200/60" />
-        <DropdownMenuItem 
-          onClick={() => onDelete?.(classItem)}
-          className="cursor-pointer hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-red-50 focus:to-rose-50 text-red-600"
-        >
-          <Trash2 className="mr-3 h-4 w-4" />
-          <span className="font-medium">Delete Class</span>
-        </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

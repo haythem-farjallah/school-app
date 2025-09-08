@@ -33,7 +33,7 @@ public interface StaffMapper
             @Mapping(target = "birthday",  source = "profile.birthday"),
             @Mapping(target = "gender",    source = "profile.gender"),
             @Mapping(target = "address",   source = "profile.address"),
-            @Mapping(target = "role",      source = "profile.role"),
+            @Mapping(target = "role",      constant = "STAFF"),
             @Mapping(target = "staffType", source = "staffType"),
             @Mapping(target = "department", source = "department")
     })

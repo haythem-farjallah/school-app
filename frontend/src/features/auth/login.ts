@@ -9,9 +9,11 @@ export interface LoginResponse {
     firstName: string;
     lastName: string;
     role: string;
+    permissions?: string[];
   };
-  accessToken:  string;
+  accessToken: string;
   refreshToken: string;
+  passwordChangeRequired: boolean;
 }
 
 /* plain axios call – no hooks here */

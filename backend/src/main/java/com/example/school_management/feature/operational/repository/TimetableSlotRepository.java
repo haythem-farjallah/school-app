@@ -41,6 +41,9 @@ public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, Lo
     @Query("SELECT ts FROM TimetableSlot ts WHERE ts.teacher.id = :teacherId ORDER BY ts.dayOfWeek, ts.period.index")
     List<TimetableSlot> findByTeacherId(@Param("teacherId") Long teacherId);
 
+    @Query("SELECT COUNT(ts) FROM TimetableSlot ts WHERE ts.teacher.id = :teacherId")
+    long countByTeacherId(@Param("teacherId") Long teacherId);
+
     @Modifying
     @Query("DELETE FROM TimetableSlot ts WHERE ts.timetable.id = :timetableId")
     void deleteByTimetableId(@Param("timetableId") Long timetableId);

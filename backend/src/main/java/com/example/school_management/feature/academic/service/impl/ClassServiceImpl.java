@@ -10,8 +10,11 @@ import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.*;
 import com.example.school_management.feature.academic.service.ClassService;
 import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +45,7 @@ public class ClassServiceImpl implements ClassService {
     private final ClassRepository   classRepo;
     private final CourseRepository  courseRepo;
     private final StudentRepository studentRepo;
+    private final TeacherRepository teacherRepo;
     private final AcademicMapper    mapper;
     private final TeachingAssignmentRepository  assignmentRepo;
     private final AuditService auditService;
@@ -231,6 +236,7 @@ public class ClassServiceImpl implements ClassService {
                 .map(mapper::toClassDto);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public Page<ClassCardDto> listCards(QueryParams qp) {
 
@@ -267,6 +273,7 @@ public class ClassServiceImpl implements ClassService {
         return new PageImpl<>(cards, page.getPageable(), page.getTotalElements());
     }
 
+    @Override
     @Transactional(readOnly = true)
     public ClassViewDto getDetails(Long classId) {
         ClassEntity c = fetch(classRepo, classId, "Class");
@@ -276,7 +283,71 @@ public class ClassServiceImpl implements ClassService {
                 .toList();
         return new ClassViewDto(c.getId(), c.getName(), list);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ClassDto> getClassesByTeacherId(Long teacherId, Pageable pageable) {
+        log.debug("Getting classes for teacher: {}", teacherId);
+        List<ClassEntity> classes = classRepo.findByTeacherId(teacherId);
+        log.debug("Found {} classes for teacher {}", classes.size(), teacherId);
+        
+        if (classes.isEmpty()) {
+            log.info("No classes found for teacher {}", teacherId);
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+        
+        // Convert to Page manually since repository returns List
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), classes.size());
+        List<ClassEntity> pageContent = classes.subList(start, end);
+        
+        List<ClassDto> classDtos = pageContent.stream()
+                .map(mapper::toClassDto)
+                .toList();
+        
+        log.debug("Returning {} classes for teacher {}", classDtos.size(), teacherId);
+        return new PageImpl<>(classDtos, pageable, classes.size());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ClassDto> getClassesByStudentId(Long studentId, Pageable pageable) {
+        log.debug("Getting classes for student: {}", studentId);
+        
+        // Get classes through enrollments
+        Specification<ClassEntity> spec = (root, query, cb) -> {
+            var enrollmentJoin = root.join("enrollments");
+            var studentJoin = enrollmentJoin.join("student");
+            return cb.equal(studentJoin.get("id"), studentId);
+        };
+        
+        Page<ClassEntity> classPage = classRepo.findAll(spec, pageable);
+        return classPage.map(mapper::toClassDto);
+    }
     
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ClassDto> getCurrentTeacherClasses(Pageable pageable) {
+        log.debug("Getting classes for current teacher");
+        
+        try {
+            // Get current teacher from security context
+            UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            String email = userDetails.getUsername();
+            log.debug("Current teacher email: {}", email);
+            
+            Teacher teacher = teacherRepo.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("Current user is not a teacher: " + email));
+            
+            log.debug("Found teacher with ID: {}", teacher.getId());
+            return getClassesByTeacherId(teacher.getId(), pageable);
+        } catch (Exception e) {
+            log.error("Error getting current teacher classes: {}", e.getMessage(), e);
+            // Return empty page instead of throwing exception
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+    }
+
     /**
      * Get the current authenticated user
      */

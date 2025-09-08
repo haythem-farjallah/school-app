@@ -2,7 +2,7 @@
 
 import type { Option } from "@/types/data-table";
 import type { Column } from "@tanstack/react-table";
-import { Check, PlusCircle, XCircle } from "lucide-react";
+import { Check, PlusCircle, XCircle, Filter, Search } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,30 +76,37 @@ export function DataTableFacetedFilter<TData, TValue>({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="border-dashed">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className={cn(
+            "border-dashed hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 shadow-sm hover:shadow-md",
+            selectedValues?.size > 0 && "bg-gradient-to-r from-blue-100/80 to-indigo-100/80 border-blue-300/60 shadow-md"
+          )}
+        >
           {selectedValues?.size > 0 ? (
             <div
               role="button"
               aria-label={`Clear ${title} filter`}
               tabIndex={0}
               onClick={onReset}
-              className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="rounded-sm p-1 hover:bg-red-100/80 transition-all duration-200 hover:scale-110"
             >
-              <XCircle />
+              <XCircle className="h-4 w-4 text-red-600" />
             </div>
           ) : (
-            <PlusCircle />
+            <Filter className="h-4 w-4 text-blue-600" />
           )}
-          {title}
+          <span className="font-medium">{title}</span>
           {selectedValues?.size > 0 && (
             <>
               <Separator
                 orientation="vertical"
-                className="mx-0.5 data-[orientation=vertical]:h-4"
+                className="mx-2 data-[orientation=vertical]:h-4 bg-blue-300/60"
               />
               <Badge
                 variant="secondary"
-                className="rounded-sm px-1 font-normal lg:hidden"
+                className="rounded-full px-2 py-1 font-semibold bg-blue-50 text-blue-700 border border-blue-200/60 lg:hidden"
               >
                 {selectedValues.size}
               </Badge>
@@ -107,7 +114,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                 {selectedValues.size > 2 ? (
                   <Badge
                     variant="secondary"
-                    className="rounded-sm px-1 font-normal"
+                    className="rounded-full px-2 py-1 font-semibold bg-blue-50 text-blue-700 border border-blue-200/60"
                   >
                     {selectedValues.size} selected
                   </Badge>
@@ -118,7 +125,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                       <Badge
                         variant="secondary"
                         key={option.value}
-                        className="rounded-sm px-1 font-normal"
+                        className="rounded-full px-2 py-1 font-medium bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border border-green-200/60"
                       >
                         {option.label}
                       </Badge>
@@ -129,12 +136,27 @@ export function DataTableFacetedFilter<TData, TValue>({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[12.5rem] p-0" align="start">
-        <Command>
-          <CommandInput placeholder={title} />
+      <PopoverContent 
+        className="w-[280px] p-0 bg-white/95 backdrop-blur-sm border border-slate-200/80 shadow-xl rounded-xl" 
+        align="start"
+      >
+        <Command className="rounded-xl">
+          <div className="flex items-center border-b border-slate-200/60 px-3 py-2 bg-gradient-to-r from-slate-50/80 to-blue-50/40">
+            <Search className="h-4 w-4 text-slate-500 mr-2" />
+            <CommandInput 
+              placeholder={`Search ${title?.toLowerCase()}...`} 
+              className="border-0 bg-transparent focus:ring-0 placeholder:text-slate-400"
+            />
+          </div>
           <CommandList className="max-h-full">
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup className="max-h-[18.75rem] overflow-y-auto overflow-x-hidden">
+            <CommandEmpty className="py-6 text-center text-slate-500">
+              <div className="flex flex-col items-center gap-2">
+                <Search className="h-8 w-8 text-slate-300" />
+                <p className="text-sm">No options found</p>
+                <p className="text-xs text-slate-400">Try adjusting your search</p>
+              </div>
+            </CommandEmpty>
+            <CommandGroup className="max-h-[300px] overflow-y-auto overflow-x-hidden p-2">
               {options.map((option) => {
                 const isSelected = selectedValues.has(option.value);
 
@@ -142,23 +164,38 @@ export function DataTableFacetedFilter<TData, TValue>({
                   <CommandItem
                     key={option.value}
                     onSelect={() => onItemSelect(option, isSelected)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200",
+                      "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50",
+                      isSelected && "bg-gradient-to-r from-blue-100/80 to-indigo-100/80 border border-blue-200/60"
+                    )}
                   >
                     <div
                       className={cn(
-                        "flex size-4 items-center justify-center rounded-sm border border-primary",
+                        "flex size-5 items-center justify-center rounded-md border-2 transition-all duration-200",
                         isSelected
-                          ? "bg-primary"
-                          : "opacity-50 [&_svg]:invisible",
+                          ? "bg-gradient-to-r from-blue-500 to-indigo-500 border-blue-500 text-white shadow-sm"
+                          : "border-slate-300 hover:border-blue-400 bg-white"
                       )}
                     >
-                      <Check />
+                      <Check className={cn("h-3 w-3", isSelected ? "opacity-100" : "opacity-0")} />
                     </div>
-                    {option.icon && <option.icon />}
-                    <span className="truncate">{option.label}</span>
+                    {option.icon && (
+                      <option.icon className="h-4 w-4 text-slate-600" />
+                    )}
+                    <span className={cn(
+                      "truncate flex-1 font-medium",
+                      isSelected ? "text-blue-900" : "text-slate-700"
+                    )}>
+                      {option.label}
+                    </span>
                     {option.count && (
-                      <span className="ml-auto font-mono text-xs">
+                      <Badge 
+                        variant="outline" 
+                        className="ml-auto font-mono text-xs bg-slate-50 text-slate-600 border-slate-200"
+                      >
                         {option.count}
-                      </span>
+                      </Badge>
                     )}
                   </CommandItem>
                 );
@@ -166,13 +203,14 @@ export function DataTableFacetedFilter<TData, TValue>({
             </CommandGroup>
             {selectedValues.size > 0 && (
               <>
-                <CommandSeparator />
-                <CommandGroup>
+                <CommandSeparator className="bg-slate-200/60" />
+                <CommandGroup className="p-2">
                   <CommandItem
                     onSelect={() => onReset()}
-                    className="justify-center text-center"
+                    className="justify-center text-center py-2.5 rounded-lg hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 text-red-600 hover:text-red-700 font-medium cursor-pointer transition-all duration-200"
                   >
-                    Clear filters
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Clear all filters
                   </CommandItem>
                 </CommandGroup>
               </>

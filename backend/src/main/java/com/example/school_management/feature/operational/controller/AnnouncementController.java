@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/announcements")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 @Tag(name = "Announcements", description = "Endpoints for managing announcements")
 @SecurityRequirement(name = "bearerAuth")
 public class AnnouncementController {
@@ -33,6 +32,7 @@ public class AnnouncementController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Announcement created successfully")
     })
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
     @PostMapping
     public ResponseEntity<ApiSuccessResponse<AnnouncementDto>> create(
             @RequestBody @Valid CreateAnnouncementRequest req) {
@@ -42,6 +42,7 @@ public class AnnouncementController {
 
     @Operation(summary = "Update an existing announcement")
     @Parameter(name = "id", description = "ID of the announcement to update", required = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiSuccessResponse<AnnouncementDto>> update(
             @PathVariable Long id,
@@ -51,6 +52,7 @@ public class AnnouncementController {
 
     @Operation(summary = "Get announcement details by ID")
     @Parameter(name = "id", description = "ID of the announcement to retrieve", required = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER', 'STUDENT', 'PARENT')")
     @GetMapping("/{id}")
     public ResponseEntity<ApiSuccessResponse<AnnouncementDto>> get(@PathVariable Long id) {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.get(id)));
@@ -58,6 +60,7 @@ public class AnnouncementController {
 
     @Operation(summary = "Delete an announcement")
     @Parameter(name = "id", description = "ID of the announcement to delete", required = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiSuccessResponse<Void>> delete(@PathVariable Long id) {
         service.delete(id);
@@ -65,6 +68,7 @@ public class AnnouncementController {
     }
 
     @Operation(summary = "List announcements with pagination and filters")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
     @GetMapping
     public ResponseEntity<ApiSuccessResponse<PageDto<AnnouncementDto>>> list(
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
@@ -77,6 +81,7 @@ public class AnnouncementController {
 
     @Operation(summary = "Publish announcement to specific users")
     @Parameter(name = "id", description = "ID of the announcement", required = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PostMapping("/{id}/publish")
     public ResponseEntity<ApiSuccessResponse<AnnouncementDto>> publish(
             @PathVariable Long id,
@@ -92,5 +97,21 @@ public class AnnouncementController {
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
         var dto = new PageDto<>(service.getPublicAnnouncements(PageRequest.of(page, size)));
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
+    }
+
+    @Operation(summary = "Get classes that current teacher can send announcements to")
+    @GetMapping("/teacher-classes")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiSuccessResponse<Object>> getTeacherClasses() {
+        // This will be handled by the service layer
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.getTeacherClasses()));
+    }
+
+    @Operation(summary = "Create test teaching assignments for current teacher (DEV ONLY)")
+    @PostMapping("/create-test-assignments")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiSuccessResponse<String>> createTestAssignments() {
+        service.createTestTeachingAssignments();
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "Test teaching assignments created"));
     }
 } 

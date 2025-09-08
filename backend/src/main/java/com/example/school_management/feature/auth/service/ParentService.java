@@ -11,6 +11,7 @@ import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.mapper.ParentMapper;
 import com.example.school_management.feature.auth.repository.ParentRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import lombok.extern.slf4j.Slf4j;
@@ -42,8 +43,9 @@ public class ParentService extends AbstractUserCrudService<
                         PasswordUtil pw,
                         ApplicationEventPublisher ev,
                         AuditService auditService,
-                        StudentRepository studentRepository) {
-        super(repo, mapper, enc, pw, ev, auditService);
+                        StudentRepository studentRepository,
+                        UserRepository userRepository) {
+        super(repo, mapper, enc, pw, ev, auditService, userRepository);
         this.studentRepository = studentRepository;
         this.parentRepository = repo;
     }

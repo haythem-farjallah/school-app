@@ -1,5 +1,8 @@
 import { token } from './token';
 
+// Re-export useAuth hook from hooks directory
+export { useAuth, useUserRole, usePermissions } from '@/hooks/useAuth';
+
 /**
  * Comprehensive logout utility that clears all user data
  * and resets the application to a clean state

@@ -14,14 +14,11 @@ export interface Staff {
 }
 
 export enum StaffType {
+  ADMINISTRATIVE = 'ADMINISTRATIVE',
   MAINTENANCE = 'MAINTENANCE',
   SECURITY = 'SECURITY',
-  ADMINISTRATION = 'ADMINISTRATION',
-  SUPPORT = 'SUPPORT',
-  CLEANING = 'CLEANING',
-  HEALTH = 'HEALTH',
-  LIBRARY = 'LIBRARY',
-  IT = 'IT',
+  LIBRARIAN = 'LIBRARIAN',
+  COUNSELOR = 'COUNSELOR',
 }
 
 export interface CreateStaffRequest {

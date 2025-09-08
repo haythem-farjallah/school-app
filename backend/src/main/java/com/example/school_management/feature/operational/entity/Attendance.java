@@ -39,6 +39,10 @@ public class Attendance {
     @JoinColumn(name = "class_id")
     private ClassEntity classEntity;
 
+    // Direct class ID for easier querying
+    @Column(name = "class_id", insertable = false, updatable = false)
+    private Long classId;
+
     // The timetable slot for which the attendance is recorded
     @ManyToOne
     @JoinColumn(name = "timetable_slot_id")
@@ -81,9 +85,7 @@ public class Attendance {
     @JoinColumn(name = "recorded_by_id")
     private BaseUser recordedBy;
 
-    // Legacy field for backward compatibility
-    @Column(name = "present")
-    private Boolean present;
+
 
     // Audit fields
     @CreatedDate

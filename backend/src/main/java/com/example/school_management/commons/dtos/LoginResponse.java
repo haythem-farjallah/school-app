@@ -9,4 +9,13 @@ public class LoginResponse {
     private String accessToken;
     private String refreshToken;
     private UserDto user;
+    private boolean passwordChangeRequired;
+    
+    // Constructor for backward compatibility
+    public LoginResponse(String accessToken, String refreshToken, UserDto user) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
+        this.user = user;
+        this.passwordChangeRequired = false;
+    }
 }

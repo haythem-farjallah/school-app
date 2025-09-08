@@ -43,7 +43,11 @@ public class OtpService {
                 user.getEmail(),
                 "Your password-reset code",
                 "otp",                 // Thymeleaf template name
-                Map.of("otp", code)
+                Map.of(
+                    "otp", code,
+                    "code", code,  // Template uses 'code' variable
+                    "name", user.getFirstName() != null ? user.getFirstName() : "User"
+                )
         );
     }
 

@@ -2,6 +2,7 @@ package com.example.school_management.feature.operational.service;
 
 import com.example.school_management.feature.operational.dto.EnrollmentDto;
 import com.example.school_management.feature.operational.dto.EnrollmentStatsDto;
+import com.example.school_management.feature.operational.dto.AutoEnrollmentResultDto;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -79,4 +80,19 @@ public interface EnrollmentService {
      * Check if student can be enrolled in class (capacity, prerequisites, etc.)
      */
     boolean canEnrollStudent(Long studentId, Long classId);
+    
+    /**
+     * Automatically enroll all unenrolled students into appropriate classes
+     */
+    AutoEnrollmentResultDto autoEnrollAllStudents();
+    
+    /**
+     * Automatically enroll students of a specific grade level
+     */
+    AutoEnrollmentResultDto autoEnrollByGradeLevel(String gradeLevel);
+    
+    /**
+     * Preview what auto-enrollment would do without actually enrolling
+     */
+    AutoEnrollmentResultDto previewAutoEnrollment();
 } 

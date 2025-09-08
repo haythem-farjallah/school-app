@@ -18,6 +18,8 @@ interface Props<R extends FormRecipe> {
   recipe: R;
   defaultValues?: z.infer<R["schema"]>;
   submitLabel?: string;
+  submitText?: string;
+  loading?: boolean;
   animate?: boolean;
   submitClassName?: string;
 }
@@ -26,6 +28,8 @@ export const AutoForm = <R extends FormRecipe>({
   recipe,
   defaultValues,
   submitLabel = "form.submit",
+  submitText,
+  loading,
   submitClassName,
   animate = true,
 }: Props<R>) => {
@@ -68,7 +72,7 @@ export const AutoForm = <R extends FormRecipe>({
 
         <Button
           type="submit"
-          disabled={mutation.isPending}
+          disabled={loading || mutation.isPending}
           className={cx(
             "w-full h-11 font-semibold transition-all duration-200",
             "bg-primary hover:bg-primary/90 text-white",
@@ -77,13 +81,13 @@ export const AutoForm = <R extends FormRecipe>({
             submitClassName
           )}
         >
-          {mutation.isPending ? (
+          {(loading || mutation.isPending) ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Signing in...
+              Loading...
             </>
           ) : (
-            t(submitLabel)
+            submitText || t(submitLabel)
           )}
         </Button>
       </FormWrapper>

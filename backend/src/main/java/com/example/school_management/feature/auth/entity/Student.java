@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-@Data
 @EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
 @Entity
 @Table(name = "student")
@@ -30,4 +29,17 @@ public class Student extends BaseUser {
 
     @OneToMany(mappedBy = "student")
     private Set<Transfer> transfers = new HashSet<>();
+
+    // Getters and Setters
+    public GradeLevel getGradeLevel() { return gradeLevel; }
+    public void setGradeLevel(GradeLevel gradeLevel) { this.gradeLevel = gradeLevel; }
+    
+    public LocalDateTime getEnrolledAt() { return enrolledAt; }
+    public void setEnrolledAt(LocalDateTime enrolledAt) { this.enrolledAt = enrolledAt; }
+    
+    public Set<Enrollment> getEnrollments() { return enrollments; }
+    public void setEnrollments(Set<Enrollment> enrollments) { this.enrollments = enrollments; }
+    
+    public Set<Transfer> getTransfers() { return transfers; }
+    public void setTransfers(Set<Transfer> transfers) { this.transfers = transfers; }
 }

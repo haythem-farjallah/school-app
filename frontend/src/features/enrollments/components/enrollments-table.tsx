@@ -9,10 +9,12 @@ import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, BookOpen, TrendingUp, Plus } from "lucide-react";
+import { Users, BookOpen, TrendingUp, Plus, Zap, Clock } from "lucide-react";
 
 import { useEnrollments } from "../hooks/use-enrollments";
 import { getEnrollmentColumns } from "./enrollment-columns";
+import { http } from "@/lib/http";
+// import { useToast } from "@/hooks/use-toast"; // Using react-hot-toast instead
 
 // Filter parsers
 const filterParsers = {
@@ -24,6 +26,7 @@ const filterParsers = {
 export function EnrollmentsTable() {
   const navigate = useNavigate();
   const [filterValues] = useQueryStates(filterParsers);
+  const [autoEnrollLoading, setAutoEnrollLoading] = React.useState(false);
   
   console.log("🔍 EnrollmentsTable - Filter values:", filterValues);
 
@@ -95,6 +98,32 @@ export function EnrollmentsTable() {
     navigate("/admin/enrollments/create");
   };
 
+  const handleAutoEnrollment = async () => {
+    setAutoEnrollLoading(true);
+    try {
+      const response = await http.post('/v1/enrollments/auto-enroll');
+      const result = response.data?.data;
+      
+      if (!result) {
+        throw new Error('No data received from auto-enrollment API');
+      }
+      
+      toast.success(
+        `Auto-Enrollment Complete! Successfully enrolled ${result.studentsEnrolled || 0} students into ${result.classesUsed || 0} classes (${result.classesCreated || 0} new classes created)`
+      );
+      
+      // Refresh the enrollments table
+      refetch();
+    } catch (error: unknown) {
+      console.error('Auto-enrollment error:', error);
+      const errorMessage = error instanceof Error ? error.message : 
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to auto-enroll students";
+      toast.error(errorMessage);
+    } finally {
+      setAutoEnrollLoading(false);
+    }
+  };
+
   // Calculate statistics
   const stats = React.useMemo(() => {
     if (!enrollments) return null;
@@ -155,10 +184,29 @@ export function EnrollmentsTable() {
             Manage student enrollments and track academic progress
           </p>
         </div>
-        <Button onClick={handleCreateNew} className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="mr-2 h-4 w-4" />
-          New Enrollment
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleAutoEnrollment} 
+            disabled={autoEnrollLoading}
+            className="bg-yellow-600 hover:bg-yellow-700"
+          >
+            {autoEnrollLoading ? (
+              <>
+                <Clock className="mr-2 h-4 w-4 animate-spin" />
+                Auto-Enrolling...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-4 w-4" />
+                Auto-Enrollment
+              </>
+            )}
+          </Button>
+          <Button onClick={handleCreateNew} className="bg-blue-600 hover:bg-blue-700">
+            <Plus className="mr-2 h-4 w-4" />
+            New Enrollment
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -222,15 +270,36 @@ export function EnrollmentsTable() {
 
       <DataTable table={table}>
         <DataTableToolbar table={table}>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCreateNew}
-            className="ml-auto hidden h-8 lg:flex"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Enrollment
-          </Button>
+          <div className="ml-auto hidden lg:flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAutoEnrollment}
+              disabled={autoEnrollLoading}
+              className="h-8 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
+            >
+              {autoEnrollLoading ? (
+                <>
+                  <Clock className="mr-2 h-3 w-3 animate-spin" />
+                  Auto-Enrolling...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-3 w-3" />
+                  Auto-Enrollment
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCreateNew}
+              className="h-8"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Enrollment
+            </Button>
+          </div>
         </DataTableToolbar>
       </DataTable>
     </div>

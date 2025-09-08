@@ -1,5 +1,6 @@
 package com.example.school_management.feature.auth.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -18,5 +19,6 @@ public class ProfileSettings {
 
     @OneToOne(fetch = FetchType.LAZY,optional = false)
     @JoinColumn(name = "user_id")
+    @JsonIgnore
     private BaseUser user;
 }

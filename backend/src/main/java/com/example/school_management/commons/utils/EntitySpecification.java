@@ -69,6 +69,7 @@ public final class EntitySpecification {
      *  - nested properties via dot notation, e.g. "foo.bar.baz"
      *  - the "Id" shortcut, e.g. "fooId" → root.get("foo").get("id")
      *  - or a direct attribute name
+     *  - Special handling for ClassEntity teacherId → teachers.id (many-to-many)
      */
     private static <T> Path<?> resolvePath(Root<T> root, String attribute) {
         if (attribute.contains(".")) {
@@ -80,6 +81,12 @@ public final class EntitySpecification {
         }
         if (attribute.endsWith("Id")) {
             String rel = attribute.substring(0, attribute.length() - 2);
+            
+            // Special case: ClassEntity has "teachers" (plural) not "teacher" (singular)
+            if ("teacher".equals(rel) && root.getJavaType().getSimpleName().equals("ClassEntity")) {
+                return root.join("teachers").get("id");
+            }
+            
             return root.get(rel).get("id");
         }
         return root.get(attribute);

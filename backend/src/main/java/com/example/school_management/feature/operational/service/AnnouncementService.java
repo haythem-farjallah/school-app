@@ -18,4 +18,8 @@ public interface AnnouncementService {
 
     /* ─── PUBLISHING ────────────────────────────────────── */
     AnnouncementDto publish(Long id, PublishAnnouncementRequest req);
+    
+    /* ─── HELPER METHODS ─────────────────────────────────── */
+    Object getTeacherClasses();
+    void createTestTeachingAssignments();
 } 

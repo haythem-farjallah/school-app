@@ -21,7 +21,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/current-user")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'TEACHER_READ_WRITE', 'PARENT_READ', 'STUDENT_READ')")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'TEACHER_READ_WRITE', 'PARENT_READ', 'STUDENT_READ') or hasRole('ADMIN')")
     @Operation(summary = "Get dashboard data for current authenticated user")
     public ResponseEntity<ApiSuccessResponse<Object>> getCurrentUserDashboard() {
         log.debug("Fetching dashboard for current user");
@@ -64,7 +64,7 @@ public class DashboardController {
     }
 
     @GetMapping("/admin/{adminId}")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE')")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE') or hasRole('ADMIN')")
     @Operation(summary = "Get admin-specific dashboard data with system statistics")
     public ResponseEntity<ApiSuccessResponse<Object>> getAdminDashboard(
             @PathVariable Long adminId) {
@@ -122,7 +122,7 @@ public class DashboardController {
     }
 
     @GetMapping("/admin/system-health")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE')")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE') or hasRole('ADMIN')")
     @Operation(summary = "Get system health and statistics")
     public ResponseEntity<ApiSuccessResponse<Object>> getSystemHealth() {
         log.debug("Fetching system health statistics");

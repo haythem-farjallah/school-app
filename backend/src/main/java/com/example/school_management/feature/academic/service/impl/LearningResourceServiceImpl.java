@@ -19,12 +19,16 @@ import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
+import com.example.school_management.commons.security.FileSecurityService;
+import com.example.school_management.commons.security.FileSecurityException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
+
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +56,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     private final LearningResourceMapper mapper;
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
+    private final FileSecurityService fileSecurityService;
 
     @Value("${app.file.upload.path:uploads/learning-resources}")
     private String uploadPath;
@@ -120,14 +125,21 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     @Override
     public LearningResourceDto uploadResource(MultipartFile file, CreateLearningResourceRequest request) {
+        return uploadResourceWithVisibility(file, request, true); // Default to public
+    }
+
+    public LearningResourceDto uploadResourceWithVisibility(MultipartFile file, CreateLearningResourceRequest request, Boolean isPublic) {
         log.debug("Uploading learning resource file: {}", file.getOriginalFilename());
         
-        // Validate file
-        validateFile(file);
+        // Determine resource type first
+        ResourceType resourceType = determineResourceType(StringUtils.getFilenameExtension(file.getOriginalFilename()));
         
-        // Generate unique filename
-        String originalFilename = file.getOriginalFilename();
-        String fileExtension = StringUtils.getFilenameExtension(originalFilename);
+        // Validate file with comprehensive security checks
+        FileSecurityService.FileValidationResult validationResult = validateFile(file, resourceType);
+        
+        // Use sanitized filename from validation
+        String sanitizedFilename = validationResult.getSanitizedFilename();
+        String fileExtension = StringUtils.getFilenameExtension(sanitizedFilename);
         String uniqueFilename = UUID.randomUUID().toString() + "." + fileExtension;
         
         // Create upload directory if it doesn't exist
@@ -150,8 +162,8 @@ public class LearningResourceServiceImpl implements LearningResourceService {
             throw new RuntimeException("Failed to save uploaded file", e);
         }
         
-        // Determine resource type based on file extension
-        ResourceType resourceType = determineResourceType(fileExtension);
+        // Resource type already determined during validation
+        // File hash available for audit: validationResult.getFileHash()
         
         // Create resource with file URL
         String fileUrl = "/api/v1/learning-resources/files/" + uniqueFilename;
@@ -164,7 +176,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         resource.setType(resourceType);
         resource.setThumbnailUrl(request.getThumbnailUrl());
         resource.setDuration(request.getDuration());
-        resource.setPublic(request.getIsPublic());
+        resource.setPublic(isPublic != null ? isPublic : true); // Use provided visibility or default to true
         
         // Set current teacher as creator
         Teacher currentTeacher = getCurrentTeacher();
@@ -189,6 +201,26 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         }
         
         LearningResource saved = repository.save(resource);
+        
+        // Create audit event
+        try {
+            BaseUser currentUser = getCurrentUser();
+            String summary = "Learning resource uploaded";
+            String details = String.format("File uploaded: %s -> %s (Type: %s, Size: %d bytes, Public: %s)", 
+                sanitizedFilename, uniqueFilename, resourceType, file.getSize(), isPublic);
+            
+            auditService.createAuditEvent(
+                AuditEventType.RESOURCE_UPLOADED,
+                "LearningResource",
+                saved.getId(),
+                summary,
+                details,
+                currentUser
+            );
+        } catch (Exception e) {
+            log.warn("Failed to create audit event for resource upload: {}", e.getMessage());
+        }
+        
         return mapper.toDto(saved);
     }
 
@@ -213,19 +245,32 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         if (request.getDuration() != null) resource.setDuration(request.getDuration());
         if (request.getIsPublic() != null) resource.setPublic(request.getIsPublic());
         
+        // Update class assignments if provided
+        if (request.getClassIds() != null) {
+            // Clear existing classes
+            resource.getTargetClasses().clear();
+            // Add new classes
+            request.getClassIds().forEach(classId -> {
+                ClassEntity classEntity = classRepository.findById(classId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
+                resource.addTargetClass(classEntity);
+            });
+        }
+        
+        // Update course assignments if provided
+        if (request.getCourseIds() != null) {
+            // Clear existing courses
+            resource.getTargetCourses().clear();
+            // Add new courses
+            request.getCourseIds().forEach(courseId -> {
+                Course course = courseRepository.findById(courseId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+                resource.addTargetCourse(course);
+            });
+        }
+        
         LearningResource updated = repository.save(resource);
         return mapper.toDto(updated);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public LearningResourceDto get(Long id) {
-        log.debug("Fetching learning resource {}", id);
-        
-        LearningResource resource = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + id));
-        
-        return mapper.toDto(resource);
     }
 
     @Override
@@ -243,53 +288,66 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         
         // Delete associated file if it exists
         if (resource.getUrl() != null && resource.getUrl().startsWith("/api/v1/learning-resources/files/")) {
-            String filename = resource.getUrl().substring("/api/v1/learning-resources/files/".length());
+            String filename = resource.getUrl().substring(resource.getUrl().lastIndexOf('/') + 1);
             deleteFile(filename);
         }
         
-        repository.deleteById(id);
+        repository.delete(resource);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    public LearningResourceDto get(Long id) {
+        log.debug("Getting learning resource {}", id);
+        
+        LearningResource resource = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + id));
+        
+        return mapper.toDto(resource);
+    }
+
+    @Override
     public Page<LearningResourceDto> list(Pageable pageable) {
-        return repository.findAll(pageable).map(mapper::toDto);
+        log.debug("Listing learning resources with pageable: {}", pageable);
+        return repository.findAllSorted(pageable).map(mapper::toDto);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<LearningResourceDto> findByType(ResourceType type, Pageable pageable) {
+        log.debug("Finding learning resources by type: {}", type);
         return repository.findByType(type, pageable).map(mapper::toDto);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<LearningResourceDto> findByTeacherId(Long teacherId, Pageable pageable) {
+        log.debug("Finding learning resources by teacher ID: {}", teacherId);
         return repository.findByTeacherId(teacherId, pageable).map(mapper::toDto);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<LearningResourceDto> findByClassId(Long classId, Pageable pageable) {
+        log.debug("Finding learning resources by class ID: {}", classId);
         return repository.findByClassId(classId, pageable).map(mapper::toDto);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<LearningResourceDto> findByCourseId(Long courseId, Pageable pageable) {
+        log.debug("Finding learning resources by course ID: {}", courseId);
         return repository.findByCourseId(courseId, pageable).map(mapper::toDto);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<LearningResourceDto> searchByTitleOrDescription(String title, String description, Pageable pageable) {
-        return repository.searchByTitleOrDescription(title, description, pageable).map(mapper::toDto);
+        log.debug("Searching learning resources by search term: {}", title);
+        // Use the title parameter as the search term (description parameter is ignored now)
+        return repository.searchByTitleOrDescription(title, pageable).map(mapper::toDto);
     }
 
     @Override
     public void addTargetClasses(Long resourceId, Set<Long> classIds) {
+        log.debug("Adding target classes {} to resource {}", classIds, resourceId);
+        
         LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
         
         classIds.forEach(classId -> {
             ClassEntity classEntity = classRepository.findById(classId)
@@ -302,8 +360,10 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     @Override
     public void removeTargetClasses(Long resourceId, Set<Long> classIds) {
+        log.debug("Removing target classes {} from resource {}", classIds, resourceId);
+        
         LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
         
         classIds.forEach(classId -> {
             ClassEntity classEntity = classRepository.findById(classId)
@@ -316,8 +376,10 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     @Override
     public void addTargetCourses(Long resourceId, Set<Long> courseIds) {
+        log.debug("Adding target courses {} to resource {}", courseIds, resourceId);
+        
         LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
         
         courseIds.forEach(courseId -> {
             Course course = courseRepository.findById(courseId)
@@ -330,8 +392,10 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     @Override
     public void removeTargetCourses(Long resourceId, Set<Long> courseIds) {
+        log.debug("Removing target courses {} from resource {}", courseIds, resourceId);
+        
         LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
         
         courseIds.forEach(courseId -> {
             Course course = courseRepository.findById(courseId)
@@ -344,8 +408,10 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     @Override
     public void addTeachers(Long resourceId, Set<Long> teacherIds) {
+        log.debug("Adding teachers {} to resource {}", teacherIds, resourceId);
+        
         LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
         
         teacherIds.forEach(teacherId -> {
             Teacher teacher = teacherRepository.findById(teacherId)
@@ -358,8 +424,10 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     @Override
     public void removeTeachers(Long resourceId, Set<Long> teacherIds) {
+        log.debug("Removing teachers {} from resource {}", teacherIds, resourceId);
+        
         LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
         
         teacherIds.forEach(teacherId -> {
             Teacher teacher = teacherRepository.findById(teacherId)
@@ -372,34 +440,34 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     private Teacher getCurrentTeacher() {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return teacherRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("Current teacher not found"));
+        String email = userDetails.getUsername(); // Username is actually the email
+        
+        return teacherRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Current user is not a teacher"));
     }
 
     private BaseUser getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String email = userDetails.getUsername(); // Username is actually the email
+        
         return userRepo.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Current user not found: " + email));
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
     }
 
-    private void validateFile(MultipartFile file) {
-        if (file.isEmpty()) {
-            throw new RuntimeException("File cannot be empty");
+    private FileSecurityService.FileValidationResult validateFile(MultipartFile file, ResourceType resourceType) {
+        // Use comprehensive security validation
+        String typeString = resourceType.name();
+        FileSecurityService.FileValidationResult result = fileSecurityService.validateFile(file, typeString);
+        
+        if (!result.isValid()) {
+            log.warn("File validation failed: {}", result.getErrorMessage());
+            throw new FileSecurityException("File validation failed: " + result.getErrorMessage());
         }
         
-        if (file.getSize() > maxFileSize) {
-            throw new RuntimeException("File size exceeds maximum allowed size of " + (maxFileSize / 1024 / 1024) + "MB");
-        }
+        log.info("File validation successful for: {} (hash: {})", 
+            result.getSanitizedFilename(), result.getFileHash());
         
-        String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || originalFilename.trim().isEmpty()) {
-            throw new RuntimeException("File name cannot be empty");
-        }
-        
-        String fileExtension = StringUtils.getFilenameExtension(originalFilename);
-        if (fileExtension == null) {
-            throw new RuntimeException("File must have an extension");
-        }
+        return result;
     }
 
     private ResourceType determineResourceType(String fileExtension) {
@@ -440,4 +508,53 @@ public class LearningResourceServiceImpl implements LearningResourceService {
             log.error("Failed to delete file: {}", filename, e);
         }
     }
-} 
+    
+    @Override
+    @Transactional
+    public void incrementViewCount(String filename) {
+        log.info("=== INCREMENTING VIEW COUNT ===");
+        log.info("Looking for filename: {}", filename);
+        
+        // Debug: Let's see what URLs we have in the database
+        var allResources = repository.findAll();
+        log.info("Total resources in database: {}", allResources.size());
+        for (LearningResource res : allResources) {
+            log.info("Resource {}: URL = {}", res.getId(), res.getUrl());
+        }
+        
+        var resourceOpt = repository.findByFilename(filename);
+        if (resourceOpt.isPresent()) {
+            LearningResource resource = resourceOpt.get();
+            Long oldCount = resource.getViewCount();
+            resource.setViewCount(resource.getViewCount() + 1);
+            LearningResource saved = repository.save(resource);
+            repository.flush(); // Force immediate database write
+            log.info("✅ View count incremented for resource {} ({}). Old count: {}, New count: {}", 
+                saved.getId(), saved.getTitle(), oldCount, saved.getViewCount());
+        } else {
+            log.warn("❌ No resource found with filename: {}", filename);
+            log.warn("Available URLs in database:");
+            allResources.forEach(res -> log.warn("  - {}", res.getUrl()));
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void incrementDownloadCount(String filename) {
+        log.info("=== INCREMENTING DOWNLOAD COUNT ===");
+        log.info("Looking for filename: {}", filename);
+        
+        var resourceOpt = repository.findByFilename(filename);
+        if (resourceOpt.isPresent()) {
+            LearningResource resource = resourceOpt.get();
+            Long oldCount = resource.getDownloadCount();
+            resource.setDownloadCount(resource.getDownloadCount() + 1);
+            LearningResource saved = repository.save(resource);
+            repository.flush(); // Force immediate database write
+            log.info("✅ Download count incremented for resource {} ({}). Old count: {}, New count: {}", 
+                saved.getId(), saved.getTitle(), oldCount, saved.getDownloadCount());
+        } else {
+            log.warn("❌ No resource found with filename: {}", filename);
+        }
+    }
+}

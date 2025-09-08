@@ -3,9 +3,9 @@ package com.example.school_management.feature.operational.entity;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatusConverter;
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.ColumnTransformer;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -19,9 +19,8 @@ public class Enrollment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", columnDefinition = "enrollment_status")
-    @ColumnTransformer(write = "?::enrollment_status")
+    @Convert(converter = EnrollmentStatusConverter.class)
+    @Column(name = "status")
     private EnrollmentStatus status = EnrollmentStatus.PENDING;
     
     private LocalDateTime enrolledAt = LocalDateTime.now();

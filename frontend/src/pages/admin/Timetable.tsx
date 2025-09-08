@@ -1,5 +1,5 @@
 import React from 'react';
-import TimetableGrid from '../../features/timetable/TimetableGrid';
+import { ImprovedTimetableGrid } from '../../features/timetable/components/ImprovedTimetableGrid';
 import { useClasses } from '@/features/classes/hooks/use-classes';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -14,33 +14,31 @@ const TimetablePage: React.FC = () => {
     navigate(`/admin/timetable/${classes[0].id}`, { replace: true });
   }
 
-  if (isLoading) return <div>Loading classes...</div>;
-  if (error) return <div>Error loading classes.</div>;
-  if (!classes.length) return <div>No classes found.</div>;
+  if (isLoading) return <div className="p-8 text-gray-600">Loading classes...</div>;
+  if (error) return <div className="p-8 text-red-600">Error loading classes.</div>;
+  if (!classes.length) return <div className="p-8 text-gray-600">No classes found.</div>;
 
   return (
-    <div style={{ padding: 32 }}>
-      <h1>Class Timetable Management</h1>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+    <div className="p-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Class Timetable Management</h1>
+      <div className="flex gap-2 mb-6">
         {classes.map((cls: import('@/types/class').Class) => (
           <button
             key={cls.id}
             onClick={() => navigate(`/admin/timetable/${cls.id}`)}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 4,
-              border: selectedClassId === cls.id ? '2px solid #6366f1' : '1px solid #ccc',
-              background: selectedClassId === cls.id ? '#6366f1' : '#fff',
-              color: selectedClassId === cls.id ? '#fff' : '#222',
-              fontWeight: selectedClassId === cls.id ? 'bold' : 'normal',
-              cursor: 'pointer',
-            }}
+            className={`
+              px-4 py-2 rounded cursor-pointer transition-all duration-200
+              ${selectedClassId === cls.id 
+                ? 'border-2 border-indigo-500 bg-indigo-500 text-white font-bold' 
+                : 'border border-gray-300 bg-white text-gray-800 font-normal hover:bg-gray-50'
+              }
+            `}
           >
             {cls.name}
           </button>
         ))}
       </div>
-      {selectedClassId && <TimetableGrid classId={selectedClassId} />}
+      {selectedClassId && <ImprovedTimetableGrid classId={selectedClassId} />}
     </div>
   );
 };

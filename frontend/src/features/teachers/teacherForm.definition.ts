@@ -7,7 +7,14 @@ export const teacherSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
   lastName: z.string().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
   email: z.string().email("Please enter a valid email address"),
-  telephone: z.string().optional(),
+  telephone: z.string().optional().refine((val) => {
+    if (!val || val.trim() === "") return true; // Optional field
+    // Basic phone number validation - allows digits, spaces, hyphens, parentheses, and plus sign
+    const phoneRegex = /^[+]?[\d\s\-()]{8,20}$/;
+    return phoneRegex.test(val.trim());
+  }, {
+    message: "Please enter a valid phone number"
+  }),
   birthday: z.string().optional(),
   gender: z.string().optional(),
   address: z.string().optional(),
@@ -31,7 +38,14 @@ export type TeacherValues = z.infer<typeof teacherSchema>;
 
 /* ---------- Schema for updates (only updatable fields) ---------- */
 export const teacherUpdateSchema = z.object({
-  telephone: z.string().optional(),
+  telephone: z.string().optional().refine((val) => {
+    if (!val || val.trim() === "") return true; // Optional field
+    // Basic phone number validation - allows digits, spaces, hyphens, parentheses, and plus sign
+    const phoneRegex = /^[+]?[\d\s\-()]{8,20}$/;
+    return phoneRegex.test(val.trim());
+  }, {
+    message: "Please enter a valid phone number"
+  }),
   address: z.string().optional(),
   qualifications: z.string().min(1, "Qualifications are required").max(200, "Qualifications must be less than 200 characters"),
   subjectsTaught: z.string().min(1, "Subjects taught are required").max(100, "Subjects taught must be less than 100 characters"),

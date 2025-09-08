@@ -1,6 +1,10 @@
 package com.example.school_management.commons.service;
 
+import com.example.school_management.feature.auth.entity.BaseUser;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 
 
 import jakarta.mail.MessagingException;
@@ -71,6 +75,147 @@ public class EmailService {
         }
         catch (MailException | MessagingException ex) {
             log.error("❌ Failed to send email to {}: {}", to, ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Send bulk emails to multiple recipients
+     */
+    @Async
+    public CompletableFuture<BulkEmailResult> sendBulkEmails(
+            List<? extends BaseUser> recipients,
+            String subject,
+            String templateName,
+            Map<String, Object> baseVariables
+    ) {
+        log.info("📧 Starting bulk email send to {} recipients", recipients.size());
+        
+        List<String> successful = new ArrayList<>();
+        List<String> failed = new ArrayList<>();
+        
+        for (BaseUser user : recipients) {
+            try {
+                // Prepare personalized variables
+                Map<String, Object> personalizedVariables = new java.util.HashMap<>(baseVariables);
+                personalizedVariables.put("firstName", user.getFirstName());
+                personalizedVariables.put("lastName", user.getLastName());
+                personalizedVariables.put("email", user.getEmail());
+                personalizedVariables.put("fullName", user.getFirstName() + " " + user.getLastName());
+                
+                // Prepare the Thymeleaf context
+                Context ctx = new Context();
+                ctx.setVariables(personalizedVariables);
+                ctx.setVariable("subject", subject);
+
+                // Render HTML
+                String html = tplEngine.process(templateName, ctx);
+
+                // Build and send
+                MimeMessage msg = mailSender.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
+                helper.setFrom(from);
+                helper.setTo(user.getEmail());
+                helper.setSubject(subject);
+                helper.setText(html, true);
+
+                mailSender.send(msg);
+                successful.add(user.getEmail());
+                log.debug("📧 Email sent successfully to {}", user.getEmail());
+                
+            } catch (MailException | MessagingException ex) {
+                failed.add(user.getEmail());
+                log.error("❌ Failed to send email to {}: {}", user.getEmail(), ex.getMessage());
+            }
+        }
+        
+        BulkEmailResult result = new BulkEmailResult(
+            recipients.size(),
+            successful.size(),
+            failed.size(),
+            successful,
+            failed
+        );
+        
+        log.info("📧 Bulk email completed: {}/{} successful", 
+                result.getSuccessCount(), result.getTotalCount());
+        
+        return CompletableFuture.completedFuture(result);
+    }
+
+    /**
+     * Send simple text email to multiple recipients
+     */
+    @Async
+    public CompletableFuture<BulkEmailResult> sendBulkSimpleEmails(
+            List<String> recipients,
+            String subject,
+            String content
+    ) {
+        log.info("📧 Starting bulk simple email send to {} recipients", recipients.size());
+        
+        List<String> successful = new ArrayList<>();
+        List<String> failed = new ArrayList<>();
+        
+        for (String email : recipients) {
+            try {
+                MimeMessage msg = mailSender.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
+                helper.setFrom(from);
+                helper.setTo(email);
+                helper.setSubject(subject);
+                helper.setText(content, false); // Plain text
+                
+                mailSender.send(msg);
+                successful.add(email);
+                log.debug("📧 Simple email sent successfully to {}", email);
+                
+            } catch (MailException | MessagingException ex) {
+                failed.add(email);
+                log.error("❌ Failed to send simple email to {}: {}", email, ex.getMessage());
+            }
+        }
+        
+        BulkEmailResult result = new BulkEmailResult(
+            recipients.size(),
+            successful.size(),
+            failed.size(),
+            successful,
+            failed
+        );
+        
+        log.info("📧 Bulk simple email completed: {}/{} successful", 
+                result.getSuccessCount(), result.getTotalCount());
+        
+        return CompletableFuture.completedFuture(result);
+    }
+
+    /**
+     * Result class for bulk email operations
+     */
+    public static class BulkEmailResult {
+        private final int totalCount;
+        private final int successCount;
+        private final int failureCount;
+        private final List<String> successful;
+        private final List<String> failed;
+
+        public BulkEmailResult(int totalCount, int successCount, int failureCount, 
+                              List<String> successful, List<String> failed) {
+            this.totalCount = totalCount;
+            this.successCount = successCount;
+            this.failureCount = failureCount;
+            this.successful = successful;
+            this.failed = failed;
+        }
+
+        // Getters
+        public int getTotalCount() { return totalCount; }
+        public int getSuccessCount() { return successCount; }
+        public int getFailureCount() { return failureCount; }
+        public List<String> getSuccessful() { return successful; }
+        public List<String> getFailed() { return failed; }
+        public double getSuccessRate() { 
+            return totalCount > 0 ? (double) successCount / totalCount * 100 : 0; 
         }
     }
 }

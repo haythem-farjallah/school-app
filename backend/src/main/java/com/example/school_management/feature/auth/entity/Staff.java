@@ -10,7 +10,6 @@ import org.hibernate.annotations.ColumnTransformer;
 import java.util.HashSet;
 import java.util.Set;
 
-@Data
 @EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "staff")
@@ -28,4 +27,14 @@ public class Staff extends BaseUser {
             inverseJoinColumns = @JoinColumn(name = "announcement_id")
     )
     private Set<Announcement> announcements = new HashSet<>();
+
+    // Getters and Setters
+    public StaffType getStaffType() { return staffType; }
+    public void setStaffType(StaffType staffType) { this.staffType = staffType; }
+    
+    public String getDepartment() { return department; }
+    public void setDepartment(String department) { this.department = department; }
+    
+    public Set<Announcement> getAnnouncements() { return announcements; }
+    public void setAnnouncements(Set<Announcement> announcements) { this.announcements = announcements; }
 } 

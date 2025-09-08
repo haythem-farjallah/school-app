@@ -11,6 +11,8 @@ import com.example.school_management.feature.auth.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -38,26 +40,33 @@ public class AuthService {
     private final ParentRepository parentRepository;
     private final AdministrationRepository administrationRepository;
     private final StaffRepository staffRepository;
+    private final PermissionService permissionService;
 
     /**
      * Authenticate a user and return JWT tokens plus user profile data.
      */
+    @CacheEvict(value = "auth", key = "#req.email")
     public LoginResponse login(LoginRequest req) {
         try {
             Authentication auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
 
-            BaseUser user = userDetailsService.findBaseUserByEmail(req.getEmail());
-            if (user.isPasswordChangeRequired()) {
-                throw new ResponseStatusException(HttpStatus.LOCKED,
-                        "FIRST_LOGIN_PASSWORD_CHANGE_REQUIRED");
-            }
+                    BaseUser user = userDetailsService.findBaseUserByEmail(req.getEmail());
+        
+        // token creation
+        String access  = jwtTokenProvider.generateAccessToken((UserDetails) auth.getPrincipal());
+        String refresh = jwtTokenProvider.generateRefreshToken((UserDetails) auth.getPrincipal());
 
-            // token creation
-            String access  = jwtTokenProvider.generateAccessToken((UserDetails) auth.getPrincipal());
-            String refresh = jwtTokenProvider.generateRefreshToken((UserDetails) auth.getPrincipal());
+        var userDto = userMapper.toDto(user);
+        // Compute effective permissions: role defaults ∪ per-user overrides
+        var defaults = permissionService.getRoleDefaults(user.getRole());
+        var overrides = user.getPermissions().stream().map(p -> p.getCode()).collect(java.util.stream.Collectors.toSet());
+        java.util.Set<String> effective = new java.util.HashSet<>(defaults);
+        effective.addAll(overrides);
+        userDto.setPermissions(effective);
 
-            return new LoginResponse(access, refresh, userMapper.toDto(user));
+        // Return login response with password change requirement flag
+        return new LoginResponse(access, refresh, userDto, user.isPasswordChangeRequired());
         } catch (BadCredentialsException ex) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
@@ -66,6 +75,7 @@ public class AuthService {
      * Register a new user based on the provided role.
      */
     @Transactional
+    @CacheEvict(value = {"users", "students", "teachers", "staff", "admins"}, allEntries = true)
     public void register(RegisterRequest request) {
         switch (request.getRole()) {
             case STUDENT -> {

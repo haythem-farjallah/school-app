@@ -27,7 +27,8 @@ public class WebSocketController {
      */
     @SubscribeMapping("/topic/admin-feeds")
     public void subscribeToAdminFeeds(Principal principal) {
-        log.debug("User {} subscribed to admin feeds", principal.getName());
+        String principalName = principal != null ? principal.getName() : "anonymous";
+        log.debug("User {} subscribed to admin feeds", principalName);
         // Could add connection tracking here if needed
     }
 
@@ -36,7 +37,8 @@ public class WebSocketController {
      */
     @SubscribeMapping("/topic/notifications/{role}")
     public void subscribeToNotifications(@DestinationVariable String role, Principal principal) {
-        log.debug("User {} subscribed to {} notifications", principal.getName(), role);
+        String principalName = principal != null ? principal.getName() : "anonymous";
+        log.debug("User {} subscribed to {} notifications", principalName, role);
         // Could add role validation here if needed
     }
 
@@ -45,7 +47,8 @@ public class WebSocketController {
      */
     @SubscribeMapping("/queue/user/{userId}/notifications")
     public void subscribeToPersonalNotifications(@DestinationVariable Long userId, Principal principal) {
-        log.debug("User {} subscribed to personal notifications", principal.getName());
+        String principalName = principal != null ? principal.getName() : "anonymous";
+        log.debug("User {} subscribed to personal notifications", principalName);
         
         // Extract user role from authentication (simplified for demo)
         String userRole = extractUserRole(principal);
@@ -60,11 +63,12 @@ public class WebSocketController {
     @MessageMapping("/test")
     @SendTo("/topic/test")
     public Map<String, Object> handleTestMessage(@Payload Map<String, Object> message, Principal principal) {
-        log.debug("Received test message from {}: {}", principal.getName(), message);
+        String principalName = principal != null ? principal.getName() : "anonymous";
+        log.debug("Received test message from {}: {}", principalName, message);
         
         message.put("response", "Test message received successfully");
         message.put("timestamp", java.time.LocalDateTime.now());
-        message.put("from", principal.getName());
+        message.put("from", principalName);
         
         return message;
     }
@@ -165,6 +169,6 @@ public class WebSocketController {
                     .map(authority -> authority.getAuthority().replace("ROLE_", ""))
                     .orElse("USER");
         }
-        return "USER";
+        return principal != null ? "USER" : "ANONYMOUS";
     }
 } 

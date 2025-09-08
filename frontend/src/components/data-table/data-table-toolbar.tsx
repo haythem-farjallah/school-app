@@ -52,10 +52,10 @@ export function DataTableToolbar<TData>({
             aria-label="Reset filters"
             variant="outline"
             size="sm"
-            className="border-dashed"
+            className="border-dashed hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 hover:border-red-300 hover:text-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
             onClick={onReset}
           >
-            <X />
+            <X className="h-4 w-4 mr-1" />
             Reset
           </Button>
         )}
@@ -87,7 +87,7 @@ function DataTableToolbarFilter<TData>({
               placeholder={columnMeta.placeholder ?? columnMeta.label}
               value={(column.getFilterValue() as string) ?? ""}
               onChange={(event) => column.setFilterValue(event.target.value)}
-              className="h-8 w-40 lg:w-56"
+              className="h-8 w-40 lg:w-56 border-slate-300/80 focus:border-blue-400 focus:ring-2 focus:ring-blue-200/60 transition-all duration-200"
             />
           );
 
@@ -100,10 +100,13 @@ function DataTableToolbarFilter<TData>({
                 placeholder={columnMeta.placeholder ?? columnMeta.label}
                 value={(column.getFilterValue() as string) ?? ""}
                 onChange={(event) => column.setFilterValue(event.target.value)}
-                className={cn("h-8 w-[120px]", columnMeta.unit && "pr-8")}
+                className={cn(
+                  "h-8 w-[120px] border-slate-300/80 focus:border-blue-400 focus:ring-2 focus:ring-blue-200/60 transition-all duration-200",
+                  columnMeta.unit && "pr-8"
+                )}
               />
               {columnMeta.unit && (
-                <span className="absolute top-0 right-0 bottom-0 flex items-center rounded-r-md bg-accent px-2 text-muted-foreground text-sm">
+                <span className="absolute top-0 right-0 bottom-0 flex items-center rounded-r-md bg-gradient-to-r from-slate-50 to-blue-50 px-2 text-slate-600 text-sm font-medium border-l border-slate-200">
                   {columnMeta.unit}
                 </span>
               )}

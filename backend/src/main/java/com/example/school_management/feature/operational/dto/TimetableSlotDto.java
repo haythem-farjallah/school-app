@@ -1,37 +1,30 @@
 package com.example.school_management.feature.operational.dto;
 
+import com.example.school_management.feature.academic.dto.CourseDto;
+import com.example.school_management.feature.auth.dto.TeacherDto;
 import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Value;
+import lombok.Data;
 import jakarta.validation.constraints.NotNull;
 
-@Value
+@Data
 public class TimetableSlotDto {
-    // Read-only fields
-    @JsonIgnore
+    // Read-write fields
     Long id;
-    @JsonIgnore
-    Integer periodIndex;
-    @JsonIgnore
-    String periodTime;
-    @JsonIgnore
-    Long classId;
-    @JsonIgnore
-    String className;
-    @JsonIgnore
-    Long courseId;
-    @JsonIgnore
-    String courseName;
-    // Write-only fields
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @NotNull DayOfWeek dayOfWeek;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     String description;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @NotNull Long periodId;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    
+    // Period info
+    PeriodDto period;
+    
+    // Associated entities
     Long forClassId;
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    CourseDto forCourse;
+    TeacherDto teacher;
+    RoomDto room;
+    
+    // For creation/update requests
+    Long periodId;
     Long forCourseId;
+    Long teacherId;
+    Long roomId;
 } 

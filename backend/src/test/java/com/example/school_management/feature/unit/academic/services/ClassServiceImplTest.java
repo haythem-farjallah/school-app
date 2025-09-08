@@ -14,6 +14,7 @@ import com.example.school_management.feature.academic.service.impl.ClassServiceI
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.service.AuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,8 @@ class ClassServiceImplTest {
     @Mock
     StudentRepository studentRepo;
     @Mock
+    TeacherRepository teacherRepo;
+    @Mock
     TeachingAssignmentRepository assignmentRepo;
     @Mock
     AuditService auditService;
@@ -60,7 +63,7 @@ class ClassServiceImplTest {
     @BeforeEach
     void init() {
         service = new ClassServiceImpl(
-                classRepo, courseRepo, studentRepo, mapper, assignmentRepo, auditService, userRepo);
+                classRepo, courseRepo, studentRepo, teacherRepo, mapper, assignmentRepo, auditService, userRepo);
     }
 
     @Test

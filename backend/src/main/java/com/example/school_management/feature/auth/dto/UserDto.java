@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.Set;
 
 
 @Data
@@ -20,4 +21,5 @@ public class UserDto {
     private UserRole role;
     private String profileTheme;
     private String profileLanguage;
+    private Set<String> permissions;
 }

@@ -34,6 +34,99 @@ export interface Grade {
   };
 }
 
+// Enhanced Grade System Types
+export enum ExamType {
+  FIRST_EXAM = 'FIRST_EXAM',
+  SECOND_EXAM = 'SECOND_EXAM', 
+  FINAL_EXAM = 'FINAL_EXAM',
+  QUIZ = 'QUIZ',
+  ASSIGNMENT = 'ASSIGNMENT',
+  PROJECT = 'PROJECT',
+  PARTICIPATION = 'PARTICIPATION',
+}
+
+export enum Semester {
+  FIRST = 'FIRST',
+  SECOND = 'SECOND', 
+  THIRD = 'THIRD',
+  FINAL = 'FINAL',
+}
+
+export interface EnhancedGrade {
+  id: number;
+  studentId: number;
+  studentFirstName: string;
+  studentLastName: string;
+  studentEmail: string;
+  classId: number;
+  className: string;
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  courseCoefficient: number;
+  teacherId: number;
+  teacherFirstName: string;
+  teacherLastName: string;
+  teacherEmail: string;
+  examType: ExamType;
+  semester: Semester;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  teacherRemarks?: string;
+  teacherSignature?: string;
+  gradedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudentGradeSheet {
+  studentId: number;
+  studentFirstName: string;
+  studentLastName: string;
+  studentEmail: string;
+  classId: number;
+  className: string;
+  yearOfStudy: number;
+  semester: Semester;
+  subjects: SubjectGrade[];
+  totalScore: number;
+  totalMaxScore: number;
+  weightedAverage: number;
+  classRank: number;
+  totalStudents: number;
+  attendanceRate: number;
+  totalAbsences: number;
+  generatedAt: string;
+  approvedBy?: {
+    staffId: number;
+    staffName: string;
+    approvedAt: string;
+  };
+}
+
+export interface SubjectGrade {
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  coefficient: number;
+  teacherId: number;
+  teacherFirstName: string;
+  teacherLastName: string;
+  grades: {
+    firstExam?: number;
+    secondExam?: number;
+    finalExam?: number;
+    quizzes?: number[];
+    assignments?: number[];
+  };
+  average: number;
+  weightedScore: number;
+  teacherRemarks?: string;
+  teacherSignature?: string;
+  letterGrade: string;
+}
+
 export interface CreateGradeRequest {
   enrollmentId: number;
   courseId: number;
@@ -42,6 +135,148 @@ export interface CreateGradeRequest {
   weight: number;
   content: string;
   description?: string;
+}
+
+// Enhanced Grade Requests
+export interface CreateEnhancedGradeRequest {
+  studentId: number;
+  classId: number;
+  courseId: number;
+  examType: ExamType;
+  semester: Semester;
+  score: number;
+  maxScore: number;
+  teacherRemarks?: string;
+  teacherSignature?: string;
+}
+
+export interface BulkGradeEntryRequest {
+  classId: number;
+  courseId: number;
+  examType: ExamType;
+  semester: Semester;
+  maxScore: number;
+  grades: {
+    studentId: number;
+    score: number;
+    teacherRemarks?: string;
+  }[];
+  teacherSignature?: string;
+}
+
+export interface TeacherGradeClassView {
+  classId: number;
+  className: string;
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  coefficient: number;
+  students: TeacherGradeStudent[];
+  semester: Semester;
+  examTypes: ExamType[];
+}
+
+export interface TeacherGradeStudent {
+  studentId: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  enrollmentId: number;
+  currentGrades: {
+    [key in ExamType]?: {
+      score: number;
+      maxScore: number;
+      percentage: number;
+      teacherRemarks?: string;
+      gradedAt: string;
+    };
+  };
+  average: number;
+  attendanceRate: number;
+}
+
+// Staff Grade Review Types
+export interface StaffGradeReview {
+  studentId: number;
+  studentFirstName: string;
+  studentLastName: string;
+  classId: number;
+  className: string;
+  semester: Semester;
+  subjects: StaffSubjectReview[];
+  overallAverage: number;
+  classRank: number;
+  attendanceRate: number;
+  isApproved: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
+}
+
+export interface StaffSubjectReview {
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  coefficient: number;
+  teacherName: string;
+  grades: {
+    firstExam?: number;
+    secondExam?: number;
+    finalExam?: number;
+  };
+  average: number;
+  teacherRemarks?: string;
+  needsReview: boolean;
+}
+
+// Teacher Attendance Types (separate from student attendance)
+export interface TeacherAttendance {
+  id: number;
+  teacherId: number;
+  teacherFirstName: string;
+  teacherLastName: string;
+  teacherEmail: string;
+  date: string;
+  status: TeacherAttendanceStatus;
+  courseId?: number;
+  courseName?: string;
+  classId?: number;
+  className?: string;
+  remarks?: string;
+  excuse?: string;
+  substituteTeacherId?: number;
+  substituteTeacherName?: string;
+  recordedById: number;
+  recordedByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export enum TeacherAttendanceStatus {
+  PRESENT = 'PRESENT',
+  ABSENT = 'ABSENT',
+  LATE = 'LATE',
+  SICK_LEAVE = 'SICK_LEAVE',
+  PERSONAL_LEAVE = 'PERSONAL_LEAVE',
+  PROFESSIONAL_DEVELOPMENT = 'PROFESSIONAL_DEVELOPMENT',
+  SUBSTITUTE_ARRANGED = 'SUBSTITUTE_ARRANGED',
+}
+
+export interface TeacherAttendanceStatistics {
+  teacherId: number;
+  teacherName: string;
+  totalDays: number;
+  presentDays: number;
+  absentDays: number;
+  lateDays: number;
+  sickLeaveDays: number;
+  personalLeaveDays: number;
+  attendanceRate: number;
+  monthlyBreakdown: {
+    month: string;
+    present: number;
+    absent: number;
+    rate: number;
+  }[];
 }
 
 export interface UpdateGradeRequest {

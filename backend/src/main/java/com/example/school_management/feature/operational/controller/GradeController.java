@@ -10,6 +10,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,7 +32,7 @@ public class GradeController {
     // ===== GENERAL GRADE LISTING =====
     
     @GetMapping
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<PageDto<GradeResponse>>> getAllGrades(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String search,
@@ -79,14 +82,14 @@ public class GradeController {
     }
 
     @GetMapping("/class/{classId}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<GradeResponse>>> getGradesByClassId(@PathVariable Long classId) {
         List<GradeResponse> grades = gradeService.getGradesByClassId(classId);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Class grades retrieved successfully", grades));
     }
 
     @GetMapping("/teacher/{teacherId}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<GradeResponse>>> getGradesByTeacherId(@PathVariable Long teacherId) {
         List<GradeResponse> grades = gradeService.getGradesByTeacherId(teacherId);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Teacher grades retrieved successfully", grades));
@@ -112,7 +115,7 @@ public class GradeController {
     }
 
     @GetMapping("/class/{classId}/paged")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<PageDto<GradeResponse>>> getGradesByClassIdPaged(
             @PathVariable Long classId, 
             @PageableDefault(size = 20) Pageable pageable) {
@@ -150,7 +153,7 @@ public class GradeController {
     }
 
     @GetMapping("/statistics/class/{classId}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<GradeStatistics>> getClassGradeStatistics(@PathVariable Long classId) {
         GradeStatistics statistics = gradeService.getClassGradeStatistics(classId);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Class grade statistics retrieved successfully", statistics));
@@ -169,7 +172,7 @@ public class GradeController {
     // ===== AUDIT AND HISTORY =====
     
     @GetMapping("/{gradeId}/audit-history")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AuditEvent>>> getGradeAuditHistory(@PathVariable Long gradeId) {
         List<AuditEvent> auditHistory = gradeService.getGradeAuditHistory(gradeId);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Grade audit history retrieved successfully", auditHistory));
@@ -178,14 +181,14 @@ public class GradeController {
     // ===== VALIDATION ENDPOINTS =====
     
     @GetMapping("/{gradeId}/can-edit")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<Boolean>> canEditGrade(@PathVariable Long gradeId, @RequestParam Long userId) {
         boolean canEdit = gradeService.canEditGrade(gradeId, userId);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Edit permission checked successfully", canEdit));
     }
 
     @GetMapping("/{gradeId}/can-delete")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<Boolean>> canDeleteGrade(@PathVariable Long gradeId, @RequestParam Long userId) {
         boolean canDelete = gradeService.canDeleteGrade(gradeId, userId);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Delete permission checked successfully", canDelete));
@@ -210,5 +213,78 @@ public class GradeController {
         Page<GradeResponse> grades = gradeService.findWithAdvancedFilters(pageable, request.getParameterMap());
         var dto = new PageDto<>(grades);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Grades filtered successfully", dto));
+    }
+    
+    // ===== ENHANCED GRADE MANAGEMENT ENDPOINTS =====
+    
+    // Teacher Grade Management
+    @GetMapping("/teacher/{teacherId}/classes")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<List<TeacherGradeClassView>>> getTeacherGradeClasses(@PathVariable Long teacherId) {
+        List<TeacherGradeClassView> classes = gradeService.getTeacherGradeClasses(teacherId);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Teacher grade classes retrieved successfully", classes));
+    }
+    
+    @GetMapping("/teacher/{teacherId}/class/{classId}/course/{courseId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<TeacherGradeClassView>> getTeacherGradeClass(
+            @PathVariable Long teacherId, @PathVariable Long classId, @PathVariable Long courseId) {
+        TeacherGradeClassView classView = gradeService.getTeacherGradeClass(teacherId, classId, courseId);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Teacher grade class retrieved successfully", classView));
+    }
+    
+    @PostMapping("/enhanced")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiSuccessResponse<EnhancedGradeResponse>> createEnhancedGrade(@Valid @RequestBody CreateEnhancedGradeRequest request) {
+        EnhancedGradeResponse response = gradeService.createEnhancedGrade(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiSuccessResponse<>("Enhanced grade created successfully", response));
+    }
+    
+    @PostMapping("/bulk-entry")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiSuccessResponse<List<EnhancedGradeResponse>>> createBulkEnhancedGrades(@Valid @RequestBody BulkEnhancedGradeEntryRequest request) {
+        List<EnhancedGradeResponse> responses = gradeService.createBulkEnhancedGrades(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiSuccessResponse<>("Bulk enhanced grades created successfully", responses));
+    }
+    
+    // Staff Grade Review
+    @GetMapping("/staff/reviews")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<List<StaffGradeReview>>> getStaffGradeReviews(
+            @RequestParam Long classId, 
+            @RequestParam CreateEnhancedGradeRequest.Semester semester) {
+        List<StaffGradeReview> reviews = gradeService.getStaffGradeReviews(classId, semester);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Staff grade reviews retrieved successfully", reviews));
+    }
+    
+    @PostMapping("/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<String>> approveGrades(@Valid @RequestBody ApproveGradesRequest request) {
+        gradeService.approveGrades(request);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Grades approved successfully", null));
+    }
+    
+    // Student Grade Sheet
+    @GetMapping("/student/{studentId}/sheet")
+    @PreAuthorize("hasAnyRole('TEACHER', 'STUDENT', 'PARENT', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<StudentGradeSheet>> getStudentGradeSheet(
+            @PathVariable Long studentId, 
+            @RequestParam CreateEnhancedGradeRequest.Semester semester) {
+        StudentGradeSheet gradeSheet = gradeService.getStudentGradeSheet(studentId, semester);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Student grade sheet retrieved successfully", gradeSheet));
+    }
+    
+    @GetMapping("/student/{studentId}/export")
+    @PreAuthorize("hasAnyRole('TEACHER', 'STUDENT', 'PARENT', 'ADMIN', 'STAFF')")
+    public ResponseEntity<byte[]> exportStudentGradeSheet(
+            @PathVariable Long studentId, 
+            @RequestParam CreateEnhancedGradeRequest.Semester semester) {
+        byte[] pdfBytes = gradeService.exportStudentGradeSheet(studentId, semester);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"grade-sheet-" + studentId + "-" + semester + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
     }
 } 

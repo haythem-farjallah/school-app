@@ -130,8 +130,22 @@ export function getStudentsColumns(actions?: {
       },
       enableColumnFilter: true,
       meta: {
-        variant: "text",
+        variant: "select",
         label: "Grade Level",
+        options: [
+          { label: "Grade 1", value: "Grade 1" },
+          { label: "Grade 2", value: "Grade 2" },
+          { label: "Grade 3", value: "Grade 3" },
+          { label: "Grade 4", value: "Grade 4" },
+          { label: "Grade 5", value: "Grade 5" },
+          { label: "Grade 6", value: "Grade 6" },
+          { label: "Grade 7", value: "Grade 7" },
+          { label: "Grade 8", value: "Grade 8" },
+          { label: "Grade 9", value: "Grade 9" },
+          { label: "Grade 10", value: "Grade 10" },
+          { label: "Grade 11", value: "Grade 11" },
+          { label: "Grade 12", value: "Grade 12" },
+        ],
       },
       size: 150,
     },
@@ -160,6 +174,69 @@ export function getStudentsColumns(actions?: {
         label: "Enrollment Year",
       },
       size: 140,
+    },
+    {
+      accessorKey: "gender",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Gender" />
+      ),
+      cell: ({ row }) => {
+        const gender = row.getValue("gender") as string | null;
+        if (!gender) return <span className="text-slate-400">-</span>;
+        
+        return (
+          <Badge 
+            variant="outline" 
+            className={`font-semibold ${
+              gender === 'Male' 
+                ? 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border-blue-200/60'
+                : gender === 'Female'
+                ? 'bg-gradient-to-r from-pink-100 to-rose-100 text-pink-800 border-pink-200/60'
+                : 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border-gray-200/60'
+            }`}
+          >
+            {gender}
+          </Badge>
+        );
+      },
+      enableColumnFilter: true,
+      meta: {
+        variant: "select",
+        label: "Gender",
+        options: [
+          { label: "Male", value: "Male" },
+          { label: "Female", value: "Female" },
+          { label: "Other", value: "Other" },
+        ],
+      },
+      size: 120,
+    },
+    {
+      accessorKey: "birthday",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Age" />
+      ),
+      cell: ({ row }) => {
+        const birthday = row.getValue("birthday") as string | null;
+        if (!birthday) return <span className="text-slate-400">-</span>;
+        
+        const age = new Date().getFullYear() - new Date(birthday).getFullYear();
+        return (
+          <Badge 
+            variant="outline" 
+            className="bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-800 border-indigo-200/60 font-semibold"
+          >
+            {age} years
+          </Badge>
+        );
+      },
+      enableColumnFilter: true,
+      meta: {
+        variant: "range",
+        label: "Age",
+        unit: "years",
+      },
+      size: 100,
     },
     {
       id: "actions",

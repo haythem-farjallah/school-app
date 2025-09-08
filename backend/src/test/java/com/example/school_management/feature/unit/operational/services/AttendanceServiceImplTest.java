@@ -3,6 +3,7 @@ package com.example.school_management.feature.unit.operational.services;
 
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
+import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
@@ -13,6 +14,11 @@ import com.example.school_management.feature.operational.entity.enums.UserType;
 import com.example.school_management.feature.operational.mapper.OperationalMapper;
 import com.example.school_management.feature.operational.repository.AttendanceRepository;
 import com.example.school_management.feature.operational.repository.TimetableSlotRepository;
+import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.auth.repository.ParentRepository;
+import com.example.school_management.feature.operational.repository.NotificationRepository;
+import com.example.school_management.feature.operational.service.impl.RealTimeNotificationService;
 import com.example.school_management.feature.operational.service.impl.AttendanceServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +46,19 @@ class AttendanceServiceImplTest {
     @Mock
     private ClassRepository classRepository;
     @Mock
+    private TeachingAssignmentRepository teachingAssignmentRepository;
+    @Mock
     private TimetableSlotRepository timetableSlotRepository;
+    @Mock
+    private StudentRepository studentRepository;
+    @Mock
+    private TeacherRepository teacherRepository;
+    @Mock
+    private ParentRepository parentRepository;
+    @Mock
+    private NotificationRepository notificationRepository;
+    @Mock
+    private RealTimeNotificationService realTimeNotificationService;
 
     private OperationalMapper mapper = Mappers.getMapper(OperationalMapper.class);
     private AttendanceServiceImpl attendanceService;
@@ -52,7 +70,13 @@ class AttendanceServiceImplTest {
                 userRepository,
                 courseRepository,
                 classRepository,
+                teachingAssignmentRepository,
                 timetableSlotRepository,
+                studentRepository,
+                teacherRepository,
+                parentRepository,
+                notificationRepository,
+                realTimeNotificationService,
                 mapper
         );
     }

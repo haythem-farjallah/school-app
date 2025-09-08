@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/courses")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 public class CourseController {
 
     private final CourseService service;
@@ -27,6 +26,7 @@ public class CourseController {
     /* CRUD -------------------------------------------------- */
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<CourseDto>> create(
             @RequestBody @Valid CreateCourseRequest req) {
 
@@ -34,6 +34,7 @@ public class CourseController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<CourseDto>> update(
             @PathVariable Long id,
             @RequestBody @Valid UpdateCourseRequest req) {
@@ -42,11 +43,13 @@ public class CourseController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<CourseDto>> get(@PathVariable Long id) {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.get(id)));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<Void>> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", null));
@@ -54,6 +57,7 @@ public class CourseController {
 
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<PageDto<CourseDto>>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,

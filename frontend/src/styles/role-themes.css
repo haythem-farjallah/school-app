@@ -1,0 +1,233 @@
+/* Role-based theme styles */
+
+/* Base theme variables - will be overridden by JavaScript */
+:root {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #eff6ff;
+  --color-primary-dark: #1e40af;
+  --color-secondary: #60a5fa;
+  --color-accent: #3b82f6;
+  --color-background: #ffffff;
+  --color-surface: #f9fafb;
+  --color-text: #111827;
+  --color-text-secondary: #6b7280;
+  --color-border: #e5e7eb;
+  --color-icon: #374151;
+}
+
+/* Role-specific overrides using data attributes */
+[data-role="admin"] {
+  --color-primary: #dc2626;
+  --color-primary-hover: #b91c1c;
+  --color-primary-light: #fef2f2;
+  --color-primary-dark: #991b1b;
+  --color-secondary: #f87171;
+  --color-accent: #fbbf24;
+}
+
+[data-role="teacher"] {
+  --color-primary: #059669;
+  --color-primary-hover: #047857;
+  --color-primary-light: #f0fdf4;
+  --color-primary-dark: #065f46;
+  --color-secondary: #34d399;
+  --color-accent: #10b981;
+}
+
+[data-role="student"] {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #eff6ff;
+  --color-primary-dark: #1e40af;
+  --color-secondary: #60a5fa;
+  --color-accent: #3b82f6;
+}
+
+[data-role="staff"] {
+  --color-primary: #7c3aed;
+  --color-primary-hover: #6d28d9;
+  --color-primary-light: #faf5ff;
+  --color-primary-dark: #5b21b6;
+  --color-secondary: #a78bfa;
+  --color-accent: #8b5cf6;
+}
+
+[data-role="parent"] {
+  --color-primary: #ea580c;
+  --color-primary-hover: #c2410c;
+  --color-primary-light: #fff7ed;
+  --color-primary-dark: #9a3412;
+  --color-secondary: #fb923c;
+  --color-accent: #f97316;
+}
+
+/* Utility classes using CSS variables */
+.theme-primary {
+  color: var(--color-primary);
+}
+
+.theme-primary-bg {
+  background-color: var(--color-primary);
+}
+
+.theme-primary-border {
+  border-color: var(--color-primary);
+}
+
+.theme-primary-light-bg {
+  background-color: var(--color-primary-light);
+}
+
+.theme-hover:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.theme-text {
+  color: var(--color-text);
+}
+
+.theme-text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.theme-surface {
+  background-color: var(--color-surface);
+}
+
+.theme-border {
+  border-color: var(--color-border);
+}
+
+/* Component-specific theming */
+.theme-button {
+  background-color: var(--color-primary);
+  color: white;
+  transition: background-color 0.2s ease;
+}
+
+.theme-button:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.theme-button:focus {
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.theme-badge {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border: 1px solid var(--color-primary);
+}
+
+.theme-card {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+}
+
+.theme-card-hover:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Navigation theming */
+.theme-nav-active {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-left: 3px solid var(--color-primary);
+}
+
+.theme-nav-hover:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* Form theming */
+.theme-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.theme-checkbox:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* Status indicators */
+.theme-success {
+  color: #059669;
+  background-color: #f0fdf4;
+}
+
+.theme-warning {
+  color: #d97706;
+  background-color: #fffbeb;
+}
+
+.theme-error {
+  color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.theme-info {
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+/* Animation classes */
+.theme-pulse {
+  animation: theme-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes theme-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.theme-bounce {
+  animation: theme-bounce 1s infinite;
+}
+
+@keyframes theme-bounce {
+  0%, 100% {
+    transform: translateY(-25%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .theme-card {
+    margin: 0.5rem;
+    border-radius: 0.75rem;
+  }
+  
+  .theme-button {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Dark mode support (if needed) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #111827;
+    --color-surface: #1f2937;
+    --color-text: #f9fafb;
+    --color-text-secondary: #9ca3af;
+    --color-border: #374151;
+    --color-icon: #d1d5db;
+  }
+  
+  .theme-card {
+    background-color: var(--color-surface);
+  }
+}

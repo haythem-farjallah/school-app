@@ -7,6 +7,7 @@ import com.example.school_management.feature.auth.entity.Administration;
 import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.mapper.AdministrationMapper;
 import com.example.school_management.feature.auth.repository.AdministrationRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,8 +30,9 @@ public class AdministrationService extends AbstractUserCrudService<
                                  PasswordEncoder enc,
                                  PasswordUtil pw,
                                  ApplicationEventPublisher events,
-                                 AuditService auditService) {
-        super(repo, mapper, enc, pw, events, auditService);
+                                 AuditService auditService,
+                                 UserRepository userRepository) {
+        super(repo, mapper, enc, pw, events, auditService, userRepository);
         this.mapper = mapper;
         this.passwordEncoder = enc;
         this.administrationRepo = repo;

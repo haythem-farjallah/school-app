@@ -166,10 +166,85 @@ export function getParentsColumns(actions?: {
       },
       enableColumnFilter: true,
       meta: {
-        variant: "text",
+        variant: "select",
         label: "Contact Method",
+        options: [
+          { label: "Email", value: "EMAIL" },
+          { label: "Phone", value: "PHONE" },
+          { label: "SMS", value: "SMS" },
+          { label: "WhatsApp", value: "WHATSAPP" },
+          { label: "In Person", value: "IN_PERSON" },
+        ],
       },
       size: 150,
+    },
+    {
+      accessorKey: "relation",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Relation" />
+      ),
+      cell: ({ row }) => {
+        const relation = row.getValue("relation") as string | null;
+        if (!relation) return <span className="text-slate-400">-</span>;
+        
+        return (
+          <Badge 
+            variant="outline" 
+            className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-200/60 font-semibold"
+          >
+            {relation}
+          </Badge>
+        );
+      },
+      enableColumnFilter: true,
+      meta: {
+        variant: "select",
+        label: "Relation",
+        options: [
+          { label: "Father", value: "Father" },
+          { label: "Mother", value: "Mother" },
+          { label: "Guardian", value: "Guardian" },
+          { label: "Grandparent", value: "Grandparent" },
+          { label: "Other", value: "Other" },
+        ],
+      },
+      size: 120,
+    },
+    {
+      accessorKey: "gender",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Gender" />
+      ),
+      cell: ({ row }) => {
+        const gender = row.getValue("gender") as string | null;
+        if (!gender) return <span className="text-slate-400">-</span>;
+        
+        return (
+          <Badge 
+            variant="outline" 
+            className={`font-semibold ${
+              gender === 'Male' 
+                ? 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border-blue-200/60'
+                : gender === 'Female'
+                ? 'bg-gradient-to-r from-pink-100 to-rose-100 text-pink-800 border-pink-200/60'
+                : 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border-gray-200/60'
+            }`}
+          >
+            {gender}
+          </Badge>
+        );
+      },
+      enableColumnFilter: true,
+      meta: {
+        variant: "select",
+        label: "Gender",
+        options: [
+          { label: "Male", value: "Male" },
+          { label: "Female", value: "Female" },
+          { label: "Other", value: "Other" },
+        ],
+      },
+      size: 120,
     },
     {
       id: "actions",

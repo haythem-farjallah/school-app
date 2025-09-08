@@ -2,13 +2,15 @@ package com.example.school_management.feature.operational.mapper;
 
 import com.example.school_management.feature.operational.dto.*;
 import com.example.school_management.feature.operational.entity.*;
+import com.example.school_management.feature.academic.mapper.AcademicMapper;
+import com.example.school_management.feature.auth.mapper.TeacherMapper;
 import org.mapstruct.*;
 
 import java.time.Duration;
 import java.time.LocalTime;
 
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = {AcademicMapper.class, TeacherMapper.class})
 public interface OperationalMapper {
 
     /* ─────────────────────── ENTITY ➜ DTO ─────────────────────── */
@@ -35,7 +37,17 @@ public interface OperationalMapper {
 
     /* ---------- Announcement ---------- */
     @Mapping(target = "publisherIds", ignore = true) // Avoid circular dependency
+    @Mapping(target = "targetClassIds", ignore = true) // Handled in service layer
+    @Mapping(target = "targetClassNames", ignore = true) // Handled in service layer
     AnnouncementDto toAnnouncementDto(Announcement entity);
+
+    /* ---------- TimetableSlot ---------- */
+    @Mapping(target = "forClassId", source = "forClass.id")
+    @Mapping(target = "periodId", source = "period.id")
+    @Mapping(target = "forCourseId", source = "forCourse.id")
+    @Mapping(target = "teacherId", source = "teacher.id")
+    @Mapping(target = "roomId", source = "room.id")
+    TimetableSlotDto toTimetableSlotDto(TimetableSlot entity);
 
     /* ---------- Timetable ---------- */
     @Mapping(target = "id", ignore = true)
@@ -45,7 +57,6 @@ public interface OperationalMapper {
     @Mapping(target = "classIds", expression = "java(entity.getClasses() != null ? entity.getClasses().stream().map(c -> c.getId()).collect(java.util.stream.Collectors.toSet()) : java.util.Set.of())")
     @Mapping(target = "teacherIds", expression = "java(entity.getTeachers() != null ? entity.getTeachers().stream().map(t -> t.getId()).collect(java.util.stream.Collectors.toSet()) : java.util.Set.of())")
     @Mapping(target = "roomIds", expression = "java(entity.getRooms() != null ? entity.getRooms().stream().map(r -> r.getId()).collect(java.util.stream.Collectors.toSet()) : java.util.Set.of())")
-    @Mapping(target = "slots", expression = "java(entity.getSlots())")
     TimetableDto toTimetableDto(Timetable entity);
 
     /* ---------- Attendance ---------- */
@@ -61,6 +72,8 @@ public interface OperationalMapper {
     @Mapping(target = "classId", source = "classEntity.id")
     @Mapping(target = "timetableSlotId", source = "timetableSlot.id")
     @Mapping(target = "recordedById", source = "recordedBy.id")
+    @Mapping(target = "teacherId", source = "timetableSlot.teacher.id")
+    @Mapping(target = "teacherName", expression = "java(entity.getTimetableSlot() != null && entity.getTimetableSlot().getTeacher() != null ? entity.getTimetableSlot().getTeacher().getFirstName() + \" \" + entity.getTimetableSlot().getTeacher().getLastName() : null)")
     AttendanceDto toAttendanceDto(Attendance entity);
 
     /* ---------- Grade ---------- */
@@ -108,6 +121,7 @@ public interface OperationalMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "publishers", ignore = true)
+    @Mapping(target = "targetClasses", ignore = true) // Handled in service layer
     Announcement toAnnouncement(AnnouncementDto dto);
 
     @Mapping(target = "id", ignore = true)
@@ -153,6 +167,7 @@ public interface OperationalMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "publishers", ignore = true)
+    @Mapping(target = "targetClasses", ignore = true) // Handled in service layer
     void updateAnnouncement(AnnouncementDto src, @MappingTarget Announcement target);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

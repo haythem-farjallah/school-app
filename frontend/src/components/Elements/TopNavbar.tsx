@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react'
-import { Search, Settings, Bell, User, LogOut, ChevronDown, X } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { Search, Settings, User, LogOut, ChevronDown, X, GraduationCap } from 'lucide-react'
+import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -24,7 +24,9 @@ import { useDispatch } from 'react-redux'
 import { logout, resetAuth } from '@/stores/authSlice'
 import { performLogout } from '@/lib/auth'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useAuth } from '@/hooks/useAuth'
 import { menuConfig } from '@/config/menuConfig'
+import { getRoleClasses } from '@/lib/theme'
 
 interface SearchItem {
   title: string
@@ -38,22 +40,17 @@ export const TopNavbar = () => {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const userRole = useUserRole()
+  const { user } = useAuth()
+  const roleClasses = getRoleClasses(userRole)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchItem[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  // Mock notifications - replace with real data
-  const notifications = [
-    { id: 1, title: 'New message received', time: '2 min ago', unread: true },
-    { id: 2, title: 'System update completed', time: '1 hour ago', unread: false },
-    { id: 3, title: 'Backup completed successfully', time: '3 hours ago', unread: false },
-  ]
 
-  const unreadCount = notifications.filter(n => n.unread).length
 
   // Create searchable items from menu config
-  const getAllSearchableItems = (): SearchItem[] => {
+  const getAllSearchableItems = useCallback((): SearchItem[] => {
     const items: SearchItem[] = []
     const menuSections = menuConfig[userRole] || []
     
@@ -70,13 +67,12 @@ export const TopNavbar = () => {
 
     // Add common pages
     items.push(
-      { title: t('Settings'), description: 'Application settings', href: '/settings' },
-      { title: t('Profile'), description: 'User profile', href: '/profile' },
+      { title: t('Settings'), description: 'User profile and settings', href: '/profile' },
       { title: t('Help'), description: 'Help and support', href: '/help' }
     )
 
     return items
-  }
+  }, [userRole, t])
 
   // Handle search
   useEffect(() => {
@@ -92,7 +88,7 @@ export const TopNavbar = () => {
       setSearchResults([])
       setSelectedIndex(0)
     }
-  }, [searchQuery, userRole, t])
+  }, [searchQuery, userRole, t, getAllSearchableItems])
 
   // Handle Ctrl+K shortcut
   useEffect(() => {
@@ -148,99 +144,106 @@ export const TopNavbar = () => {
   }
 
     return (
-    <>
-      <header className="sticky top-0 z-50 w-full ml-6 rounded-bl-lg ">
-        {/* Background with rounded bottom-right corner */}
-        <div className="relative bg-gradient-to-r from-white via-blue-50/30 to-purple-50/30 border-b border-gray-200/60 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-white/95 rounded-bl-lg">
-          
+      <>
+        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/60 shadow-sm mx-6 rounded-b-lg">
           {/* Main navbar content */}
-          <div className="relative z-10 flex h-16 items-center justify-between pl-6 pr-8 bg-gradient-to-r from-white/90 via-blue-50/40 to-purple-50/40 rounded-br-2xl shadow-md border-r border-gray-100 rounded-bl-lg" >
-          {/* Center - Search */}
-          <div className="flex-1 max-w-md ml-0 mr-4">
-            <Button
-              variant="outline"
-              className="relative w-full justify-start text-sm text-muted-foreground border-gray-200/80 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-blue-300 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 rounded-2xl group"
-              onClick={() => setIsSearchOpen(true)}
-            >
-              <Search className="mr-3 h-4 w-4 text-blue-500 group-hover:text-blue-600 transition-colors duration-200" />
-              <span className="inline-flex text-gray-600 group-hover:text-gray-700 transition-colors duration-200">Search...</span>
-              <div className="ml-auto flex items-center space-x-1">
-                <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 rounded-lg border border-gray-200 bg-gradient-to-b from-gray-50 to-gray-100 px-2 font-mono text-[10px] font-medium text-gray-600 shadow-sm group-hover:border-blue-200 group-hover:from-blue-50 group-hover:to-blue-100 transition-all duration-200">
-                  <span className="text-xs">⌘</span>K
-                </kbd>
-              </div>
-            </Button>
-          </div>
-
-          {/* Right side - Actions */}
-          <div className="flex items-center space-x-3">
-            {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative hover:bg-gray-100 hover:shadow-md transition-all duration-200 rounded-xl">
-                  <Bell className="h-5 w-5 text-gray-600" />
-                  {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center leading-none text-center text-white bg-gradient-to-r from-red-500 to-pink-500 shadow-md">
-                        {unreadCount}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 bg-white border-gray-200 shadow-xl rounded-xl">
-                <DropdownMenuLabel className="text-gray-800 font-semibold">Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-200" />
-                <ScrollArea className="h-64">
-                  {notifications.map((notification) => (
-                    <DropdownMenuItem key={notification.id} className="flex flex-col items-start p-3 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-200 rounded-lg mx-2 my-1">
-                      <div className="flex w-full items-center justify-between">
-                        <span className={`text-sm ${notification.unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
-                          {notification.title}
-                        </span>
-                        {notification.unread && (
-                          <div className="h-2 w-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 shadow-sm" />
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-500">{notification.time}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </ScrollArea>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-
-            {/* User Profile */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2 px-3 hover:bg-gray-100 hover:shadow-md transition-all duration-200 rounded-xl">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
+          <div className="flex h-16 items-center justify-between px-6">
+          
+              {/* Center - Search */}
+              <div className="flex-1 max-w-lg mx-4">
+                <Button
+                  variant="outline"
+                  className="relative w-full justify-start text-sm text-slate-500 border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300 hover:shadow-md transition-all duration-200 rounded-xl group h-10"
+                  onClick={() => setIsSearchOpen(true)}
+                >
+                  <Search className="mr-3 h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors duration-200" />
+                  <span className="text-slate-500 group-hover:text-slate-700 transition-colors duration-200">Search anything...</span>
+                  <div className="ml-auto flex items-center">
+                    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-slate-200 bg-white px-1.5 font-mono text-[10px] font-medium text-slate-500 shadow-sm group-hover:border-slate-300 transition-all duration-200">
+                      <span className="text-xs">⌘</span>K
+                    </kbd>
                   </div>
-                  <span className="hidden md:block font-medium text-gray-700">John Doe</span>
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white border-gray-200 shadow-xl rounded-xl">
-                <DropdownMenuLabel className="text-gray-800 font-semibold">My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-200" />
-                <DropdownMenuItem onClick={() => navigate('/profile')} className="hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-200 rounded-lg mx-1">
-                  <User className="mr-2 h-4 w-4 text-gray-600" />
-                  <span className="text-gray-700">Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/settings')} className="hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-200 rounded-lg mx-1">
-                  <Settings className="mr-2 h-4 w-4 text-gray-600" />
-                  <span className="text-gray-700">Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-gray-200" />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200 rounded-lg mx-1">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          </div>
-        </div>
-      </header>
+              </div>
+
+              {/* Right side - Actions */}
+              <div className="flex items-center space-x-2">
+                {/* Real-time Notifications */}
+                <NotificationBell />
+
+                {/* Learning Space Button */}
+                <Button
+                variant="ghost"
+                onClick={() => navigate('/learning-space')}
+                className={`flex items-center space-x-2 px-3 py-2 hover:shadow-sm transition-all duration-200 rounded-xl h-10
+                  ${roleClasses.primaryLight} hover:${roleClasses.primaryBg} hover:text-white group`}
+              >
+                <div className={`w-7 h-7 ${roleClasses.primaryBg} group-hover:bg-white/20 rounded-lg flex items-center justify-center transition-colors duration-200`}>
+                  <GraduationCap className="h-4 w-4 text-white" />
+                </div>
+                <span className={`hidden lg:block font-medium ${roleClasses.primary} group-hover:text-white transition-colors duration-200`}>
+                  Learning Space
+                </span>
+              </Button>
+
+              {/* User Profile */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center space-x-2 px-3 py-2 hover:bg-slate-100 hover:shadow-sm transition-all duration-200 rounded-xl h-10">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
+                      <User className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="hidden lg:block font-medium text-slate-700 max-w-32 truncate">
+                      {user ? `${user.firstName} ${user.lastName}` : 'User'}
+                    </span>
+                    <ChevronDown className="h-3 w-3 text-slate-400" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white border-slate-200 shadow-xl rounded-xl w-64 p-2">
+                  <DropdownMenuLabel className="px-0 py-0 mb-2">
+                    <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-lg border border-slate-100">
+                      <div className="relative">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
+                          <User className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-white"></div>
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="font-bold text-slate-900 text-sm truncate">{user ? `${user.firstName} ${user.lastName}` : 'User'}</span>
+                        <span className="text-xs text-slate-600 capitalize font-medium">
+                          {user?.role?.toLowerCase() || 'User'}
+                        </span>
+                        <span className="text-xs text-slate-500 truncate">
+                          {user?.email || 'user@example.com'}
+                        </span>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <div className="space-y-1">
+                    <DropdownMenuItem 
+                      onClick={() => navigate('/profile')} 
+                      className="cursor-pointer text-slate-700 hover:text-white hover:bg-gradient-to-r hover:from-blue-500 hover:to-indigo-600 transition-all duration-200 rounded-xl px-4 py-3 font-medium flex items-center"
+                    >
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                        <Settings className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <span>Profile Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={handleLogout} 
+                      className="cursor-pointer text-red-600 font-semibold hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-red-600 transition-all duration-200 rounded-xl px-4 py-3 flex items-center"
+                    >
+                      <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center mr-3">
+                        <LogOut className="h-4 w-4 text-red-600" />
+                      </div>
+                      <span>Sign out</span>
+                    </DropdownMenuItem>
+                  </div>
+                </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+        </header>
 
       {/* Search Command Palette */}
       <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
@@ -394,4 +397,4 @@ export const TopNavbar = () => {
       </Dialog>
     </>
   )
-} 
+}

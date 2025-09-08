@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
 import {
@@ -8,16 +10,27 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import {
   loginSchema,
   loginFields,
   LoginValues,
 } from "@/features/auth/loginForm.definition";
-
 import { useLogin } from "@/hooks/useLogin";
+import { toast } from "react-hot-toast";
 
 export default function LoginPage() {
+  const location = useLocation();
   const loginMut = useLogin(); // ← React-Query mutation
+
+  // Show success message if coming from password reset
+  useEffect(() => {
+    if (location.state?.message) {
+      toast.success(location.state.message);
+      // Clear the state to prevent showing the message again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   /* ---------- Build recipe ---------- */
   const recipe: FormRecipe = {
@@ -54,12 +67,12 @@ export default function LoginPage() {
           </div>
           <p className="text-sm text-muted-foreground text-center">
             Forgot your password?{" "}
-            <a
-              href="/forgot-password"
+            <Link
+              to="/forgot-password"
               className="font-medium text-primary underline-offset-4 hover:underline transition-colors"
             >
               Reset it here
-            </a>
+            </Link>
           </p>
         </CardFooter>
       </Card>

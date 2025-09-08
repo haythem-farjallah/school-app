@@ -8,7 +8,8 @@ import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, TrendingUp, Plus } from "lucide-react";
+import { Users, UserCheck, TrendingUp, Plus, Upload } from "lucide-react";
+import { BulkImportDialog } from "@/components/data-table/bulk-import-dialog";
 import { type Parser, useQueryState, useQueryStates, parseAsInteger, parseAsString } from "nuqs";
 import {
   Dialog,
@@ -20,15 +21,24 @@ import {
 } from "@/components/ui/dialog";
 
 import { useParents, useDeleteParent } from "../hooks/use-parents";
-import { getParentsColumns } from "./parent-columns.tsx";
+import { useBulkDeleteParents, useBulkUpdateParentStatus, useBulkExportParents, useBulkImportParents } from "../hooks/use-parents-bulk";
+import { getParentsColumns } from "./parent-columns";
 import type { Parent } from "@/types/parent";
+import { UserBulkActionBar } from "@/components/data-table/user-bulk-action-bar";
 
 export function ParentsTable() {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [parentToDelete, setParentToDelete] = React.useState<Parent | null>(null);
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
 
   const deleteMutation = useDeleteParent();
+
+  // Bulk operation hooks
+  const bulkDeleteMutation = useBulkDeleteParents();
+  const bulkStatusMutation = useBulkUpdateParentStatus();
+  const bulkExportMutation = useBulkExportParents();
+  const bulkImportMutation = useBulkImportParents();
 
   const handleView = React.useCallback((parent: Parent) => {
     console.log("👁️ ParentsTable - Viewing parent:", parent);
@@ -68,6 +78,32 @@ export function ParentsTable() {
     console.log("➕ ParentsTable - Creating new parent");
     navigate("/admin/parents/create");
   }, [navigate]);
+
+  // Bulk operation handlers
+  const handleBulkDelete = React.useCallback((ids: number[]) => {
+    console.log("🗑️ ParentsTable - Bulk deleting parents:", ids);
+    bulkDeleteMutation.mutate(ids);
+  }, [bulkDeleteMutation]);
+
+  const handleBulkStatusUpdate = React.useCallback((ids: number[], status: string) => {
+    console.log("✏️ ParentsTable - Bulk updating status:", { ids, status });
+    bulkStatusMutation.mutate({ ids, status });
+  }, [bulkStatusMutation]);
+
+  const handleBulkExport = React.useCallback((ids: number[], format: 'csv' | 'xlsx') => {
+    console.log("📊 ParentsTable - Bulk exporting:", { ids, format });
+    bulkExportMutation.mutate({ ids, format });
+  }, [bulkExportMutation]);
+
+  const handleBulkEmail = React.useCallback((ids: number[]) => {
+    console.log("📧 ParentsTable - Sending bulk email to parents:", ids);
+    toast.success(`Email dialog would open for ${ids.length} parents`);
+  }, []);
+
+  const handleBulkImport = React.useCallback(async (file: File) => {
+    console.log("📁 ParentsTable - Importing parents from file:", file.name);
+    return await bulkImportMutation.mutateAsync(file);
+  }, [bulkImportMutation]);
 
   const columns = React.useMemo(
     () => getParentsColumns({
@@ -174,13 +210,23 @@ export function ParentsTable() {
                 Manage and organize parent information efficiently
               </CardDescription>
             </div>
-            <Button
-              onClick={handleCreate}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Parent
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline"
+                onClick={() => setShowImportDialog(true)}
+                className="border-purple-300 text-purple-700 hover:bg-purple-50 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import Parents
+              </Button>
+              <Button
+                onClick={handleCreate}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Parent
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -232,7 +278,21 @@ export function ParentsTable() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg">
-              <DataTable table={table} className="bg-white/98">
+              <DataTable 
+                table={table} 
+                className="bg-white/98"
+                actionBar={
+                  <UserBulkActionBar
+                    table={table}
+                    userType="parents"
+                    onBulkDelete={handleBulkDelete}
+                    onBulkStatusUpdate={handleBulkStatusUpdate}
+                    onBulkExport={handleBulkExport}
+                    onBulkEmail={handleBulkEmail}
+                    onBulkImport={handleBulkImport}
+                  />
+                }
+              >
                 <DataTableToolbar 
                   table={table} 
                   className="border-b border-slate-200/60 bg-gradient-to-r from-slate-50/80 to-purple-50/40 px-6 py-4 backdrop-blur-sm"
@@ -273,6 +333,14 @@ export function ParentsTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Dialog */}
+      <BulkImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        userType="parents"
+        onImport={handleBulkImport}
+      />
     </div>
   );
 } 

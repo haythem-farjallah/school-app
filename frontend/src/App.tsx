@@ -8,9 +8,11 @@ import { FallbackErrorBoundary } from "./components/Shared/FallbackErrorBoundary
 import { store } from "./stores/store";
 import { LanguageProvider } from "./context/LanguageProvider";
 import { ThemeProvider } from "./context/ThemeProvider"
+import { RoleThemeProvider } from "./components/providers/RoleThemeProvider";
 import { HelmetProvider } from "react-helmet-async";
 import { AppRoutes } from "./routes/AppRoutes";
 import { NuqsAdapter } from "nuqs/adapters/react-router";
+import { WebSocketBridge } from "./components/Realtime/WebSocketBridge";
 
 const queryClient =new QueryClient();
 function App() {
@@ -21,17 +23,20 @@ function App() {
         <Provider store={store}>
           <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <LanguageProvider>
-              <NuqsAdapter>
-                <Suspense fallback={<div>Loading...</div>}>
-                  <AppRoutes/>
-                </Suspense>
-                <Toaster/>
-                  {import.meta.env.DEV && (
-                      <ReactQueryDevtools initialIsOpen={false} />
-                    )}          
-              </NuqsAdapter>
-              </LanguageProvider>
+            <RoleThemeProvider>
+              <LanguageProvider>
+                <NuqsAdapter>
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <AppRoutes/>
+                  </Suspense>
+                  <WebSocketBridge />
+                  <Toaster/>
+                    {import.meta.env.DEV && (
+                        <ReactQueryDevtools initialIsOpen={false} />
+                      )}          
+                </NuqsAdapter>
+                </LanguageProvider>
+              </RoleThemeProvider>
             </ThemeProvider>
           </QueryClientProvider>
         </Provider>

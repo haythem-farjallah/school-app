@@ -24,14 +24,20 @@ public class ProfileSettingsService {
         return userDetailsService.findBaseUserByEmail(email);
     }
 
-    @Transactional(readOnly = true)
     public ProfileSettingsDto getForCurrentUser() {
         BaseUser user = currentUser();
-        ProfileSettings settings = user.getProfileSettings();
+        ProfileSettings settings = findUserSettings(user);
+        
         if (settings == null) {
+            // Settings don't exist, so we need to create them in a new transaction.
             settings = createDefaultFor(user);
         }
         return mapper.toDto(settings);
+    }
+
+    @Transactional(readOnly = true)
+    public ProfileSettings findUserSettings(BaseUser user) {
+        return user.getProfileSettings();
     }
 
     @Transactional
@@ -54,6 +60,7 @@ public class ProfileSettingsService {
         return mapper.toDto(settings);
     }
 
+    @Transactional
     private ProfileSettings createDefaultFor(BaseUser user) {
         ProfileSettings def = new ProfileSettings();
         def.setUser(user);

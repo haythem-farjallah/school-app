@@ -10,6 +10,15 @@ import type {
   StudentGradeSummary,
   ClassGradeSummary,
   TeacherGradeSummary,
+  EnhancedGrade,
+  CreateEnhancedGradeRequest,
+  BulkGradeEntryRequest,
+  TeacherGradeClassView,
+  StaffGradeReview,
+  StudentGradeSheet,
+  TeacherAttendance,
+  TeacherAttendanceStatistics,
+  Semester,
 } from "@/types/grade";
 import { useQueryApi } from "@/hooks/useQueryApi";
 
@@ -185,5 +194,109 @@ export function useBulkDeleteGrades() {
     async (gradeIds) => {
       await http.delete("/v1/grades/bulk", { data: gradeIds });
     }
+  );
+}
+
+/* ── 17. Enhanced Grade System Hooks ──────────────────────────────────────────────────── */
+
+// Teacher Grade Management
+export function useTeacherGradeClasses(teacherId?: number) {
+  return useQueryApi<TeacherGradeClassView[]>(
+    ["grades", "teacher", teacherId, "classes"],
+    () => http.get<TeacherGradeClassView[], TeacherGradeClassView[]>(`/v1/grades/teacher/${teacherId}/classes`),
+    { enabled: !!teacherId },
+  );
+}
+
+export function useTeacherGradeClass(teacherId?: number, classId?: number, courseId?: number) {
+  return useQueryApi<TeacherGradeClassView>(
+    ["grades", "teacher", teacherId, "class", classId, "course", courseId],
+    () => http.get<TeacherGradeClassView, TeacherGradeClassView>(`/v1/grades/teacher/${teacherId}/class/${classId}/course/${courseId}`),
+    { enabled: !!(teacherId && classId && courseId) },
+  );
+}
+
+export function useCreateEnhancedGrade() {
+  return useMutationApi<EnhancedGrade, CreateEnhancedGradeRequest>(
+    async (gradeData) => {
+      const response = await http.post<EnhancedGrade>("/v1/grades/enhanced", gradeData);
+      return response.data;
+    }
+  );
+}
+
+export function useBulkGradeEntry() {
+  return useMutationApi<EnhancedGrade[], BulkGradeEntryRequest>(
+    async (bulkData) => {
+      const response = await http.post<EnhancedGrade[]>("/v1/grades/bulk-entry", bulkData);
+      return response.data;
+    }
+  );
+}
+
+// Staff Grade Review
+export function useStaffGradeReviews(classId?: number, semester?: Semester) {
+  return useQueryApi<StaffGradeReview[]>(
+    ["grades", "staff", "reviews", classId, semester],
+    () => http.get<StaffGradeReview[], StaffGradeReview[]>(`/v1/grades/staff/reviews`, {
+      params: { classId, semester }
+    }),
+    { enabled: !!(classId && semester) },
+  );
+}
+
+export function useApproveGrades() {
+  return useMutationApi<void, { studentIds: number[]; semester: Semester; approvedBy: string }>(
+    async (approvalData) => {
+      await http.post("/v1/grades/approve", approvalData);
+    }
+  );
+}
+
+// Student Grade Sheet
+export function useStudentGradeSheet(studentId?: number, semester?: Semester) {
+  return useQueryApi<StudentGradeSheet>(
+    ["grades", "student", studentId, "sheet", semester],
+    () => http.get<StudentGradeSheet, StudentGradeSheet>(`/v1/grades/student/${studentId}/sheet`, {
+      params: { semester }
+    }),
+    { enabled: !!(studentId && semester) },
+  );
+}
+
+export function useExportGradeSheet() {
+  return useMutationApi<Blob, { studentId: number; semester: Semester }>(
+    async ({ studentId, semester }) => {
+      const response = await http.get(`/v1/grades/student/${studentId}/export`, {
+        params: { semester },
+        responseType: 'blob'
+      });
+      return response.data;
+    }
+  );
+}
+
+// Teacher Attendance Hooks
+export function useTeacherAttendance(filters: { teacherId?: number; startDate?: string; endDate?: string } = {}) {
+  return useQueryApi<TeacherAttendance[]>(
+    ["teacher-attendance", filters],
+    () => http.get<TeacherAttendance[], TeacherAttendance[]>("/v1/teacher-attendance", { params: filters }),
+  );
+}
+
+export function useCreateTeacherAttendance() {
+  return useMutationApi<TeacherAttendance, Omit<TeacherAttendance, 'id' | 'createdAt' | 'updatedAt'>>(
+    async (attendanceData) => {
+      const response = await http.post<TeacherAttendance>("/v1/teacher-attendance", attendanceData);
+      return response.data;
+    }
+  );
+}
+
+export function useTeacherAttendanceStatistics(teacherId?: number) {
+  return useQueryApi<TeacherAttendanceStatistics>(
+    ["teacher-attendance", "statistics", teacherId],
+    () => http.get<TeacherAttendanceStatistics, TeacherAttendanceStatistics>(`/v1/teacher-attendance/statistics/${teacherId}`),
+    { enabled: !!teacherId },
   );
 } 

@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Edit, Trash2, Eye, EyeOff, Download, ExternalLink, FileText, Video, Image, Volume2, Presentation, Link as LinkIcon } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Eye, EyeOff, Download, ExternalLink, FileText, Video, Image, Volume2, Presentation, Link as LinkIcon, Settings } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,7 @@ export function getLearningResourceColumns(actions?: {
   onEdit?: (resource: LearningResource) => void;
   onDelete?: (resource: LearningResource) => void;
   onDownload?: (resource: LearningResource) => void;
+  onVisibility?: (resource: LearningResource) => void;
   onSuccess?: () => void;
 }): ColumnDef<LearningResource>[] {
   return [
@@ -258,6 +259,11 @@ export function getLearningResourceColumns(actions?: {
                   Download
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => actions?.onVisibility?.(resource)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Visibility Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <EditLearningResourceSheet 
                   resource={resource} 
@@ -270,7 +276,6 @@ export function getLearningResourceColumns(actions?: {
                   }
                 />
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => actions?.onDelete?.(resource)}
                 className="text-red-600 focus:text-red-600"

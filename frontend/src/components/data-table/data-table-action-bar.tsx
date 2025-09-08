@@ -10,7 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Table } from "@tanstack/react-table";
 import { Loader, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion } from "framer-motion";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 

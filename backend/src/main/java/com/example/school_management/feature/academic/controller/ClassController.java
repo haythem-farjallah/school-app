@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/classes")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 @Tag(name = "Classes", description = "Endpoints for managing classes and their enrolments")
 @SecurityRequirement(name = "bearerAuth")
 public class ClassController {
@@ -60,6 +60,7 @@ public class ClassController {
     @Operation(summary = "Get class details by ID")
     @Parameter(name = "id", description = "ID of the class to retrieve", required = true)
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<ClassDto>> get(@PathVariable Long id) {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.get(id)));
     }
@@ -74,6 +75,7 @@ public class ClassController {
 
     @Operation(summary = "List classes with pagination and optional filters")
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> list(
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
@@ -142,6 +144,7 @@ public class ClassController {
 
 
     @GetMapping("/new")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<MappingJacksonValue> list(
             QueryParams qp  // automatically resolved by your ArgumentResolver
     ) {
@@ -171,6 +174,7 @@ public class ClassController {
                    ready for a grid / cards UI.
                    """)
     @GetMapping("/cards")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<MappingJacksonValue> listCards(QueryParams qp) {
 
         var page     = service.listCards(qp);
@@ -191,6 +195,7 @@ public class ClassController {
                    Perfect for a details-&-sidebar page.
                    """)
     @GetMapping("/{id}/details")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<MappingJacksonValue> details(@PathVariable Long id,
                                                        QueryParams qp) {
         ClassViewDto dto = service.getDetails(id);
@@ -199,5 +204,47 @@ public class ClassController {
                 new ApiSuccessResponse<>("success", dto));
         FieldFilterUtil.apply(wrapper, qp);          // <-- installs filterProvider
         return ResponseEntity.ok(wrapper);
+    }
+
+    @Operation(summary = "Get classes taught by a teacher")
+    @Parameter(name = "teacherId", description = "ID of the teacher", required = true)
+    @GetMapping("/teacher/{teacherId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> getTeacherClasses(
+            @PathVariable Long teacherId,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
+        log.debug("Getting classes for teacher: {}", teacherId);
+        var dto = new PageDto<>(service.getClassesByTeacherId(teacherId, PageRequest.of(page, size)));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
+    }
+
+    @Operation(summary = "Get classes taught by the current teacher")
+    @GetMapping("/teacher/me")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> getCurrentTeacherClasses(
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "50") int size) {
+        log.debug("Getting classes for current teacher");
+        try {
+            var dto = new PageDto<>(service.getCurrentTeacherClasses(PageRequest.of(page, size)));
+            return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
+        } catch (Exception e) {
+            log.error("Error getting current teacher classes: {}", e.getMessage(), e);
+            return ResponseEntity.ok(new ApiSuccessResponse<>("success", new PageDto<>(Page.empty())));
+        }
+    }
+
+    @Operation(summary = "Get classes a student is enrolled in")
+    @Parameter(name = "studentId", description = "ID of the student", required = true)
+    @GetMapping("/student/{studentId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'PARENT', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> getStudentClasses(
+            @PathVariable Long studentId,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
+        log.debug("Getting classes for student: {}", studentId);
+        var dto = new PageDto<>(service.getClassesByStudentId(studentId, PageRequest.of(page, size)));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
 }

@@ -1,0 +1,859 @@
+{
+  "info": {
+    "name": "Redis Cache & Rate Limiting Tests",
+    "description": "Comprehensive tests for Redis caching and rate limiting functionality",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "HOST", "value": "localhost:8088" },
+    { "key": "TOKEN", "value": "" },
+    { "key": "ADMIN_TOKEN", "value": "" },
+    { "key": "STUDENT_ID", "value": "1" },
+    { "key": "TEACHER_ID", "value": "1" },
+    { "key": "CLASS_ID", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Authentication Tests",
+      "item": [
+        {
+          "name": "Login (Rate Limit Test)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Clear any existing rate limit data",
+                  "pm.environment.unset('rate_limit_remaining');",
+                  "pm.environment.unset('rate_limit_reset');",
+                  "",
+                  "console.log('Testing rate limiting on login endpoint...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test rate limiting headers",
+                  "pm.test('Rate limiting headers present', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Rate-Limit-Remaining')).to.not.be.null;",
+                  "    pm.expect(pm.response.headers.get('X-Rate-Limit-Reset')).to.not.be.null;",
+                  "});",
+                  "",
+                  "// Store rate limit info for other tests",
+                  "const remaining = pm.response.headers.get('X-Rate-Limit-Remaining');",
+                  "const reset = pm.response.headers.get('X-Rate-Limit-Reset');",
+                  "",
+                  "if (remaining !== null) {",
+                  "    pm.environment.set('rate_limit_remaining', remaining);",
+                  "    pm.environment.set('rate_limit_reset', reset);",
+                  "    console.log(`Rate limit remaining: ${remaining}, Reset in: ${reset}s`);",
+                  "}",
+                  "",
+                  "// Test for rate limit exceeded (429)",
+                  "if (pm.response.code === 429) {",
+                  "    pm.test('Rate limit exceeded', function () {",
+                  "        pm.expect(pm.response.code).to.eql(429);",
+                  "    });",
+                  "    ",
+                  "    pm.test('Rate limit error response', function () {",
+                  "        const responseJson = pm.response.json();",
+                  "        pm.expect(responseJson).to.have.property('error');",
+                  "        pm.expect(responseJson).to.have.property('message');",
+                  "        pm.expect(responseJson).to.have.property('retryAfter');",
+                  "    });",
+                  "} else {",
+                  "    // Normal response tests",
+                  "    pm.test('Response time is acceptable', function () {",
+                  "        pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@school.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{HOST}}/api/auth/login",
+              "host": ["{{HOST}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Register (Cache Eviction Test)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique email for testing",
+                  "const timestamp = Date.now();",
+                  "const email = `testuser${timestamp}@school.com`;",
+                  "pm.environment.set('test_email', email);",
+                  "",
+                  "console.log(`Testing cache eviction with email: ${email}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration successful', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});",
+                  "",
+                  "// Test cache eviction (user caches should be cleared)",
+                  "pm.test('Response time is acceptable', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+                  "});",
+                  "",
+                  "console.log('Registration completed - user caches should be evicted');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": {\n    \"firstName\": \"Test\",\n    \"lastName\": \"User\",\n    \"email\": \"{{test_email}}\",\n    \"telephone\": \"+1234567890\",\n    \"birthday\": \"1990-01-01\",\n    \"gender\": \"M\",\n    \"address\": \"123 Test St\",\n    \"role\": \"STUDENT\"\n  },\n  \"gradeLevel\": \"10\",\n  \"enrollmentYear\": 2024\n}"
+            },
+            "url": {
+              "raw": "{{HOST}}/api/auth/register",
+              "host": ["{{HOST}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Endpoints (Caching Tests)",
+      "item": [
+        {
+          "name": "Get Student by ID (Cache Test)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Set test student ID",
+                  "pm.environment.set('test_student_id', '1');",
+                  "console.log('Testing student caching with ID: 1');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student retrieved successfully', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has student data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('data');",
+                  "    pm.expect(responseJson.data).to.have.property('id');",
+                  "});",
+                  "",
+                  "// Test caching performance",
+                  "pm.test('Response time is fast (cached)', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// Store response time for comparison",
+                  "pm.environment.set('first_request_time', pm.response.responseTime);",
+                  "console.log(`First request time: ${pm.response.responseTime}ms`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students/{{test_student_id}}",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "students", "{{test_student_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Student by ID (Cache Hit Test)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Testing cache hit for same student ID...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student retrieved successfully (cached)', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "// Compare response times",
+                  "const firstTime = pm.environment.get('first_request_time');",
+                  "const secondTime = pm.response.responseTime;",
+                  "",
+                  "pm.test('Cache hit is faster', function () {",
+                  "    if (firstTime && secondTime) {",
+                  "        pm.expect(secondTime).to.be.below(firstTime);",
+                  "        console.log(`Cache hit improvement: ${firstTime - secondTime}ms`);",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Response time is very fast (cached)', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students/{{test_student_id}}",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "students", "{{test_student_id}}"]
+            }
+          }
+        },
+        {
+          "name": "List Students (Pagination Cache Test)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Testing student list caching...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student list retrieved successfully', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has pagination data', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('data');",
+                  "    pm.expect(responseJson.data).to.have.property('content');",
+                  "    pm.expect(responseJson.data).to.have.property('totalElements');",
+                  "});",
+                  "",
+                  "pm.test('Response time is acceptable', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});",
+                  "",
+                  "// Store response time for cache comparison",
+                  "pm.environment.set('list_first_request_time', pm.response.responseTime);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students?page=0&size=10",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "students"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rate Limiting Stress Tests",
+      "item": [
+        {
+          "name": "Auth Rate Limit Test (10 requests)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// This will be run multiple times to test rate limiting",
+                  "console.log('Making request to test rate limiting...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Check rate limiting headers",
+                  "pm.test('Rate limiting headers present', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Rate-Limit-Remaining')).to.not.be.null;",
+                  "    pm.expect(pm.response.headers.get('X-Rate-Limit-Reset')).to.not.be.null;",
+                  "});",
+                  "",
+                  "// Log rate limit status",
+                  "const remaining = pm.response.headers.get('X-Rate-Limit-Remaining');",
+                  "const reset = pm.response.headers.get('X-Rate-Limit-Reset');",
+                  "console.log(`Rate limit remaining: ${remaining}, Reset in: ${reset}s`);",
+                  "",
+                  "// Test for rate limit exceeded",
+                  "if (pm.response.code === 429) {",
+                  "    pm.test('Rate limit exceeded (429)', function () {",
+                  "        pm.expect(pm.response.code).to.eql(429);",
+                  "    });",
+                  "    ",
+                  "    pm.test('Rate limit error response structure', function () {",
+                  "        const responseJson = pm.response.json();",
+                  "        pm.expect(responseJson).to.have.property('error');",
+                  "        pm.expect(responseJson).to.have.property('message');",
+                  "        pm.expect(responseJson).to.have.property('retryAfter');",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Request allowed', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([200, 401, 400]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{HOST}}/api/auth/login",
+              "host": ["{{HOST}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cache Management (Admin)",
+      "item": [
+        {
+          "name": "Get Cache Statistics",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin token is set', function () {",
+                  "    pm.expect(pm.environment.get('ADMIN_TOKEN')).to.not.be.empty;",
+                  "});",
+                  "",
+                  "console.log('Getting cache statistics...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cache stats retrieved successfully', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Response time is acceptable', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});",
+                  "",
+                  "console.log('Cache statistics retrieved successfully');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/admin/cache/stats",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "admin", "cache", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Clear All Caches",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Clearing all caches...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('All caches cleared successfully', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success message', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('message');",
+                  "    pm.expect(responseJson.message).to.include('cleared');",
+                  "});",
+                  "",
+                  "console.log('All caches cleared successfully');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/admin/cache/clear-all",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "admin", "cache", "clear-all"]
+            }
+          }
+        },
+        {
+          "name": "Clear User Caches",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Clearing user caches...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('User caches cleared successfully', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success message', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('message');",
+                  "    pm.expect(responseJson.message).to.include('User caches cleared');",
+                  "});",
+                  "",
+                  "console.log('User caches cleared successfully');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/admin/cache/clear-users",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "admin", "cache", "clear-users"]
+            }
+          }
+        },
+        {
+          "name": "Clear Listing Caches",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Clearing listing caches...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Listing caches cleared successfully', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success message', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('message');",
+                  "    pm.expect(responseJson.message).to.include('Listing caches cleared');",
+                  "});",
+                  "",
+                  "console.log('Listing caches cleared successfully');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/admin/cache/clear-listings",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "admin", "cache", "clear-listings"]
+            }
+          }
+        },
+        {
+          "name": "Clear Specific Cache (Students)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Clearing students cache...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Students cache cleared successfully', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success message', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('message');",
+                  "    pm.expect(responseJson.message).to.include('students');",
+                  "});",
+                  "",
+                  "console.log('Students cache cleared successfully');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/admin/cache/clear/students",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "admin", "cache", "clear", "students"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cache Performance Tests",
+      "item": [
+        {
+          "name": "Cache Miss Test (First Request)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Clear caches first to ensure cache miss",
+                  "console.log('Clearing caches to ensure cache miss...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Request successful', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "// Store response time for cache miss",
+                  "pm.environment.set('cache_miss_time', pm.response.responseTime);",
+                  "console.log(`Cache miss response time: ${pm.response.responseTime}ms`);",
+                  "",
+                  "pm.test('Response time recorded for comparison', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students/1",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "students", "1"]
+            }
+          }
+        },
+        {
+          "name": "Cache Hit Test (Second Request)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Testing cache hit for same request...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Request successful (cached)', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "// Compare with cache miss time",
+                  "const cacheMissTime = pm.environment.get('cache_miss_time');",
+                  "const cacheHitTime = pm.response.responseTime;",
+                  "",
+                  "if (cacheMissTime) {",
+                  "    pm.test('Cache hit is faster than cache miss', function () {",
+                  "        pm.expect(cacheHitTime).to.be.below(cacheMissTime);",
+                  "    });",
+                  "    ",
+                  "    const improvement = cacheMissTime - cacheHitTime;",
+                  "    console.log(`Cache hit improvement: ${improvement}ms (${((improvement/cacheMissTime)*100).toFixed(1)}%)`);",
+                  "}",
+                  "",
+                  "pm.test('Cache hit response time is very fast', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students/1",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "students", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rate Limiting Different Endpoints",
+      "item": [
+        {
+          "name": "API Endpoint Rate Limit Test",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Testing API endpoint rate limiting...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rate limiting headers present', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Rate-Limit-Remaining')).to.not.be.null;",
+                  "    pm.expect(pm.response.headers.get('X-Rate-Limit-Reset')).to.not.be.null;",
+                  "});",
+                  "",
+                  "const remaining = pm.response.headers.get('X-Rate-Limit-Remaining');",
+                  "console.log(`API rate limit remaining: ${remaining}`);",
+                  "",
+                  "if (pm.response.code === 429) {",
+                  "    pm.test('API rate limit exceeded', function () {",
+                  "        pm.expect(pm.response.code).to.eql(429);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('API request allowed', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/teachers",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "teachers"]
+            }
+          }
+        },
+        {
+          "name": "Listing Endpoint Rate Limit Test",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Testing listing endpoint rate limiting...');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rate limiting headers present', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Rate-Limit-Remaining')).to.not.be.null;",
+                  "    pm.expect(pm.response.headers.get('X-Rate-Limit-Reset')).to.not.be.null;",
+                  "});",
+                  "",
+                  "const remaining = pm.response.headers.get('X-Rate-Limit-Remaining');",
+                  "console.log(`Listing rate limit remaining: ${remaining}`);",
+                  "",
+                  "if (pm.response.code === 429) {",
+                  "    pm.test('Listing rate limit exceeded', function () {",
+                  "        pm.expect(pm.response.code).to.eql(429);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Listing request allowed', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{HOST}}/api/v1/students?page=0&size=10",
+              "host": ["{{HOST}}"],
+              "path": ["api", "v1", "students"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script",
+          "console.log('=== Redis Cache & Rate Limiting Test Suite ===');",
+          "console.log(`Testing against: ${pm.environment.get('HOST')}`);",
+          "",
+          "// Check if tokens are set",
+          "if (!pm.environment.get('ADMIN_TOKEN')) {",
+          "    console.warn('ADMIN_TOKEN not set. Some tests may fail.');",
+          "}",
+          "",
+          "if (!pm.environment.get('TOKEN')) {",
+          "    console.warn('TOKEN not set. Some tests may fail.');",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script",
+          "pm.test('Response time is reasonable', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(10000);",
+          "});",
+          "",
+          "// Log response details",
+          "console.log(`Response: ${pm.response.code} - ${pm.response.responseTime}ms`);"
+        ]
+      }
+    }
+  ]
+}

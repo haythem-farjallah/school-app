@@ -4,6 +4,7 @@ import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
 import com.example.school_management.feature.operational.dto.EnrollmentDto;
 import com.example.school_management.feature.operational.dto.EnrollmentStatsDto;
+import com.example.school_management.feature.operational.dto.AutoEnrollmentResultDto;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import com.example.school_management.feature.operational.service.EnrollmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,7 +36,7 @@ public class EnrollmentController {
     private final EnrollmentService enrollmentService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Get all enrollments with optional filters")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getAllEnrollments(
             @PageableDefault(size = 20) Pageable pageable,
@@ -49,7 +50,7 @@ public class EnrollmentController {
     }
 
     @PostMapping("/enroll")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Enroll a student in a class")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> enrollStudent(
             @Valid @RequestBody EnrollStudentRequest request) {
@@ -60,7 +61,7 @@ public class EnrollmentController {
     }
 
     @PutMapping("/{enrollmentId}/transfer")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Transfer a student to another class")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> transferStudent(
             @PathVariable Long enrollmentId,
@@ -72,7 +73,7 @@ public class EnrollmentController {
     }
 
     @PutMapping("/{enrollmentId}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Update enrollment status")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> updateEnrollmentStatus(
             @PathVariable Long enrollmentId,
@@ -84,7 +85,7 @@ public class EnrollmentController {
     }
 
     @DeleteMapping("/{enrollmentId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Drop/withdraw a student from enrollment")
     public ResponseEntity<ApiSuccessResponse<String>> dropEnrollment(
             @PathVariable Long enrollmentId,
@@ -120,7 +121,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/class/{classId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Get all enrollments for a class")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getClassEnrollments(
             @PathVariable Long classId,
@@ -133,7 +134,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Get enrollments by status")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getEnrollmentsByStatus(
             @PathVariable EnrollmentStatus status,
@@ -146,7 +147,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/date-range")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Get enrollments within a date range")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getEnrollmentsByDateRange(
             @Parameter(description = "Start date (yyyy-MM-dd'T'HH:mm:ss)")
@@ -162,7 +163,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/stats/class/{classId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Get enrollment statistics for a class")
     public ResponseEntity<ApiSuccessResponse<EnrollmentStatsDto>> getClassEnrollmentStats(
             @PathVariable Long classId) {
@@ -184,7 +185,7 @@ public class EnrollmentController {
     }
 
     @PostMapping("/bulk-enroll")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Bulk enroll students in a class")
     public ResponseEntity<ApiSuccessResponse<String>> bulkEnrollStudents(
             @Valid @RequestBody BulkEnrollStudentsRequest request) {
@@ -195,7 +196,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/can-enroll")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Check if a student can be enrolled in a class")
     public ResponseEntity<ApiSuccessResponse<Boolean>> canEnrollStudent(
             @RequestParam Long studentId,
@@ -204,6 +205,37 @@ public class EnrollmentController {
         
         boolean canEnroll = enrollmentService.canEnrollStudent(studentId, classId);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Enrollment eligibility checked", canEnroll));
+    }
+
+    @PostMapping("/auto-enroll")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @Operation(summary = "Automatically enroll all unenrolled students into appropriate classes")
+    public ResponseEntity<ApiSuccessResponse<AutoEnrollmentResultDto>> autoEnrollAllStudents() {
+        log.debug("Starting auto-enrollment process for all students");
+        
+        AutoEnrollmentResultDto result = enrollmentService.autoEnrollAllStudents();
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Auto-enrollment completed successfully", result));
+    }
+
+    @PostMapping("/auto-enroll/grade/{gradeLevel}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @Operation(summary = "Automatically enroll students of a specific grade level")
+    public ResponseEntity<ApiSuccessResponse<AutoEnrollmentResultDto>> autoEnrollByGradeLevel(
+            @PathVariable String gradeLevel) {
+        log.debug("Starting auto-enrollment process for grade level: {}", gradeLevel);
+        
+        AutoEnrollmentResultDto result = enrollmentService.autoEnrollByGradeLevel(gradeLevel);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Auto-enrollment completed successfully", result));
+    }
+
+    @GetMapping("/auto-enroll/preview")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @Operation(summary = "Preview what auto-enrollment would do without actually enrolling students")
+    public ResponseEntity<ApiSuccessResponse<AutoEnrollmentResultDto>> previewAutoEnrollment() {
+        log.debug("Generating auto-enrollment preview");
+        
+        AutoEnrollmentResultDto result = enrollmentService.previewAutoEnrollment();
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Auto-enrollment preview generated", result));
     }
 
     // Request DTOs

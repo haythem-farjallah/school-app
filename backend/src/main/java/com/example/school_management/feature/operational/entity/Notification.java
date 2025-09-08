@@ -11,8 +11,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Data
-@Entity
-@Table(name = "notifications")
+@Entity(name = "UserNotification")
+@Table(name = "user_notifications")
 @EntityListeners(AuditingEntityListener.class)
 public class Notification {
     @Id
@@ -37,10 +37,11 @@ public class Notification {
     private Long entityId;
     private String actionUrl; // URL for the notification action
 
+    @Column(name = "read_status")
     private Boolean readStatus = false;
-    private Boolean isRead = false;
     
     @CreatedDate
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
     
     private LocalDateTime readAt;
@@ -48,11 +49,14 @@ public class Notification {
     // Helper methods
     public void markAsRead() {
         this.readStatus = true;
-        this.isRead = true;
         this.readAt = LocalDateTime.now();
     }
 
     public boolean isUnread() {
-        return !this.isRead;
+        return !this.readStatus;
+    }
+    
+    public boolean isRead() {
+        return this.readStatus;
     }
 }

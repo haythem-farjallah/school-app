@@ -13,7 +13,6 @@ import {
   BookMarked,
   FileText,
   Bell,
-  Mail,
   // Add new icons
   Library,
   DoorOpen,
@@ -21,6 +20,11 @@ import {
   UserPlus,
   CalendarDays,
   Users2,
+  // Enhanced icons for new features
+  CheckSquare,
+  CalendarCheck,
+  Brain,
+  LogOut,
 } from 'lucide-react';
 
 export type MenuItem = {
@@ -62,85 +66,113 @@ export const menuConfig: Record<string, MenuSection[]> = {
       title: 'OPERATIONS',
       items: [
         { icon: CalendarDays, label: 'Timetables', href: '/admin/timetable' },
+        { icon: Brain, label: 'Smart Timetable', href: '/admin/smart-timetable' },
         { icon: DoorOpen, label: 'Rooms', href: '/admin/rooms' },
         { icon: Calendar, label: 'Schedule', href: '/admin/schedule' },
         { icon: Megaphone, label: 'Announcements', href: '/admin/announcements' },
+        { icon: Megaphone, label: 'Enhanced Announcements', href: '/admin/enhanced-announcements' },
+        { icon: MessageCircle, label: 'Communication Dashboard', href: '/admin/communication-dashboard' },
         { icon: Settings, label: 'Settings', href: '/admin/settings' },
+        { icon: Settings, label: 'Permissions', href: '/admin/permissions', permission: 'PERMISSIONS_MANAGE' },
+        
       ],
     },
   ],
   TEACHER: [
     {
-      title: 'DASHBOARD',
+      title: 'MENU',
       items: [
-        { icon: Home, label: 'Overview', href: '/teacher/dashboard' },
-        { icon: BookMarked, label: 'My Classes', href: '/teacher/classes' },
-      ],
-    },
-    {
-      title: 'ACADEMIC',
-      items: [
-        { icon: FileText, label: 'Assignments', href: '/teacher/assignments' },
-        { icon: ClipboardList, label: 'Grades', href: '/teacher/grades' },
+        { icon: Home, label: 'Home', href: '/teacher/dashboard' },
         { icon: Calendar, label: 'Schedule', href: '/teacher/schedule' },
-        { icon: Library, label: 'Learning Resources', href: '/teacher/learning-resources' },
+        { icon: Users, label: 'My Classes', href: '/teacher/classes' },
+        { icon: BarChart3, label: 'Grades', href: '/teacher/grades' },
+        { icon: CheckSquare, label: 'Attendance', href: '/teacher/attendance' },
+        { icon: Bell, label: 'Announcements', href: '/teacher/announcements' },
       ],
     },
     {
-      title: 'COMMUNICATION',
+      title: 'OTHER',
       items: [
-        { icon: MessageCircle, label: 'Messages', href: '/teacher/messages' },
-        { icon: Bell, label: 'Announcements', href: '/teacher/announcements' },
+        { icon: User, label: 'Settings', href: '/teacher/profile' },
+        { icon: LogOut, label: 'Logout', href: '/logout' },
       ],
     },
   ],
   STUDENT: [
     {
-      title: 'DASHBOARD',
+      title: 'MENU',
       items: [
-        { icon: Home, label: 'Overview', href: '/student/dashboard' },
-        { icon: BookMarked, label: 'My Courses', href: '/student/courses' },
-      ],
-    },
-    {
-      title: 'ACADEMIC',
-      items: [
-        { icon: FileText, label: 'Assignments', href: '/student/assignments' },
-        { icon: GraduationCap, label: 'Grades', href: '/student/grades' },
+        { icon: Home, label: 'Home', href: '/student/dashboard' },
         { icon: Calendar, label: 'Schedule', href: '/student/schedule' },
-        { icon: Library, label: 'Learning Resources', href: '/student/learning-resources' },
+        { icon: FileText, label: 'Exams', href: '/student/exams' },
+        { icon: FileText, label: 'Results', href: '/student/results' },
+        { icon: Calendar, label: 'Events', href: '/student/events' },
+        { icon: Bell, label: 'Announcements', href: '/student/announcements' },
       ],
     },
     {
-      title: 'COMMUNICATION',
+      title: 'OTHER',
       items: [
-        { icon: MessageCircle, label: 'Messages', href: '/student/messages' },
-        { icon: Bell, label: 'Announcements', href: '/student/announcements' },
+        { icon: User, label: 'Settings', href: '/student/profile' },
+        { icon: LogOut, label: 'Logout', href: '/logout' },
       ],
     },
   ],
   PARENT: [
     {
-      title: 'DASHBOARD',
+      title: 'MENU',
       items: [
-        { icon: Home, label: 'Overview', href: '/parent/dashboard' },
-        { icon: User2, label: 'My Children', href: '/parent/children' },
+        { icon: Home, label: 'Home', href: '/parent/dashboard' },
+        { icon: User2, label: 'Children', href: '/parent/children' },
+        { icon: GraduationCap, label: 'Results', href: '/parent/grades' },
+        { icon: Calendar, label: 'Schedule', href: '/parent/schedule' },
+        { icon: CheckSquare, label: 'Attendance', href: '/parent/attendance' },
+        { icon: Bell, label: 'Announcements', href: '/parent/announcements' },
+        { icon: CalendarCheck, label: 'Meetings', href: '/parent/meetings' },
       ],
     },
     {
-      title: 'ACADEMIC',
+      title: 'OTHER',
       items: [
-        { icon: GraduationCap, label: 'Grades', href: '/parent/grades' },
-        { icon: Calendar, label: 'Schedule', href: '/parent/schedule' },
-        { icon: FileText, label: 'Assignments', href: '/parent/assignments' },
+        { icon: User, label: 'Settings', href: '/parent/profile' },
+        { icon: LogOut, label: 'Logout', href: '/logout' },
+      ],
+    },
+  ],
+  STAFF: [
+    {
+      title: 'DASHBOARD',
+      items: [
+        { icon: Home, label: 'Overview', href: '/staff/dashboard' },
+
+      ],
+    },
+    {
+      title: 'MANAGEMENT',
+      items: [
+        { icon: Users, label: 'Student Management', href: '/staff/students' },
+        { icon: User, label: 'Teacher Management', href: '/staff/teachers' },
+        { icon: User2, label: 'Parent Management', href: '/staff/parents' },
+        { icon: ClipboardList, label: 'Class Management', href: '/staff/classes' },
+        { icon: UserPlus, label: 'Enrollments', href: '/staff/enrollments' },
+        { icon: BarChart3, label: 'Grade Management', href: '/staff/grades' },
+        { icon: CheckSquare, label: 'Attendance Management', href: '/staff/attendance' },
+        { icon: Calendar, label: 'Schedule Management', href: '/staff/schedule' },
+        { icon: DoorOpen, label: 'Room Management', href: '/staff/rooms' },
+
       ],
     },
     {
       title: 'COMMUNICATION',
       items: [
-        { icon: MessageCircle, label: 'Messages', href: '/parent/messages' },
-        { icon: Bell, label: 'Announcements', href: '/parent/announcements' },
-        { icon: Mail, label: 'Contact Teachers', href: '/parent/contact' },
+        { icon: Bell, label: 'Announcements', href: '/staff/announcements' },
+
+      ],
+    },
+    {
+      title: 'ACCOUNT',
+      items: [
+        { icon: User, label: 'Settings', href: '/staff/profile' },
       ],
     },
   ],

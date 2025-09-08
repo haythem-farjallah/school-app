@@ -9,6 +9,7 @@ import com.example.school_management.feature.auth.dto.TeacherUpdateDto;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.mapper.TeacherMapper;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,8 +38,9 @@ public class TeacherService extends AbstractUserCrudService<
                           PasswordEncoder enc,
                           PasswordUtil pw,
                           ApplicationEventPublisher ev,
-                          AuditService auditService) {
-        super(repo, mapper, enc, pw, ev, auditService);
+                          AuditService auditService,
+                          UserRepository userRepository) {
+        super(repo, mapper, enc, pw, ev, auditService, userRepository);
         this.teacherRepo = repo;
     }
 
@@ -121,5 +125,37 @@ public class TeacherService extends AbstractUserCrudService<
             );
         
         return teacherRepo.findAll(spec, pageable);
+    }
+
+    /* ---------- Bulk operations ---------- */
+    
+    @Transactional
+    public void bulkDelete(List<Long> ids) {
+        log.debug("Bulk deleting {} teachers", ids.size());
+        for (Long id : ids) {
+            delete(id); // Uses the existing soft delete method
+        }
+        log.info("Bulk deleted {} teachers", ids.size());
+    }
+    
+    @Transactional
+    public void bulkUpdateStatus(List<Long> ids, String status) {
+        log.debug("Bulk updating status for {} teachers to {}", ids.size(), status);
+        List<Teacher> teachers = teacherRepo.findAllById(ids);
+        for (Teacher teacher : teachers) {
+            teacher.setStatus(com.example.school_management.feature.auth.entity.Status.valueOf(status.toUpperCase()));
+        }
+        teacherRepo.saveAll(teachers);
+        log.info("Bulk updated status for {} teachers", teachers.size());
+    }
+    
+    @Transactional(readOnly = true)
+    public List<Teacher> findByIds(List<Long> ids) {
+        return teacherRepo.findAllById(ids);
+    }
+    
+    @Transactional(readOnly = true)
+    public List<Teacher> findAll() {
+        return teacherRepo.findAll();
     }
 }

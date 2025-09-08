@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${subject}">Status Update</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2196F3;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2196F3;
+            margin: 0;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        .status-active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status-inactive {
+            background-color: #FF9800;
+            color: white;
+        }
+        .status-suspended {
+            background-color: #F44336;
+            color: white;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .message {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+        .details {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Account Status Update</h1>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Hello <span th:text="${firstName + ' ' + lastName}">User</span>,
+            </div>
+            
+            <div class="message">
+                Your account status has been updated in the School Management System.
+            </div>
+            
+            <div class="details">
+                <strong>Account Details:</strong><br>
+                <strong>Email:</strong> <span th:text="${email}">user@example.com</span><br>
+                <strong>Role:</strong> <span th:text="${userRole}">User</span><br>
+                <strong>New Status:</strong> 
+                <span class="status-badge" 
+                      th:classappend="'status-' + ${#strings.toLowerCase(newStatus)}"
+                      th:text="${newStatus}">ACTIVE</span><br>
+                <strong>Updated By:</strong> <span th:text="${updatedBy ?: 'System Administrator'}">Administrator</span><br>
+                <strong>Updated On:</strong> <span th:text="${#dates.format(#dates.createNow(), 'MMM dd, yyyy HH:mm')}">Date</span>
+            </div>
+            
+            <div class="message" th:if="${statusMessage}">
+                <strong>Additional Information:</strong><br>
+                <span th:text="${statusMessage}">Status change reason</span>
+            </div>
+            
+            <div class="message" th:if="${newStatus == 'ACTIVE'}">
+                Your account is now active and you can access all system features.
+            </div>
+            
+            <div class="message" th:if="${newStatus == 'INACTIVE'}">
+                Your account has been temporarily deactivated. Please contact the administration if you believe this is an error.
+            </div>
+            
+            <div class="message" th:if="${newStatus == 'SUSPENDED'}">
+                Your account has been suspended. Please contact the administration for more information.
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>This email was sent from the School Management System.</p>
+            <p>If you have any questions about this status change, please contact the administration.</p>
+        </div>
+    </div>
+</body>
+</html>

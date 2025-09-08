@@ -2,9 +2,12 @@ package com.example.school_management.feature.auth.controller;
 
 import com.example.school_management.commons.dtos.PageDto;
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
+import com.example.school_management.commons.service.ExportService;
+import com.example.school_management.commons.service.EmailService;
 import com.example.school_management.feature.auth.dto.TeacherCreateDto;
 import com.example.school_management.feature.auth.dto.TeacherDto;
 import com.example.school_management.feature.auth.dto.TeacherUpdateDto;
+import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.mapper.TeacherMapper;
 import com.example.school_management.feature.auth.service.TeacherService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,20 +20,29 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @RestController
 @RequestMapping("/api/admin/teachers")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 public class TeacherController {
 
     private final TeacherService service;
     private final TeacherMapper mapper;
+    private final ExportService exportService;
+    private final EmailService emailService;
 
     /* -------- CREATE ---------- */
     @PostMapping
@@ -157,4 +169,123 @@ public class TeacherController {
         
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
+
+    /* ---------- BULK OPERATIONS ---------- */
+    
+    @Operation(summary = "Bulk delete teachers by IDs")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Teachers deleted successfully")
+    })
+    @DeleteMapping("/bulk")
+    public ResponseEntity<ApiSuccessResponse<Void>> bulkDelete(
+            @Parameter(description = "List of teacher IDs to delete") @RequestBody List<Long> ids) {
+        log.debug("DELETE /teachers/bulk {}", ids);
+        service.bulkDelete(ids);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", null));
+    }
+
+    @Operation(summary = "Bulk update teacher status")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Teacher statuses updated successfully")
+    })
+    @PatchMapping("/bulk/status")
+    public ResponseEntity<ApiSuccessResponse<String>> bulkUpdateStatus(
+            @RequestBody BulkStatusUpdateRequest request) {
+        log.debug("PATCH /teachers/bulk/status - ids: {}, status: {}", request.ids(), request.status());
+        service.bulkUpdateStatus(request.ids(), request.status());
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Teacher statuses updated successfully", null));
+    }
+
+    @Operation(summary = "Export teachers to CSV format")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "CSV export completed successfully")
+    })
+    @PostMapping("/export/csv")
+    public ResponseEntity<String> exportTeachersCSV(
+            @RequestBody(required = false) ExportRequest request) throws IOException {
+        log.debug("POST /teachers/export/csv - ids: {}", request != null ? request.ids() : "all");
+        
+        List<Teacher> teachers = (request != null && request.ids() != null && !request.ids().isEmpty()) 
+            ? service.findByIds(request.ids())
+            : service.findAll();
+            
+        String csvContent = exportService.exportUsersToCSV(teachers, "teachers");
+        String filename = exportService.generateExportFilename("teachers", "csv");
+        
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csvContent);
+    }
+
+    @Operation(summary = "Export teachers to Excel format")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Excel export completed successfully")
+    })
+    @PostMapping("/export/excel")
+    public ResponseEntity<byte[]> exportTeachersExcel(
+            @RequestBody(required = false) ExportRequest request) throws IOException {
+        log.debug("POST /teachers/export/excel - ids: {}", request != null ? request.ids() : "all");
+        
+        List<Teacher> teachers = (request != null && request.ids() != null && !request.ids().isEmpty()) 
+            ? service.findByIds(request.ids())
+            : service.findAll();
+            
+        byte[] excelContent = exportService.exportUsersToExcel(teachers, "teachers");
+        String filename = exportService.generateExportFilename("teachers", "xlsx");
+        
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(excelContent);
+    }
+
+    @Operation(summary = "Send bulk email to teachers")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Bulk email initiated successfully")
+    })
+    @PostMapping("/bulk/email")
+    public ResponseEntity<ApiSuccessResponse<String>> sendBulkEmail(
+            @RequestBody BulkEmailRequest request) {
+        log.debug("POST /teachers/bulk/email - ids: {}, subject: {}", request.ids(), request.subject());
+        
+        List<Teacher> teachers = service.findByIds(request.ids());
+        
+        Map<String, Object> variables = Map.of(
+            "message", request.message(),
+            "actionUrl", request.actionUrl() != null ? request.actionUrl() : "",
+            "actionText", request.actionText() != null ? request.actionText() : "View Details"
+        );
+        
+        CompletableFuture<EmailService.BulkEmailResult> future = emailService.sendBulkEmails(
+            teachers, request.subject(), "email/bulk-notification", variables);
+        
+        // Don't wait for completion, return immediately
+        future.thenAccept(result -> {
+            log.info("Bulk email to teachers completed: {}/{} successful", 
+                    result.getSuccessCount(), result.getTotalCount());
+        });
+        
+        return ResponseEntity.ok(new ApiSuccessResponse<>(
+            "Bulk email initiated for " + teachers.size() + " teachers", null));
+    }
+
+    // Request DTOs
+    public record BulkStatusUpdateRequest(
+            @Parameter(description = "List of teacher IDs") List<Long> ids,
+            @Parameter(description = "New status") String status,
+            @Parameter(description = "Reason for status change") String reason
+    ) {}
+
+    public record ExportRequest(
+            @Parameter(description = "List of teacher IDs to export (optional - exports all if empty)") List<Long> ids
+    ) {}
+
+    public record BulkEmailRequest(
+            @Parameter(description = "List of teacher IDs") List<Long> ids,
+            @Parameter(description = "Email subject") String subject,
+            @Parameter(description = "Email message content") String message,
+            @Parameter(description = "Action URL (optional)") String actionUrl,
+            @Parameter(description = "Action button text (optional)") String actionText
+    ) {}
 }

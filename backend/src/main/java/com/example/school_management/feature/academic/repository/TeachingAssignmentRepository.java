@@ -3,13 +3,14 @@ package com.example.school_management.feature.academic.repository;
 import com.example.school_management.feature.academic.dto.ClassCountRow;
 import com.example.school_management.feature.academic.entity.TeachingAssignment;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
 public interface TeachingAssignmentRepository
-        extends JpaRepository<TeachingAssignment, Long> {
+        extends JpaRepository<TeachingAssignment, Long>, JpaSpecificationExecutor<TeachingAssignment> {
 
     /* Count teachers & courses for many classes at once ---------- */
     @Query("""
@@ -41,4 +42,20 @@ public interface TeachingAssignmentRepository
     List<TeachingAssignment> findAllByClassId(@Param("classId") Long classId);
 
     boolean existsByClazzIdAndCourseId(Long classId, Long courseId);
+    
+    /* Find assignments by teacher ID ----------- */
+    @Query("""
+        SELECT ta
+        FROM TeachingAssignment ta
+        JOIN FETCH ta.clazz c
+        JOIN FETCH ta.course co
+        JOIN FETCH ta.teacher t
+        WHERE ta.teacher.id = :teacherId
+        ORDER BY c.name, co.name
+    """)
+    List<TeachingAssignment> findByTeacherId(@Param("teacherId") Long teacherId);
+    
+    // Additional query methods for teacher-course linking
+    List<TeachingAssignment> findByCourseId(Long courseId);
+    List<TeachingAssignment> findByClazzId(Long classId);
 }

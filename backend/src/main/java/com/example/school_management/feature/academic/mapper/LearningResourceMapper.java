@@ -15,6 +15,8 @@ public interface LearningResourceMapper {
     @Mapping(target = "classIds", expression = "java(mapClassIds(entity))")
     @Mapping(target = "courseIds", expression = "java(mapCourseIds(entity))")
     @Mapping(target = "commentCount", expression = "java(entity.getComments() != null ? entity.getComments().size() : 0)")
+    @Mapping(target = "viewCount", source = "viewCount")
+    @Mapping(target = "downloadCount", source = "downloadCount")
     LearningResourceDto toDto(LearningResource entity);
 
     default Set<Long> mapTeacherIds(LearningResource entity) {

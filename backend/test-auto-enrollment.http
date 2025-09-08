@@ -1,0 +1,31 @@
+### Auto-Enrollment API Tests
+
+### 1. Preview Auto-Enrollment (see what would happen without actually enrolling)
+GET http://localhost:8088/api/v1/enrollments/auto-enroll/preview
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+### 2. Auto-Enroll All Students
+POST http://localhost:8088/api/v1/enrollments/auto-enroll
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+### 3. Auto-Enroll Students by Grade Level (Elementary)
+POST http://localhost:8088/api/v1/enrollments/auto-enroll/grade/ELEMENTARY
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+### 4. Auto-Enroll Students by Grade Level (High School)
+POST http://localhost:8088/api/v1/enrollments/auto-enroll/grade/HIGH
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+### 5. Get All Enrollments to verify results
+GET http://localhost:8088/api/v1/enrollments?page=0&size=20
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+### 6. Get All Classes to see created classes
+GET http://localhost:8088/api/v1/classes?page=0&size=20
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json

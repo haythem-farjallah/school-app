@@ -1,16 +1,2 @@
-import { useTranslation } from 'react-i18next';
-
-const MyClasses = () => {
-  const { t } = useTranslation();
-
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t('My Classes')}</h1>
-      <div className="bg-white rounded-lg shadow p-6">
-        <p className="text-gray-600">{t('Your classes will be displayed here')}</p>
-      </div>
-    </div>
-  );
-};
-
-export default MyClasses; 
+// Redirect to the new Classes component
+export { default } from './Classes'; 

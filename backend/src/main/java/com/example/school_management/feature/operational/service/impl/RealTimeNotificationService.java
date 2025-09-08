@@ -172,23 +172,7 @@ public class RealTimeNotificationService {
         }
     }
 
-    /**
-     * Send general notification to all connected users
-     */
-    public void broadcastToAll(String title, String message, String priority) {
-        try {
-            Set<String> allRoles = Set.of("ADMIN", "TEACHER", "PARENT", "STUDENT");
-            RealTimeNotificationDto notification = RealTimeNotificationDto.userNotification(
-                title, message, priority, allRoles, null
-            );
-            
-            messagingTemplate.convertAndSend("/topic/notifications/broadcast", notification);
-            log.debug("Broadcast notification to all users: {}", title);
-            
-        } catch (Exception e) {
-            log.error("Failed to broadcast notification to all users", e);
-        }
-    }
+
 
     /**
      * Send connection confirmation to user
@@ -208,6 +192,28 @@ public class RealTimeNotificationService {
             
         } catch (Exception e) {
             log.error("Failed to send connection confirmation", e);
+        }
+    }
+
+    /**
+     * Broadcast message to all users (all roles)
+     */
+    public void broadcastToAll(String title, String message, String priority) {
+        try {
+            RealTimeNotificationDto notification = RealTimeNotificationDto.userNotification(
+                title, message, priority, Set.of("ADMIN", "TEACHER", "STUDENT", "PARENT"), null
+            );
+            
+            // Send to all role-specific topics
+            messagingTemplate.convertAndSend("/topic/notifications/admin", notification);
+            messagingTemplate.convertAndSend("/topic/notifications/teacher", notification);
+            messagingTemplate.convertAndSend("/topic/notifications/student", notification);
+            messagingTemplate.convertAndSend("/topic/notifications/parent", notification);
+            
+            log.debug("Broadcast message to all users: {}", title);
+            
+        } catch (Exception e) {
+            log.error("Failed to broadcast message to all users", e);
         }
     }
 } 

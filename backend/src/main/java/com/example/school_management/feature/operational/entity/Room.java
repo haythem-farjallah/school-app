@@ -2,6 +2,7 @@ package com.example.school_management.feature.operational.entity;
 
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.operational.entity.enums.RoomType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -32,8 +33,10 @@ public class Room {
     private RoomType roomType;
 
     @OneToMany(mappedBy = "assignedRoom")
+    @JsonIgnore
     private Set<ClassEntity> classes = new HashSet<>();
 
     @ManyToMany(mappedBy = "rooms")
+    @JsonIgnore
     private Set<Timetable> timetables = new HashSet<>();
 } 

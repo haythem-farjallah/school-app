@@ -30,7 +30,10 @@ public class TimetableConstraintProvider implements ConstraintProvider {
                 consecutiveLessons(constraintFactory),
                 avoidTeacherFirstOrLastPeriod(constraintFactory),
                 minimizeTeacherGaps(constraintFactory),
-                avoidDifficultSubjectsBackToBack(constraintFactory)
+                avoidDifficultSubjectsBackToBack(constraintFactory),
+                enforceRestTimeForStudents(constraintFactory),
+                respectCourseDurationPeriods(constraintFactory),
+                respectCourseWeeklyFrequency(constraintFactory)
         };
     }
 
@@ -94,9 +97,16 @@ public class TimetableConstraintProvider implements ConstraintProvider {
         return constraintFactory
                 .forEach(TimetableLesson.class)
                 .filter(lesson -> lesson.getClassEntity() != null && lesson.getCourse() != null)
-                .filter(lesson -> lesson.getCourse().getWeeklyCapacity() != null)
-                .filter(lesson -> lesson.getCourse().getWeeklyCapacity() < 1) // Simplified check
-                .penalize(HardSoftScore.ONE_HARD)
+                .groupBy(TimetableLesson::getClassEntity, TimetableLesson::getCourse, ConstraintCollectors.count())
+                .filter((classEntity, course, count) -> {
+                    Integer requiredHours = course.getWeeklyCapacity();
+                    return requiredHours != null && count != requiredHours.longValue();
+                })
+                .penalize(HardSoftScore.ONE_HARD, (classEntity, course, count) -> {
+                    Integer requiredHours = course.getWeeklyCapacity();
+                    if (requiredHours == null) return 0;
+                    return Math.abs(count.intValue() - requiredHours);
+                })
                 .asConstraint("Class weekly hours not met");
     }
 
@@ -196,5 +206,84 @@ public class TimetableConstraintProvider implements ConstraintProvider {
             .filter((l1, l2) -> difficultSubjects.contains(l1.getSubject()) && difficultSubjects.contains(l2.getSubject()))
             .penalize(HardSoftScore.ONE_SOFT)
             .asConstraint("Avoid difficult subjects back-to-back");
+    }
+
+    /**
+     * Enforce rest time between classes for students (soft constraint)
+     * Penalize having more than 4 consecutive classes without a break
+     */
+    private Constraint enforceRestTimeForStudents(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(TimetableLesson.class)
+            .groupBy(
+                TimetableLesson::getClassEntity,
+                TimetableLesson::getDay,
+                ConstraintCollectors.toList()
+            )
+            .filter((classEntity, day, lessons) -> lessons.size() >= 4)
+            .penalize(HardSoftScore.of(0, 1), (classEntity, day, lessons) -> {
+                // Count consecutive sequences longer than 3
+                lessons.sort((l1, l2) -> {
+                    Integer i1 = l1.getPeriod() != null ? l1.getPeriod().getIndex() : 0;
+                    Integer i2 = l2.getPeriod() != null ? l2.getPeriod().getIndex() : 0;
+                    return i1.compareTo(i2);
+                });
+                
+                int consecutiveCount = 1;
+                int maxConsecutive = 1;
+                
+                for (int i = 1; i < lessons.size(); i++) {
+                    Integer prevIndex = lessons.get(i-1).getPeriod() != null ? lessons.get(i-1).getPeriod().getIndex() : 0;
+                    Integer currIndex = lessons.get(i).getPeriod() != null ? lessons.get(i).getPeriod().getIndex() : 0;
+                    
+                    if (currIndex == prevIndex + 1) {
+                        consecutiveCount++;
+                    } else {
+                        maxConsecutive = Math.max(maxConsecutive, consecutiveCount);
+                        consecutiveCount = 1;
+                    }
+                }
+                maxConsecutive = Math.max(maxConsecutive, consecutiveCount);
+                
+                return Math.max(0, maxConsecutive - 3); // Penalty for more than 3 consecutive
+            })
+            .asConstraint("Enforce rest time for students");
+    }
+
+    /**
+     * Respect course duration periods configuration (soft constraint)
+     * Courses with durationPeriods > 1 should be scheduled in consecutive periods
+     */
+    private Constraint respectCourseDurationPeriods(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(TimetableLesson.class)
+            .filter(lesson -> lesson.getCourse() != null && lesson.getCourse().getDurationPeriods() != null)
+            .filter(lesson -> lesson.getCourse().getDurationPeriods() > 1)
+            .join(TimetableLesson.class,
+                Joiners.equal(TimetableLesson::getCourse),
+                Joiners.equal(TimetableLesson::getClassEntity),
+                Joiners.equal(TimetableLesson::getDay),
+                Joiners.filtering((l1, l2) -> l1.getPeriod() != null && l2.getPeriod() != null &&
+                    Math.abs(l1.getPeriod().getIndex() - l2.getPeriod().getIndex()) == 1))
+            .reward(HardSoftScore.ONE_SOFT)
+            .asConstraint("Respect course duration periods");
+    }
+
+    /**
+     * Respect course weekly frequency configuration (soft constraint)
+     * Courses should be scheduled according to their weeklyFrequency setting
+     */
+    private Constraint respectCourseWeeklyFrequency(ConstraintFactory constraintFactory) {
+        return constraintFactory.forEach(TimetableLesson.class)
+            .filter(lesson -> lesson.getCourse() != null && lesson.getCourse().getWeeklyFrequency() != null)
+            .groupBy(TimetableLesson::getCourse, TimetableLesson::getClassEntity, ConstraintCollectors.count())
+            .filter((course, classEntity, count) -> {
+                Integer targetFrequency = course.getWeeklyFrequency();
+                return targetFrequency != null && count != targetFrequency.longValue();
+            })
+            .penalize(HardSoftScore.ONE_SOFT, (course, classEntity, count) -> {
+                Integer targetFrequency = course.getWeeklyFrequency();
+                if (targetFrequency == null) return 0;
+                return Math.abs(count.intValue() - targetFrequency);
+            })
+            .asConstraint("Respect course weekly frequency");
     }
 } 

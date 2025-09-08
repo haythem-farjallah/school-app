@@ -10,6 +10,7 @@ import com.example.school_management.feature.auth.entity.Staff;
 import com.example.school_management.feature.auth.entity.enums.StaffType;
 import com.example.school_management.feature.auth.mapper.StaffMapper;
 import com.example.school_management.feature.auth.repository.StaffRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import java.util.Map;
 
@@ -36,8 +39,9 @@ public class StaffService extends AbstractUserCrudService<
                         PasswordEncoder enc,
                         PasswordUtil pw,
                         ApplicationEventPublisher ev,
-                        AuditService auditService) {
-        super(repo, mapper, enc, pw, ev, auditService);
+                        AuditService auditService,
+                        UserRepository userRepository) {
+        super(repo, mapper, enc, pw, ev, auditService, userRepository);
         this.staffRepo = repo;
     }
 
@@ -123,5 +127,37 @@ public class StaffService extends AbstractUserCrudService<
             );
         
         return staffRepo.findAll(spec, pageable);
+    }
+
+    /* ---------- Bulk operations ---------- */
+    
+    @Transactional
+    public void bulkDelete(List<Long> ids) {
+        log.debug("Bulk deleting {} staff members", ids.size());
+        for (Long id : ids) {
+            delete(id); // Uses the existing soft delete method
+        }
+        log.info("Bulk deleted {} staff members", ids.size());
+    }
+    
+    @Transactional
+    public void bulkUpdateStatus(List<Long> ids, String status) {
+        log.debug("Bulk updating status for {} staff members to {}", ids.size(), status);
+        List<Staff> staff = staffRepo.findAllById(ids);
+        for (Staff member : staff) {
+            member.setStatus(com.example.school_management.feature.auth.entity.Status.valueOf(status.toUpperCase()));
+        }
+        staffRepo.saveAll(staff);
+        log.info("Bulk updated status for {} staff members", staff.size());
+    }
+    
+    @Transactional(readOnly = true)
+    public List<Staff> findByIds(List<Long> ids) {
+        return staffRepo.findAllById(ids);
+    }
+    
+    @Transactional(readOnly = true)
+    public List<Staff> findAll() {
+        return staffRepo.findAll();
     }
 } 

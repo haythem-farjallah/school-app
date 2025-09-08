@@ -14,5 +14,10 @@ public record CreateAnnouncementRequest(
         LocalDateTime endDate,
         @NotNull Boolean isPublic,
         @NotNull AnnouncementImportance importance,
-        Set<Long> publisherIds
+        Set<Long> publisherIds,
+        // New fields for targeting
+        String targetType, // "CLASSES", "ALL_STAFF", "ALL_TEACHERS", "ALL_STUDENTS", "WHOLE_SCHOOL", "SPECIFIC_USERS"
+        Set<Long> targetClassIds, // For teachers sending to their classes
+        Set<Long> targetUserIds, // For specific users
+        Boolean sendNotifications // Whether to send real-time notifications
 ) { } 

@@ -2,6 +2,7 @@ import * as React from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { type Parser, useQueryState, useQueryStates, parseAsInteger, parseAsString } from "nuqs";
+import { useUserRole } from "@/hooks/useUserRole";
 
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
@@ -17,7 +18,11 @@ import type { Room } from "@/types/room";
 
 export function RoomsTable() {
   const navigate = useNavigate();
+  const userRole = useUserRole();
   const deleteMutation = useDeleteRoom();
+  
+  // Dynamic base path based on user role
+  const basePath = userRole?.toLowerCase() === 'staff' ? '/staff' : '/admin';
 
   // URL pagination parameters (managed by useDataTable)
   const [urlPage] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -76,8 +81,8 @@ export function RoomsTable() {
 
   const handleView = React.useCallback((room: Room) => {
     console.log("👁️ RoomsTable - Viewing room:", room);
-    navigate(`/admin/rooms/view/${room.id}`);
-  }, [navigate]);
+    navigate(`${basePath}/rooms/view/${room.id}`);
+  }, [navigate, basePath]);
 
   const handleEdit = React.useCallback((room: Room) => {
     console.log("✏️ RoomsTable - Editing room:", room);
@@ -102,8 +107,8 @@ export function RoomsTable() {
 
   const handleCreate = React.useCallback(() => {
     console.log("➕ RoomsTable - Creating new room");
-    navigate("/admin/rooms/create");
-  }, [navigate]);
+    navigate(`${basePath}/rooms/create`);
+  }, [navigate, basePath]);
 
   const columns = React.useMemo(
     () => getRoomsColumns({

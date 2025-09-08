@@ -42,7 +42,7 @@ export function StudentSearch({
     queryFn: async () => {
       if (!searchQuery.trim()) return { content: [] };
       
-      const response = await http.get(`/api/v1/students/search`, {
+      const response = await http.get(`/v1/students/search`, {
         params: {
           q: searchQuery,
           page: 0,

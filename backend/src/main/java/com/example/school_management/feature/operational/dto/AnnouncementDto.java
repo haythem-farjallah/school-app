@@ -15,5 +15,10 @@ public record AnnouncementDto(
         Boolean isPublic,
         AnnouncementImportance importance,
         LocalDateTime createdAt,
-        Set<Long> publisherIds
+        Long createdById,
+        String createdByName,
+        Set<Long> publisherIds,
+        String targetType,
+        Set<Long> targetClassIds,
+        Set<String> targetClassNames
 ) { } 

@@ -10,6 +10,9 @@ import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Users, BookOpen, Plus } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
+import { getRoleClasses } from "@/lib/theme";
 
 import { useClasses, useDeleteClass } from "../hooks/use-classes";
 import { getClassesColumns } from "./class-columns";
@@ -17,7 +20,13 @@ import type { Class } from "@/types/class";
 
 export function ClassesTable() {
   const navigate = useNavigate();
+  const userRole = useUserRole();
   const deleteMutation = useDeleteClass();
+  const { user } = useAuth();
+  const roleClasses = getRoleClasses(user?.role);
+  
+  // Dynamic base path based on user role
+  const basePath = userRole?.toLowerCase() === 'staff' ? '/staff' : '/admin';
 
   // URL pagination parameters (managed by useDataTable)
   const [urlPage] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -118,8 +127,8 @@ export function ClassesTable() {
 
   const handleView = React.useCallback((classItem: Class) => {
     console.log("👁️ ClassesTable - Viewing class:", classItem);
-    navigate(`/admin/classes/view/${classItem.id}`);
-  }, [navigate]);
+    navigate(`${basePath}/classes/view/${classItem.id}`);
+  }, [navigate, basePath]);
 
   const handleEdit = React.useCallback((classItem: Class) => {
     console.log("✏️ ClassesTable - Editing class:", classItem);
@@ -144,8 +153,8 @@ export function ClassesTable() {
 
   const handleCreate = React.useCallback(() => {
     console.log("➕ ClassesTable - Creating new class");
-    navigate("/admin/classes/create");
-  }, [navigate]);
+    navigate(`${basePath}/classes/create`);
+  }, [navigate, basePath]);
 
   const columns = React.useMemo(
     () => getClassesColumns({
@@ -153,8 +162,9 @@ export function ClassesTable() {
       onEdit: handleEdit,
       onDelete: handleDelete,
       onSuccess: () => refetch(),
+      roleClasses,
     }),
-    [handleView, handleEdit, handleDelete, refetch]
+    [handleView, handleEdit, handleDelete, refetch, roleClasses]
   );
 
   const { table } = useDataTable({
@@ -194,24 +204,31 @@ export function ClassesTable() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">Classes</h2>
-          <p className="text-gray-600">Manage school classes and student enrollment</p>
+          <p className="text-gray-600">
+            {user?.role === 'TEACHER' 
+              ? 'View your assigned classes and student enrollment' 
+              : 'Manage school classes and student enrollment'
+            }
+          </p>
         </div>
-        <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Class
-        </Button>
+        {user?.role !== 'TEACHER' && (
+          <Button onClick={handleCreate} className={roleClasses.button}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Class
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <Card className={`${roleClasses.primaryLight} ${roleClasses.primaryBorder}`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-800">Total Classes</CardTitle>
-            <GraduationCap className="h-4 w-4 text-blue-600" />
+            <CardTitle className={`text-sm font-medium ${roleClasses.primary}`}>{`Total Classes`}</CardTitle>
+            <GraduationCap className={`h-4 w-4 ${roleClasses.primary}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-700">{totalItems}</div>
-            <p className="text-blue-600/70 text-sm mt-1">Active classes in system</p>
+            <div className={`text-3xl font-bold ${roleClasses.primary}`}>{totalItems}</div>
+            <p className={`${roleClasses.primary}/70 text-sm mt-1`}>Active classes in system</p>
           </CardContent>
         </Card>
 

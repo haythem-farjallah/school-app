@@ -31,4 +31,9 @@ public interface ClassService {
     ClassViewDto getDetails(Long classId);
     Page<ClassCardDto> listCards(QueryParams qp);
 
+    /* ─── ROLE-BASED CLASS RETRIEVAL ─────────────────────── */
+    Page<ClassDto> getClassesByTeacherId(Long teacherId, Pageable pageable);
+    Page<ClassDto> getClassesByStudentId(Long studentId, Pageable pageable);
+    Page<ClassDto> getCurrentTeacherClasses(Pageable pageable);
+
 }

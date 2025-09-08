@@ -9,6 +9,7 @@ import com.example.school_management.feature.auth.entity.enums.GradeLevel;
 import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.mapper.StudentMapper;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.commons.dto.FilterCriteria;
@@ -23,8 +24,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -41,8 +44,9 @@ public class StudentService extends AbstractUserCrudService<
                          PasswordEncoder enc,
                          PasswordUtil pw,
                          ApplicationEventPublisher ev,
-                         AuditService auditService) {
-        super(repo, mapper, enc, pw, ev, auditService);
+                         AuditService auditService,
+                         UserRepository userRepository) {
+        super(repo, mapper, enc, pw, ev, auditService, userRepository);
         this.studentRepo = repo;
     }
 
@@ -153,6 +157,27 @@ public class StudentService extends AbstractUserCrudService<
         studentRepo.saveAll(students);
         log.info("Bulk deleted {} students", students.size());
     }
+    
+    @Transactional
+    public void bulkUpdateStatus(List<Long> ids, String status) {
+        log.debug("Bulk updating status for {} students to {}", ids.size(), status);
+        List<Student> students = studentRepo.findAllById(ids);
+        for (Student student : students) {
+            student.setStatus(Status.valueOf(status.toUpperCase()));
+        }
+        studentRepo.saveAll(students);
+        log.info("Bulk updated status for {} students", students.size());
+    }
+    
+    @Transactional(readOnly = true)
+    public List<Student> findByIds(List<Long> ids) {
+        return studentRepo.findAllById(ids);
+    }
+    
+    @Transactional(readOnly = true)
+    public List<Student> findAll() {
+        return studentRepo.findAll();
+    }
 
     /* ---------- Statistics ---------- */
     
@@ -186,4 +211,5 @@ public class StudentService extends AbstractUserCrudService<
             studentsByEnrollmentYear
         );
     }
+
 }

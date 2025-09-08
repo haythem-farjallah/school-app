@@ -4,6 +4,9 @@ import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -56,12 +59,15 @@ public class TimetableSlot {
 
     @ManyToOne
     @JoinColumn(name = "timetable_id")
+    @JsonBackReference
     private Timetable timetable;
 
     @CreatedDate
+    @JsonIgnore
     private LocalDateTime createdAt;
 
     @LastModifiedDate
+    @JsonIgnore
     private LocalDateTime updatedAt;
 
     // Helper methods for OptaPlanner

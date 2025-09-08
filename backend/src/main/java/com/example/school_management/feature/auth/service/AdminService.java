@@ -1,6 +1,6 @@
 package com.example.school_management.feature.auth.service;
 
-import com.example.school_management.commons.service.EmailService;
+import com.example.school_management.feature.communication.service.EmailService;
 import com.example.school_management.feature.auth.dto.CreateStudentWithParentsRequest;
 import com.example.school_management.feature.auth.dto.ParentCreateDto;
 import com.example.school_management.feature.auth.dto.StudentDtoCreate;
@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -49,11 +48,11 @@ public class AdminService {
         student.setStatus(Status.ACTIVE);
         studentRepo.save(student);
         log.info("Created STUDENT {} (id={})", student.getEmail(), student.getId());
-        emailService.sendTemplateEmail(
+        emailService.sendWelcomeEmail(
+                student.getId(),
                 student.getEmail(),
-                "Welcome to Our School",
-                "welcome-email",
-                Map.of("name", student.getFirstName(), "password", studentPw)
+                student.getFirstName(),
+                studentPw
         );
 
         // 2) Create each parent, link, save & notify
@@ -89,11 +88,11 @@ public class AdminService {
             parentRepo.save(parent);
             log.info("Created PARENT {} (id={}) and linked to STUDENT {}",
                     parent.getEmail(), parent.getId(), student.getEmail());
-            emailService.sendTemplateEmail(
+            emailService.sendWelcomeEmail(
+                    parent.getId(),
                     parent.getEmail(),
-                    "Your Parent Portal Account",
-                    "welcome-email",
-                    Map.of("name", parent.getFirstName(), "password", parentPw)
+                    parent.getFirstName(),
+                    parentPw
             );
         }
     }

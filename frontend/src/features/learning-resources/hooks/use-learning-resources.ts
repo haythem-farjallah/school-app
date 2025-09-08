@@ -1,6 +1,9 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
 import { http } from "@/lib/http";
+import { API_URL } from "@/lib/env";
+import { token } from "@/lib/token";
+import axios from "axios";
 import type { 
   LearningResource, 
   CreateLearningResourceRequest, 
@@ -104,8 +107,28 @@ export function useDeleteLearningResource() {
 export function useDownloadResource() {
   return useMutationApi<Blob, string>(
     async (filename) => {
-      const response = await http.get(`/v1/learning-resources/files/${filename}`, {
+      // Use axios directly to bypass the response interceptor for blob responses
+      const response = await axios.get(`${API_URL}/v1/learning-resources/files/${filename}`, {
         responseType: 'blob',
+        headers: {
+          Authorization: `Bearer ${token.access}`,
+        },
+      });
+      return response.data;
+    }
+  );
+}
+
+/* ── 7b. Preview resource file (increments view count) ──────────────────────── */
+export function usePreviewResource() {
+  return useMutationApi<Blob, string>(
+    async (filename) => {
+      // Use axios directly to bypass the response interceptor for blob responses
+      const response = await axios.get(`${API_URL}/v1/learning-resources/preview/${filename}`, {
+        responseType: 'blob',
+        headers: {
+          Authorization: `Bearer ${token.access}`,
+        },
       });
       return response.data;
     }
@@ -163,4 +186,6 @@ export function useDeleteResourceComment() {
       await http.delete(`/v1/resource-comments/${commentId}`);
     }
   );
-} 
+}
+
+ 

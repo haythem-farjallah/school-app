@@ -31,7 +31,7 @@ public interface LearningResourceService {
     
     Page<LearningResourceDto> findByCourseId(Long courseId, Pageable pageable);
     
-    Page<LearningResourceDto> searchByTitleOrDescription(String title, String description, Pageable pageable);
+    Page<LearningResourceDto> searchByTitleOrDescription(String searchTerm, String unused, Pageable pageable);
     
     LearningResourceDto uploadResource(MultipartFile file, CreateLearningResourceRequest request);
     
@@ -46,4 +46,8 @@ public interface LearningResourceService {
     void addTeachers(Long resourceId, Set<Long> teacherIds);
     
     void removeTeachers(Long resourceId, Set<Long> teacherIds);
+    
+    void incrementViewCount(String filename);
+    
+    void incrementDownloadCount(String filename);
 } 

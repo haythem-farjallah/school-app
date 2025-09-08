@@ -130,8 +130,15 @@ export function getStaffColumns(actions?: {
       },
       enableColumnFilter: true,
       meta: {
-        variant: "text",
+        variant: "select",
         label: "Staff Type",
+        options: [
+          { label: "Administrative", value: "ADMINISTRATIVE" },
+          { label: "Maintenance", value: "MAINTENANCE" },
+          { label: "Security", value: "SECURITY" },
+          { label: "Librarian", value: "LIBRARIAN" },
+          { label: "Counselor", value: "COUNSELOR" },
+        ],
       },
       size: 180,
     },
@@ -156,10 +163,56 @@ export function getStaffColumns(actions?: {
       },
       enableColumnFilter: true,
       meta: {
-        variant: "text",
+        variant: "select",
         label: "Department",
+        options: [
+          { label: "Human Resources", value: "Human Resources" },
+          { label: "Finance", value: "Finance" },
+          { label: "Operations", value: "Operations" },
+          { label: "Facilities", value: "Facilities" },
+          { label: "Student Services", value: "Student Services" },
+          { label: "Academic Affairs", value: "Academic Affairs" },
+          { label: "Technology", value: "Technology" },
+          { label: "Health Services", value: "Health Services" },
+        ],
       },
       size: 180,
+    },
+    {
+      accessorKey: "gender",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Gender" />
+      ),
+      cell: ({ row }) => {
+        const gender = row.getValue("gender") as string | null;
+        if (!gender) return <span className="text-slate-400">-</span>;
+        
+        return (
+          <Badge 
+            variant="outline" 
+            className={`font-semibold ${
+              gender === 'Male' 
+                ? 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border-blue-200/60'
+                : gender === 'Female'
+                ? 'bg-gradient-to-r from-pink-100 to-rose-100 text-pink-800 border-pink-200/60'
+                : 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border-gray-200/60'
+            }`}
+          >
+            {gender}
+          </Badge>
+        );
+      },
+      enableColumnFilter: true,
+      meta: {
+        variant: "select",
+        label: "Gender",
+        options: [
+          { label: "Male", value: "Male" },
+          { label: "Female", value: "Female" },
+          { label: "Other", value: "Other" },
+        ],
+      },
+      size: 120,
     },
     {
       id: "actions",

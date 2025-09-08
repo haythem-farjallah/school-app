@@ -1,10 +1,10 @@
 package com.example.school_management.feature.operational.entity;
 
-import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.academic.entity.ClassEntity;
-import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -37,13 +37,16 @@ public class Timetable {
     private String semester;
 
     @CreatedDate
+    @JsonIgnore
     private LocalDateTime createdAt;
 
     @LastModifiedDate
+    @JsonIgnore
     private LocalDateTime updatedAt;
 
     // One-to-Many relationship with TimetableSlot
     @OneToMany(mappedBy = "timetable", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private Set<TimetableSlot> slots = new HashSet<>();
 
     // Many-to-Many relationship with ClassEntity
@@ -53,6 +56,7 @@ public class Timetable {
         joinColumns = @JoinColumn(name = "timetable_id"),
         inverseJoinColumns = @JoinColumn(name = "class_id")
     )
+    @JsonIgnore
     private Set<ClassEntity> classes = new HashSet<>();
 
     // Many-to-Many relationship with Teacher
@@ -62,6 +66,7 @@ public class Timetable {
         joinColumns = @JoinColumn(name = "timetable_id"),
         inverseJoinColumns = @JoinColumn(name = "teacher_id")
     )
+    @JsonIgnore
     private Set<Teacher> teachers = new HashSet<>();
 
     // Many-to-Many relationship with Room
@@ -71,6 +76,7 @@ public class Timetable {
         joinColumns = @JoinColumn(name = "timetable_id"),
         inverseJoinColumns = @JoinColumn(name = "room_id")
     )
+    @JsonIgnore
     private Set<Room> rooms = new HashSet<>();
 
     // Helper methods

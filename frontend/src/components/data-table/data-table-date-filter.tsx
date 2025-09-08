@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { formatDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type DateSelection = Date[] | DateRange;
 
@@ -175,45 +176,78 @@ export function DataTableDateFilter<TData>({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="border-dashed">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className={cn(
+            "border-dashed hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 shadow-sm hover:shadow-md",
+            hasValue && "bg-gradient-to-r from-blue-100/80 to-indigo-100/80 border-blue-300/60 shadow-md"
+          )}
+        >
           {hasValue ? (
             <div
               role="button"
               aria-label={`Clear ${title} filter`}
               tabIndex={0}
               onClick={onReset}
-              className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="rounded-sm p-1 hover:bg-red-100/80 transition-all duration-200 hover:scale-110"
             >
-              <XCircle />
+              <XCircle className="h-4 w-4 text-red-600" />
             </div>
           ) : (
-            <CalendarIcon />
+            <CalendarIcon className="h-4 w-4 text-blue-600" />
           )}
-          {label}
+          <span className="font-medium">{label}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        {multiple ? (
-          <Calendar
-            initialFocus
-            mode="range"
-            selected={
-              getIsDateRange(selectedDates)
-                ? selectedDates
-                : { from: undefined, to: undefined }
-            }
-            onSelect={onSelect}
-          />
-        ) : (
-          <Calendar
-            initialFocus
-            mode="single"
-            selected={
-              !getIsDateRange(selectedDates) ? selectedDates[0] : undefined
-            }
-            onSelect={onSelect}
-          />
-        )}
+      <PopoverContent 
+        className="w-auto p-0 bg-white/95 backdrop-blur-sm border border-slate-200/80 shadow-xl rounded-xl" 
+        align="start"
+      >
+        <div className="p-4">
+          <div className="text-center mb-3">
+            <p className="font-semibold text-lg text-slate-800">{title}</p>
+            <p className="text-sm text-slate-600">
+              {multiple ? "Select a date range" : "Select a date"}
+            </p>
+          </div>
+          {multiple ? (
+            <Calendar
+              initialFocus
+              mode="range"
+              selected={
+                getIsDateRange(selectedDates)
+                  ? selectedDates
+                  : { from: undefined, to: undefined }
+              }
+              onSelect={onSelect}
+              className="rounded-lg border border-slate-200/60"
+            />
+          ) : (
+            <Calendar
+              initialFocus
+              mode="single"
+              selected={
+                !getIsDateRange(selectedDates) ? selectedDates[0] : undefined
+              }
+              onSelect={onSelect}
+              className="rounded-lg border border-slate-200/60"
+            />
+          )}
+          {hasValue && (
+            <div className="mt-3 pt-3 border-t border-slate-200/60">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onReset}
+                className="w-full bg-gradient-to-r from-red-50 to-pink-50 hover:from-red-100 hover:to-pink-100 border-red-200/60 text-red-700 hover:text-red-800 transition-all duration-200"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Clear Date Filter
+              </Button>
+            </div>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

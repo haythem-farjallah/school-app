@@ -47,4 +47,20 @@ public interface GradeService {
     
     // Advanced filtering
     Page<GradeResponse> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap);
+    
+    // ===== ENHANCED GRADE MANAGEMENT METHODS =====
+    
+    // Teacher Grade Management
+    List<TeacherGradeClassView> getTeacherGradeClasses(Long teacherId);
+    TeacherGradeClassView getTeacherGradeClass(Long teacherId, Long classId, Long courseId);
+    List<EnhancedGradeResponse> createBulkEnhancedGrades(BulkEnhancedGradeEntryRequest request);
+    EnhancedGradeResponse createEnhancedGrade(CreateEnhancedGradeRequest request);
+    
+    // Staff Grade Review
+    List<StaffGradeReview> getStaffGradeReviews(Long classId, CreateEnhancedGradeRequest.Semester semester);
+    void approveGrades(ApproveGradesRequest request);
+    
+    // Student Grade Sheet
+    StudentGradeSheet getStudentGradeSheet(Long studentId, CreateEnhancedGradeRequest.Semester semester);
+    byte[] exportStudentGradeSheet(Long studentId, CreateEnhancedGradeRequest.Semester semester);
 } 

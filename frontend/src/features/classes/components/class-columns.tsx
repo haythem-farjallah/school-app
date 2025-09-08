@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Class } from "@/types/class";
 import { ClassActions } from "./class-actions";
 import { Link } from "react-router-dom";
+import { getRoleClasses } from "@/lib/theme";
 
 const getYearOfStudyColor = (yearOfStudy: number) => {
   if (yearOfStudy <= 3) return 'bg-blue-100 text-blue-800';
@@ -33,7 +34,9 @@ export function getClassesColumns(actions?: {
   onEdit?: (classItem: Class) => void;
   onDelete?: (classItem: Class) => void;
   onSuccess?: () => void;
+  roleClasses?: ReturnType<typeof getRoleClasses>;
 }): ColumnDef<Class>[] {
+  const roleUi = actions?.roleClasses || getRoleClasses(); // Default theme
   return [
     {
       id: "select",
@@ -45,7 +48,7 @@ export function getClassesColumns(actions?: {
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
-          className="translate-y-[2px] border-blue-300/80 data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-blue-600 data-[state=checked]:to-indigo-600 transition-all duration-200"
+          className={`translate-y-[2px] ${roleUi.primaryBorder} data-[state=checked]:${roleUi.primaryBg} transition-all duration-200`}
         />
       ),
       cell: ({ row }) => (
@@ -53,7 +56,7 @@ export function getClassesColumns(actions?: {
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Select row"
-          className="translate-y-[2px] border-blue-300/80 data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-blue-600 data-[state=checked]:to-indigo-600 transition-all duration-200"
+          className={`translate-y-[2px] ${roleUi.primaryBorder} data-[state=checked]:${roleUi.primaryBg} transition-all duration-200`}
         />
       ),
       enableSorting: false,
@@ -72,7 +75,7 @@ export function getClassesColumns(actions?: {
           <div className="flex items-center space-x-2">
             <Link 
               to={`/admin/classes/view/${classItem.id}`}
-              className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              className={`font-medium ${roleUi.primary} hover:underline transition-colors`}
             >
               {classItem.name}
             </Link>

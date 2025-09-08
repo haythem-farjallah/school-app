@@ -1,0 +1,97 @@
+{
+  "id": "redis-cache-test-env",
+  "name": "Redis Cache & Rate Limiting Test Environment",
+  "values": [
+    {
+      "key": "HOST",
+      "value": "http://localhost:8088",
+      "description": "Base URL for the application",
+      "enabled": true
+    },
+    {
+      "key": "ADMIN_TOKEN",
+      "value": "",
+      "description": "JWT token for admin user (set after login)",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_TOKEN",
+      "value": "",
+      "description": "JWT token for student user (set after login)",
+      "enabled": true
+    },
+    {
+      "key": "TEACHER_TOKEN",
+      "value": "",
+      "description": "JWT token for teacher user (set after login)",
+      "enabled": true
+    },
+    {
+      "key": "STUDENT_ID",
+      "value": "1",
+      "description": "Test student ID for caching tests",
+      "enabled": true
+    },
+    {
+      "key": "TEACHER_ID",
+      "value": "1",
+      "description": "Test teacher ID for caching tests",
+      "enabled": true
+    },
+    {
+      "key": "CLASS_ID",
+      "value": "1",
+      "description": "Test class ID for caching tests",
+      "enabled": true
+    },
+    {
+      "key": "TEST_EMAIL",
+      "value": "",
+      "description": "Test email for registration tests",
+      "enabled": true
+    },
+    {
+      "key": "RATE_LIMIT_REMAINING",
+      "value": "",
+      "description": "Current rate limit remaining (set by tests)",
+      "enabled": true
+    },
+    {
+      "key": "RATE_LIMIT_RESET",
+      "value": "",
+      "description": "Rate limit reset time (set by tests)",
+      "enabled": true
+    },
+    {
+      "key": "CACHE_MISS_TIME",
+      "value": "",
+      "description": "Response time for cache miss (set by tests)",
+      "enabled": true
+    },
+    {
+      "key": "CACHE_HIT_TIME",
+      "value": "",
+      "description": "Response time for cache hit (set by tests)",
+      "enabled": true
+    },
+    {
+      "key": "REDIS_HOST",
+      "value": "localhost",
+      "description": "Redis server host",
+      "enabled": true
+    },
+    {
+      "key": "REDIS_PORT",
+      "value": "6379",
+      "description": "Redis server port",
+      "enabled": true
+    },
+    {
+      "key": "TEST_ITERATION",
+      "value": "1",
+      "description": "Current test iteration number",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

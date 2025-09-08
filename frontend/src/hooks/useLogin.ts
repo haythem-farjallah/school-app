@@ -10,16 +10,23 @@ import { loginUser, LoginResponse } from "@/features/auth/login";
  *   • stores tokens in Redux
  *   • redirects on success
  */
-export const useLogin = () =>{
+export const useLogin = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
 
-   return  useMutationApi<LoginResponse, LoginValues>(
+   return useMutationApi<LoginResponse, LoginValues>(
     loginUser,
     {
-      onSuccess: ({ user, accessToken, refreshToken }) => {
+      onSuccess: ({ user, accessToken, refreshToken, passwordChangeRequired }) => {
         dispatch(loginSuccess({ user, accessToken, refreshToken }));
-        navigate("/", { replace: true });
+        
+        if (passwordChangeRequired) {
+          // Redirect to password change page if password change is required
+          navigate("/change-password", { replace: true });
+        } else {
+          // Normal login flow - redirect to dashboard
+          navigate("/", { replace: true });
+        }
       },
     },
   );
