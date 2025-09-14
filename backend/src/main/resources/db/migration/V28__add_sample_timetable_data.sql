@@ -55,30 +55,15 @@ WHERE u.role = 'TEACHER'
 AND NOT EXISTS (SELECT 1 FROM teacher WHERE id = u.id)
 LIMIT 3;
 
--- Ensure we have the necessary levels
-INSERT INTO levels (name)
-SELECT 'HIGH' WHERE NOT EXISTS (SELECT 1 FROM levels WHERE name = 'HIGH');
+-- Add sample classes if they don't exist (removed level_id dependency)
+INSERT INTO classes (name, year_of_study, max_students)
+SELECT 'Class 10A', 10, 30 WHERE NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Class 10A');
 
-INSERT INTO levels (name)
-SELECT 'MIDDLE' WHERE NOT EXISTS (SELECT 1 FROM levels WHERE name = 'MIDDLE');
+INSERT INTO classes (name, year_of_study, max_students)
+SELECT 'Class 9B', 9, 25 WHERE NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Class 9B');
 
-INSERT INTO levels (name)
-SELECT 'ELEMENTARY' WHERE NOT EXISTS (SELECT 1 FROM levels WHERE name = 'ELEMENTARY');
-
--- Add sample classes if they don't exist
-INSERT INTO classes (name, level_id, year_of_study, max_students)
-SELECT 'Class 10A', l.id, 10, 30
-FROM levels l 
-WHERE l.name = 'HIGH' 
-AND NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Class 10A')
-LIMIT 1;
-
-INSERT INTO classes (name, level_id, year_of_study, max_students)
-SELECT 'Class 9B', l.id, 9, 25
-FROM levels l 
-WHERE l.name = 'HIGH' 
-AND NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Class 9B')
-LIMIT 1;
+INSERT INTO classes (name, year_of_study, max_students)
+SELECT 'Class 8C', 8, 28 WHERE NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Class 8C');
 
 -- Add sample courses if they don't exist
 INSERT INTO courses (name, color, credit, teacher_id)
@@ -110,4 +95,10 @@ INSERT INTO class_courses (class_id, course_id)
 SELECT c.id, co.id
 FROM classes c, courses co
 WHERE c.name = 'Class 9B' AND co.name IN ('Mathematics', 'English')
-AND NOT EXISTS (SELECT 1 FROM class_courses WHERE class_id = c.id AND course_id = co.id); 
+AND NOT EXISTS (SELECT 1 FROM class_courses WHERE class_id = c.id AND course_id = co.id);
+
+INSERT INTO class_courses (class_id, course_id)
+SELECT c.id, co.id
+FROM classes c, courses co
+WHERE c.name = 'Class 8C' AND co.name IN ('Mathematics')
+AND NOT EXISTS (SELECT 1 FROM class_courses WHERE class_id = c.id AND course_id = co.id);
