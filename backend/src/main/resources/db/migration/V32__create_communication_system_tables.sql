@@ -5,7 +5,7 @@
 -- NOTIFICATION TEMPLATES TABLE
 -- =====================================================
 CREATE TABLE notification_templates (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     template_name VARCHAR(255) NOT NULL UNIQUE,
     template_type ENUM('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'ANNOUNCEMENT') NOT NULL,
     subject VARCHAR(500) NOT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE notification_templates (
 -- NOTIFICATIONS TABLE
 -- =====================================================
 CREATE TABLE notifications (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     recipient_id BIGINT NOT NULL,
     recipient_type ENUM('STUDENT', 'TEACHER', 'PARENT', 'STAFF', 'ADMIN', 'ALL_USERS', 'CLASS', 'COURSE') NOT NULL,
     notification_type ENUM('GRADE_PUBLISHED', 'ASSIGNMENT_DUE', 'ATTENDANCE_ALERT', 'ANNOUNCEMENT', 'SCHEDULE_CHANGE', 'PAYMENT_REMINDER', 'WELCOME', 'PASSWORD_RESET', 'SYSTEM_ALERT', 'CUSTOM') NOT NULL,
@@ -73,7 +73,7 @@ CREATE TABLE notifications (
 -- COMMUNICATION LOGS TABLE
 -- =====================================================
 CREATE TABLE communication_logs (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     notification_id BIGINT NOT NULL,
     channel ENUM('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'IN_APP', 'ALL_CHANNELS') NOT NULL,
     recipient_email VARCHAR(255),
@@ -111,7 +111,7 @@ CREATE TABLE communication_logs (
 -- USER DEVICE TOKENS TABLE (for push notifications)
 -- =====================================================
 CREATE TABLE user_device_tokens (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     device_token VARCHAR(500) NOT NULL,
     platform ENUM('ANDROID', 'IOS', 'WEB') NOT NULL,
@@ -134,7 +134,7 @@ CREATE TABLE user_device_tokens (
 -- USER NOTIFICATION PREFERENCES TABLE
 -- =====================================================
 CREATE TABLE user_notification_preferences (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,
     email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     sms_enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -177,7 +177,7 @@ CREATE TABLE user_notification_preferences (
 -- NOTIFICATION CAMPAIGNS TABLE (for bulk operations)
 -- =====================================================
 CREATE TABLE notification_campaigns (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     campaign_name VARCHAR(255) NOT NULL,
     campaign_description TEXT,
     campaign_type ENUM('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'MULTI_CHANNEL') NOT NULL,
@@ -225,7 +225,7 @@ CREATE TABLE notification_campaigns (
 -- NOTIFICATION CAMPAIGN RECIPIENTS TABLE
 -- =====================================================
 CREATE TABLE notification_campaign_recipients (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     campaign_id BIGINT NOT NULL,
     notification_id BIGINT NOT NULL,
     recipient_id BIGINT NOT NULL,
@@ -255,7 +255,7 @@ CREATE TABLE notification_campaign_recipients (
 -- SMS OPT-OUT TABLE
 -- =====================================================
 CREATE TABLE sms_opt_outs (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     phone_number VARCHAR(50) NOT NULL UNIQUE,
     opted_out_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     reason VARCHAR(255),
@@ -270,7 +270,7 @@ CREATE TABLE sms_opt_outs (
 -- EMAIL BOUNCES TABLE
 -- =====================================================
 CREATE TABLE email_bounces (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     email_address VARCHAR(255) NOT NULL,
     bounce_type ENUM('HARD', 'SOFT', 'COMPLAINT') NOT NULL,
     bounce_reason VARCHAR(500),
