@@ -7,7 +7,7 @@
 CREATE TABLE notification_templates (
     id BIGSERIAL PRIMARY KEY,
     template_name VARCHAR(255) NOT NULL UNIQUE,
-    template_type ENUM('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'ANNOUNCEMENT') NOT NULL,
+    template_type VARCHAR(20) NOT NULL CHECK (template_type IN ('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'ANNOUNCEMENT')),
     subject VARCHAR(500) NOT NULL,
     content TEXT NOT NULL,
     variables TEXT, -- JSON string of available variables
@@ -16,16 +16,11 @@ CREATE TABLE notification_templates (
     category VARCHAR(100),
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by BIGINT,
     updated_by BIGINT,
     
-    INDEX idx_template_name (template_name),
-    INDEX idx_template_type (template_type),
-    INDEX idx_template_active (is_active),
-    INDEX idx_template_language (language),
-    INDEX idx_template_category (category),
-    UNIQUE KEY uk_template_name_type_lang (template_name, template_type, language)
+    CONSTRAINT uk_template_name_type_lang UNIQUE (template_name, template_type, language)
 );
 
 -- =====================================================
@@ -34,13 +29,13 @@ CREATE TABLE notification_templates (
 CREATE TABLE notifications (
     id BIGSERIAL PRIMARY KEY,
     recipient_id BIGINT NOT NULL,
-    recipient_type ENUM('STUDENT', 'TEACHER', 'PARENT', 'STAFF', 'ADMIN', 'ALL_USERS', 'CLASS', 'COURSE') NOT NULL,
-    notification_type ENUM('GRADE_PUBLISHED', 'ASSIGNMENT_DUE', 'ATTENDANCE_ALERT', 'ANNOUNCEMENT', 'SCHEDULE_CHANGE', 'PAYMENT_REMINDER', 'WELCOME', 'PASSWORD_RESET', 'SYSTEM_ALERT', 'CUSTOM') NOT NULL,
-    channel ENUM('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'IN_APP', 'ALL_CHANNELS') NOT NULL,
+    recipient_type VARCHAR(20) NOT NULL CHECK (recipient_type IN ('STUDENT', 'TEACHER', 'PARENT', 'STAFF', 'ADMIN', 'ALL_USERS', 'CLASS', 'COURSE')),
+    notification_type VARCHAR(30) NOT NULL CHECK (notification_type IN ('GRADE_PUBLISHED', 'ASSIGNMENT_DUE', 'ATTENDANCE_ALERT', 'ANNOUNCEMENT', 'SCHEDULE_CHANGE', 'PAYMENT_REMINDER', 'WELCOME', 'PASSWORD_RESET', 'SYSTEM_ALERT', 'CUSTOM')),
+    channel VARCHAR(20) NOT NULL CHECK (channel IN ('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'IN_APP', 'ALL_CHANNELS')),
     title VARCHAR(500) NOT NULL,
     content TEXT NOT NULL,
-    status ENUM('PENDING', 'SENT', 'DELIVERED', 'READ', 'FAILED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
-    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') NOT NULL DEFAULT 'MEDIUM',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SENT', 'DELIVERED', 'READ', 'FAILED', 'CANCELLED')),
+    priority VARCHAR(10) NOT NULL DEFAULT 'MEDIUM' CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'URGENT')),
     scheduled_at TIMESTAMP NULL,
     sent_at TIMESTAMP NULL,
     read_at TIMESTAMP NULL,
@@ -51,20 +46,10 @@ CREATE TABLE notifications (
     error_message TEXT,
     external_id VARCHAR(255), -- For tracking with external services
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by BIGINT,
     updated_by BIGINT,
     
-    INDEX idx_recipient (recipient_id, recipient_type),
-    INDEX idx_notification_type (notification_type),
-    INDEX idx_channel (channel),
-    INDEX idx_status (status),
-    INDEX idx_priority (priority),
-    INDEX idx_scheduled_at (scheduled_at),
-    INDEX idx_sent_at (sent_at),
-    INDEX idx_template_id (template_id),
-    INDEX idx_external_id (external_id),
-    INDEX idx_created_at (created_at),
     
     FOREIGN KEY (template_id) REFERENCES notification_templates(id) ON DELETE SET NULL
 );
@@ -75,10 +60,10 @@ CREATE TABLE notifications (
 CREATE TABLE communication_logs (
     id BIGSERIAL PRIMARY KEY,
     notification_id BIGINT NOT NULL,
-    channel ENUM('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'IN_APP', 'ALL_CHANNELS') NOT NULL,
+    channel VARCHAR(20) CHECK (channel IN ('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'IN_APP', 'ALL_CHANNELS')) NOT NULL,
     recipient_email VARCHAR(255),
     recipient_phone VARCHAR(50),
-    status ENUM('QUEUED', 'SENT', 'DELIVERED', 'OPENED', 'CLICKED', 'BOUNCED', 'FAILED', 'UNSUBSCRIBED') NOT NULL,
+    status VARCHAR(20) CHECK (status IN ('QUEUED', 'SENT', 'DELIVERED', 'OPENED', 'CLICKED', 'BOUNCED', 'FAILED', 'UNSUBSCRIBED')) NOT NULL,
     sent_at TIMESTAMP NULL,
     delivered_at TIMESTAMP NULL,
     opened_at TIMESTAMP NULL,
@@ -92,17 +77,8 @@ CREATE TABLE communication_logs (
     retry_count INT NOT NULL DEFAULT 0,
     metadata TEXT, -- JSON for additional tracking data
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    INDEX idx_notification_id (notification_id),
-    INDEX idx_channel (channel),
-    INDEX idx_status (status),
-    INDEX idx_sent_at (sent_at),
-    INDEX idx_delivered_at (delivered_at),
-    INDEX idx_external_message_id (external_message_id),
-    INDEX idx_provider (provider),
-    INDEX idx_recipient_email (recipient_email),
-    INDEX idx_recipient_phone (recipient_phone),
     
     FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE
 );
@@ -114,20 +90,15 @@ CREATE TABLE user_device_tokens (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     device_token VARCHAR(500) NOT NULL,
-    platform ENUM('ANDROID', 'IOS', 'WEB') NOT NULL,
+    platform VARCHAR(10) CHECK (platform IN ('ANDROID', 'IOS', 'WEB')) NOT NULL,
     device_info TEXT, -- JSON with device details
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     last_used_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    INDEX idx_user_id (user_id),
-    INDEX idx_device_token (device_token),
-    INDEX idx_platform (platform),
-    INDEX idx_is_active (is_active),
-    INDEX idx_last_used_at (last_used_at),
     
-    UNIQUE KEY uk_user_device_token (user_id, device_token)
+    CONSTRAINT uk_user_device_token UNIQUE (user_id, device_token)
 );
 
 -- =====================================================
@@ -157,20 +128,15 @@ CREATE TABLE user_notification_preferences (
     quiet_hours_timezone VARCHAR(50) DEFAULT 'UTC',
     
     -- Frequency settings
-    digest_frequency ENUM('NONE', 'DAILY', 'WEEKLY', 'MONTHLY') DEFAULT 'NONE',
+    digest_frequency VARCHAR(10) CHECK (digest_frequency IN ('NONE', 'DAILY', 'WEEKLY', 'MONTHLY')) DEFAULT 'NONE',
     digest_time TIME DEFAULT '09:00:00',
     
     -- Additional preferences (JSON)
     preferences_json TEXT,
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    INDEX idx_user_id (user_id),
-    INDEX idx_email_enabled (email_enabled),
-    INDEX idx_sms_enabled (sms_enabled),
-    INDEX idx_push_enabled (push_enabled),
-    INDEX idx_quiet_hours_enabled (quiet_hours_enabled)
 );
 
 -- =====================================================
@@ -180,8 +146,8 @@ CREATE TABLE notification_campaigns (
     id BIGSERIAL PRIMARY KEY,
     campaign_name VARCHAR(255) NOT NULL,
     campaign_description TEXT,
-    campaign_type ENUM('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'MULTI_CHANNEL') NOT NULL,
-    target_audience ENUM('ALL_USERS', 'STUDENTS', 'TEACHERS', 'PARENTS', 'STAFF', 'CUSTOM') NOT NULL,
+    campaign_type VARCHAR(20) CHECK (campaign_type IN ('EMAIL', 'SMS', 'PUSH_NOTIFICATION', 'MULTI_CHANNEL')) NOT NULL,
+    target_audience VARCHAR(20) CHECK (target_audience IN ('ALL_USERS', 'STUDENTS', 'TEACHERS', 'PARENTS', 'STAFF', 'CUSTOM')) NOT NULL,
     target_criteria TEXT, -- JSON with targeting criteria
     
     -- Campaign content
@@ -190,13 +156,13 @@ CREATE TABLE notification_campaigns (
     template_id BIGINT,
     
     -- Campaign settings
-    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') NOT NULL DEFAULT 'MEDIUM',
+    priority VARCHAR(10) CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'URGENT')) NOT NULL DEFAULT 'MEDIUM',
     scheduled_at TIMESTAMP NULL,
     started_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
     
     -- Campaign status
-    status ENUM('DRAFT', 'SCHEDULED', 'RUNNING', 'COMPLETED', 'CANCELLED', 'FAILED') NOT NULL DEFAULT 'DRAFT',
+    status VARCHAR(20) CHECK (status IN ('DRAFT', 'SCHEDULED', 'RUNNING', 'COMPLETED', 'CANCELLED', 'FAILED')) NOT NULL DEFAULT 'DRAFT',
     
     -- Campaign statistics
     total_recipients INT DEFAULT 0,
@@ -207,16 +173,10 @@ CREATE TABLE notification_campaigns (
     failed_count INT DEFAULT 0,
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by BIGINT,
     updated_by BIGINT,
     
-    INDEX idx_campaign_name (campaign_name),
-    INDEX idx_campaign_type (campaign_type),
-    INDEX idx_target_audience (target_audience),
-    INDEX idx_status (status),
-    INDEX idx_scheduled_at (scheduled_at),
-    INDEX idx_created_by (created_by),
     
     FOREIGN KEY (template_id) REFERENCES notification_templates(id) ON DELETE SET NULL
 );
@@ -229,8 +189,8 @@ CREATE TABLE notification_campaign_recipients (
     campaign_id BIGINT NOT NULL,
     notification_id BIGINT NOT NULL,
     recipient_id BIGINT NOT NULL,
-    recipient_type ENUM('STUDENT', 'TEACHER', 'PARENT', 'STAFF', 'ADMIN') NOT NULL,
-    status ENUM('PENDING', 'SENT', 'DELIVERED', 'OPENED', 'CLICKED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    recipient_type VARCHAR(20) CHECK (recipient_type IN ('STUDENT', 'TEACHER', 'PARENT', 'STAFF', 'ADMIN')) NOT NULL,
+    status VARCHAR(20) CHECK (status IN ('PENDING', 'SENT', 'DELIVERED', 'OPENED', 'CLICKED', 'FAILED')) NOT NULL DEFAULT 'PENDING',
     sent_at TIMESTAMP NULL,
     delivered_at TIMESTAMP NULL,
     opened_at TIMESTAMP NULL,
@@ -238,17 +198,13 @@ CREATE TABLE notification_campaign_recipients (
     error_message TEXT,
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    INDEX idx_campaign_id (campaign_id),
-    INDEX idx_notification_id (notification_id),
-    INDEX idx_recipient (recipient_id, recipient_type),
-    INDEX idx_status (status),
     
     FOREIGN KEY (campaign_id) REFERENCES notification_campaigns(id) ON DELETE CASCADE,
     FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
     
-    UNIQUE KEY uk_campaign_notification (campaign_id, notification_id)
+    CONSTRAINT uk_campaign_notification UNIQUE (campaign_id, notification_id)
 );
 
 -- =====================================================
@@ -261,9 +217,6 @@ CREATE TABLE sms_opt_outs (
     reason VARCHAR(255),
     user_id BIGINT,
     
-    INDEX idx_phone_number (phone_number),
-    INDEX idx_opted_out_at (opted_out_at),
-    INDEX idx_user_id (user_id)
 );
 
 -- =====================================================
@@ -272,16 +225,12 @@ CREATE TABLE sms_opt_outs (
 CREATE TABLE email_bounces (
     id BIGSERIAL PRIMARY KEY,
     email_address VARCHAR(255) NOT NULL,
-    bounce_type ENUM('HARD', 'SOFT', 'COMPLAINT') NOT NULL,
+    bounce_type VARCHAR(10) CHECK (bounce_type IN ('HARD', 'SOFT', 'COMPLAINT')) NOT NULL,
     bounce_reason VARCHAR(500),
     bounced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notification_id BIGINT,
     external_message_id VARCHAR(255),
     
-    INDEX idx_email_address (email_address),
-    INDEX idx_bounce_type (bounce_type),
-    INDEX idx_bounced_at (bounced_at),
-    INDEX idx_notification_id (notification_id),
     
     FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE SET NULL
 );
@@ -383,19 +332,19 @@ CREATE INDEX idx_communication_logs_provider_cost ON communication_logs(provider
 -- View for notification analytics
 CREATE VIEW notification_analytics AS
 SELECT 
-    DATE(created_at) as date,
+    created_at::date as date,
     channel,
     status,
     COUNT(*) as count,
-    AVG(CASE WHEN sent_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, created_at, sent_at) END) as avg_send_time_seconds
+    AVG(CASE WHEN sent_at IS NOT NULL THEN EXTRACT(EPOCH FROM (sent_at - created_at)) END) as avg_send_time_seconds
 FROM notifications 
-WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-GROUP BY DATE(created_at), channel, status;
+WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+GROUP BY created_at::date, channel, status;
 
 -- View for communication costs
 CREATE VIEW communication_costs AS
 SELECT 
-    DATE(sent_at) as date,
+    sent_at::date as date,
     channel,
     provider,
     COUNT(*) as message_count,
@@ -403,7 +352,7 @@ SELECT
     AVG(cost) as avg_cost
 FROM communication_logs 
 WHERE sent_at IS NOT NULL AND cost IS NOT NULL
-GROUP BY DATE(sent_at), channel, provider;
+GROUP BY sent_at::date, channel, provider;
 
 -- View for user notification summary
 CREATE VIEW user_notification_summary AS
