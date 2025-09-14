@@ -148,9 +148,9 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./devops/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - ./devops/loki/loki-config.yml:/etc/loki/config.yaml:ro
       - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/config.yaml
     restart: unless-stopped
     networks:
       - school-network
