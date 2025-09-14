@@ -82,7 +82,6 @@ services:
     restart: unless-stopped
     networks:
       - school-network
-
   redis:
     image: redis:7-alpine
     container_name: school-management-redis
@@ -103,11 +102,11 @@ services:
   # === MONITORING STACK ===
   prometheus:
     image: prom/prometheus:latest
-    container_name: prometheus
+    container_name: school-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ../devops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -124,13 +123,13 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: school-grafana
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ../devops/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
-      - ../devops/grafana/dashboard2.json:/var/lib/grafana/dashboards/dashboard.json:ro
+      - ./grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./grafana/dashboard2.json:/var/lib/grafana/dashboards/dashboard.json:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin123
@@ -144,11 +143,11 @@ services:
 
   loki:
     image: grafana/loki:2.9.0
-    container_name: loki
+    container_name: school-loki
     ports:
       - "3100:3100"
     volumes:
-      - ../devops/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
@@ -157,9 +156,9 @@ services:
 
   promtail:
     image: grafana/promtail:2.9.0
-    container_name: promtail
+    container_name: school-promtail
     volumes:
-      - ../devops/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
@@ -171,12 +170,12 @@ services:
 
   tempo:
     image: grafana/tempo:2.3.0
-    container_name: tempo
+    container_name: school-tempo
     ports:
       - "3200:3200"
       - "9411:9411"
     volumes:
-      - ../devops/tempo/tempo.yml:/etc/tempo.yaml:ro
+      - ./tempo.yml:/etc/tempo.yaml:ro
       - tempo_data:/tmp/tempo
     command: -config.file=/etc/tempo.yaml
     restart: unless-stopped

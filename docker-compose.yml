@@ -3,8 +3,8 @@ services:
     image: docker:dind
     privileged: true
     ports:
-      - "2375:2375"
-      - "2376:2376"
+      - "2377:2375"
+      - "2378:2376"
     volumes:
       - ./jenkins_home:/var/jenkins_home
       - jenkins-docker-certs:/certs/client
@@ -18,8 +18,8 @@ services:
     build:
       context: .
     ports:
-      - "8080:8080"
-      - "50000:50000"
+      - "8085:8080"
+      - "50001:50000"
     volumes:
       - ./jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
@@ -32,59 +32,65 @@ services:
   sonarqube:
     image: sonarqube:latest
     ports:
-      - "9000:9000"
+      - "9001:9000"
     volumes:
       - sonarqube_data:/opt/sonarqube/data
     networks:
       - jenkins
     restart: always
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    networks:
-      - jenkins
-    restart: always
 
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    networks:
-      - jenkins
-    restart: always
+  # ============================================================================
+  # MONITORING SERVICES COMMENTED OUT
+  # These services are deployed with the application in docker/docker-compose.yml
+  # to avoid port conflicts and ensure proper integration
+  # ============================================================================
+  #   grafana:
+  #     image: grafana/grafana:latest
+  #     ports:
+  #       - "3000:3000"
+  #     networks:
+  #       - jenkins
+  #     restart: always
+
+  #   prometheus:
+  #     image: prom/prometheus:latest
+  #     ports:
+  #       - "9090:9090"
+  #     networks:
+  #       - jenkins
+  #     restart: always
 
   nexus:
     image: sonatype/nexus3:latest
     volumes:
       - nexus-data:/nexus-data
     ports:
-      - "8081:8081"
+      - "8082:8081"
     networks:
       - jenkins
     restart: always
-  redis:
-    image: redis:7-alpine
-    container_name: school-management-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  #   redis:
+  #     image: redis:7-alpine
+  #     container_name: school-management-redis
+  #     ports:
+  #       - "6379:6379"
+  #     volumes:
+  #       - redis_data:/data
+  #     command: redis-server --appendonly yes
+  #     restart: unless-stopped
+  #     healthcheck:
+  #       test: ["CMD", "redis-cli", "ping"]
+  #       interval: 30s
+  #       timeout: 10s
+  #       retries: 3
 
 volumes:
   jenkins_home:
   jenkins-docker-certs:
   nexus-data:
   sonarqube_data:
-  redis_data:
+    # redis_data:
 
 networks:
   jenkins:
