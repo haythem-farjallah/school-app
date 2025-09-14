@@ -159,10 +159,10 @@ services:
     image: grafana/promtail:2.9.0
     container_name: promtail
     volumes:
-      - ./devops/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./devops/promtail/promtail-config.yml:/etc/promtail/config.yaml:ro
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    command: -config.file=/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yaml
     restart: unless-stopped
     networks:
       - school-network
