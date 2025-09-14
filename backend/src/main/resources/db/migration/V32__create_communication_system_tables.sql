@@ -335,7 +335,7 @@ INSERT INTO notification_templates (template_name, template_type, subject, conte
 '["studentName", "alertType", "date"]', 'attendance', 'Attendance alert SMS'),
 
 ('payment-reminder-sms', 'SMS', 'Payment Due', 
-'Payment reminder for {{studentName}}: ${{amount}} due on {{dueDate}}. Please pay on time.', 
+'Payment reminder for {{studentName}}: {{amount}} due on {{dueDate}}. Please pay on time.', 
 '["studentName", "amount", "dueDate"]', 'financial', 'Payment reminder SMS'),
 
 ('announcement-sms', 'SMS', 'Announcement', 
