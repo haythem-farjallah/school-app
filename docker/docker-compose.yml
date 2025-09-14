@@ -107,7 +107,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ../devops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./devops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -129,8 +129,8 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ../devops/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
-      - ../devops/grafana/dashboard2.json:/var/lib/grafana/dashboards/dashboard.json:ro
+      - ./devops/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./devops/grafana/dashboard2.json:/var/lib/grafana/dashboards/dashboard.json:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin123
@@ -148,7 +148,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ../devops/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - ./devops/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
@@ -159,7 +159,7 @@ services:
     image: grafana/promtail:2.9.0
     container_name: promtail
     volumes:
-      - ../devops/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./devops/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
@@ -176,7 +176,7 @@ services:
       - "3200:3200"
       - "9411:9411"
     volumes:
-      - ../devops/tempo/tempo.yml:/etc/tempo.yaml:ro
+      - ./devops/tempo/tempo.yml:/etc/tempo.yaml:ro
       - tempo_data:/tmp/tempo
     command: -config.file=/etc/tempo.yaml
     restart: unless-stopped
