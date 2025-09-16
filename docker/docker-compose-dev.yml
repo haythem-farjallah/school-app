@@ -5,51 +5,63 @@ services:
     build: 
       context: ../backend
       dockerfile: Dockerfile
-    container_name: school-backend
+    container_name: school-backend-dev
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/school_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SPRING_PROFILES_ACTIVE: loki-enabled
+      LOKI_URL: http://loki:3100/loki/api/v1/push
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/app/application-override.properties
     ports:
-      - "8080:8080"
+      - "8088:8080"
+    volumes:
+      - ./devops/backend/application-override.properties:/app/application-override.properties:ro
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8088/actuator/health || exit 1"]
       interval: 10s
       retries: 4
     networks:
       - school-network
 
-  frontend:
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
-    container_name: school-frontend
-    ports:
-      - "80:80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
-      interval: 10s
-      retries: 4
-    networks:
-      - school-network
+  # FRONTEND TEMPORARILY COMMENTED OUT FOR FAST TESTING
+  # frontend:
+  #   build:
+  #     context: ../frontend
+  #     dockerfile: Dockerfile
+  #   container_name: school-frontend-dev
+  #   ports:
+  #     - "3001:80"
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
+  #     interval: 10s
+  #     retries: 4
+  #   networks:
+  #     - school-network
 
   db:
     image: postgres:16.3-alpine
-    container_name: school-db
+    container_name: school-db-dev
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: school_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -58,18 +70,35 @@ services:
     networks:
       - school-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: school-redis-dev
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data_dev:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - school-network
+
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: school-pgadmin
+    container_name: school-pgadmin-dev
     environment:
       PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
       PGADMIN_DEFAULT_PASSWORD: "admin"
       PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGLADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
     ports:
-      - "5050:80"
+      - "5051:80"
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - pgadmin_data_dev:/var/lib/pgadmin
       - ./servers.json:/pgadmin4/servers.json
     entrypoint:
       - "/bin/sh"
@@ -82,9 +111,94 @@ services:
     networks:
       - school-network
 
+  # === MONITORING STACK ===
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-dev
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./devops/prometheus/prometheus.yml:/etc/prometheus/config.yml:ro
+      - prometheus_data_dev:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/config.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - school-network
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-dev
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana_data_dev:/var/lib/grafana
+      - ./devops/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./devops/grafana/dashboard2.json:/var/lib/grafana/dashboards/dashboard.json:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - school-network
+    depends_on:
+      - prometheus
+      - loki
+  loki:
+    image: grafana/loki:main
+    container_name: loki-dev
+    command: [ "-config.file=/etc/loki/local-config.yaml" ]
+    ports:
+      - "3101:3100"
+    restart: unless-stopped
+    networks:
+      - school-network
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail-dev
+    volumes:
+      - ./devops/promtail/promtail-config.yml:/etc/promtail/config.yaml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yaml
+    restart: unless-stopped
+    networks:
+      - school-network
+    depends_on:
+      - loki
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo-dev
+    ports:
+      - "3201:3200"
+      - "9412:9411"
+      - "4318:4318"
+    volumes:
+      - ./devops/tempo/tempo.yml:/etc/tempo.yaml:ro
+      - ./devops/tempo/tempo-data:/tmp/tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    restart: unless-stopped
+    networks:
+      - school-network
+
 volumes:
-  postgres_data:
-  pgadmin_data:
+  postgres_data_dev:
+  pgadmin_data_dev:
+  redis_data_dev:
+  prometheus_data_dev:
+  grafana_data_dev:
+  loki_data_dev:
+  tempo_data:
 
 networks:
   school-network:

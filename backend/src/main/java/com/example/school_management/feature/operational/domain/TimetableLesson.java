@@ -9,8 +9,10 @@ import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
 import org.optaplanner.core.api.domain.entity.PlanningEntity;
 import org.optaplanner.core.api.domain.lookup.PlanningId;
 import org.optaplanner.core.api.domain.variable.PlanningVariable;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @PlanningEntity
+@ConditionalOnProperty(name = "optaplanner.enabled", havingValue = "true", matchIfMissing = false)
 public class TimetableLesson {
 
     @PlanningId

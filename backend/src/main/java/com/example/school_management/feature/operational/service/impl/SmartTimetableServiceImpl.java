@@ -12,6 +12,7 @@ import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 @Transactional
+@ConditionalOnProperty(name = "optaplanner.enabled", havingValue = "true", matchIfMissing = false)
 public class SmartTimetableServiceImpl implements SmartTimetableService {
     
     private final TimetableOptimizationService optimizationService;

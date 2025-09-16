@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +22,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/smart-timetable")
 @RequiredArgsConstructor
 @Tag(name = "Smart Timetable Management", description = "AI-powered timetable optimization and management")
+@ConditionalOnProperty(name = "optaplanner.enabled", havingValue = "true", matchIfMissing = false)
 public class SmartTimetableController {
     
     private final SmartTimetableService smartTimetableService;

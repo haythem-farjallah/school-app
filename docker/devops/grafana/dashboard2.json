@@ -3132,7 +3132,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "definition": "label_values(jvm_classes_loaded_classes, instance)",
+          "definition": "label_values(jvm_classes_loaded, instance)",
           "hide": 0,
           "includeAll": false,
           "label": "Instance",
@@ -3140,7 +3140,7 @@
           "name": "instance",
           "options": [],
           "query": {
-            "query": "label_values(jvm_classes_loaded_classes, instance)",
+            "query": "label_values(jvm_classes_loaded, instance)",
             "refId": "StandardVariableQuery"
           },
           "refresh": 1,
@@ -3158,7 +3158,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "definition": "label_values(jvm_classes_loaded_classes{instance=\"$instance\"}, application)",
+          "definition": "label_values(jvm_classes_loaded{instance=\"$instance\"}, application)",
           "hide": 0,
           "includeAll": false,
           "label": "Application",
@@ -3166,7 +3166,7 @@
           "name": "application",
           "options": [],
           "query": {
-            "query": "label_values(jvm_classes_loaded_classes{instance=\"$instance\"}, application)",
+            "query": "label_values(jvm_classes_loaded{instance=\"$instance\"}, application)",
             "refId": "StandardVariableQuery"
           },
           "refresh": 1,
@@ -3184,7 +3184,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "definition": "label_values(hikaricp_connections{instance=\"$instance\", application=\"$application\"}, pool)",
+          "definition": "label_values(hikaricp_connections_active{instance=\"$instance\", application=\"$application\"}, pool)",
           "hide": 0,
           "includeAll": false,
           "label": "HikariCP-Pool",
@@ -3192,7 +3192,7 @@
           "name": "hikaricp",
           "options": [],
           "query": {
-            "query": "label_values(hikaricp_connections{instance=\"$instance\", application=\"$application\"}, pool)",
+            "query": "label_values(hikaricp_connections_active{instance=\"$instance\", application=\"$application\"}, pool)",
             "refId": "StandardVariableQuery"
           },
           "refresh": 1,

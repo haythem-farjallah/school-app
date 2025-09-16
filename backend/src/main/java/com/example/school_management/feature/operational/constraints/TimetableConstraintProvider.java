@@ -7,8 +7,10 @@ import org.optaplanner.core.api.score.stream.ConstraintFactory;
 import org.optaplanner.core.api.score.stream.ConstraintProvider;
 import org.optaplanner.core.api.score.stream.Joiners;
 import org.optaplanner.core.api.score.stream.ConstraintCollectors;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import java.util.List;
 
+@ConditionalOnProperty(name = "optaplanner.enabled", havingValue = "true", matchIfMissing = false)
 public class TimetableConstraintProvider implements ConstraintProvider {
 
     private static final int MAX_PERIOD_INDEX = 7; // Adjust as needed for your school

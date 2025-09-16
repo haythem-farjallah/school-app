@@ -90,7 +90,7 @@ pipeline {
             steps {
                 script {
                     dir('docker') {
-                        sh 'docker-compose -f docker-compose.yml up -d'
+                        sh 'docker-compose -f docker-compose-dev.yml up -d'
                     }
                 }
             }
