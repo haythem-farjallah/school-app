@@ -17,6 +17,7 @@ services:
   jenkins:
     build:
       context: .
+    user: "0:0"  # Run as root to access Docker socket
     ports:
       - "8085:8080"
       - "50001:50000"

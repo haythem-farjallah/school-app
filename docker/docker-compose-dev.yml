@@ -141,7 +141,6 @@ services:
     volumes:
       - grafana_data_dev:/var/lib/grafana
       - ./devops/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
-      - ./devops/grafana/dashboard2.json:/var/lib/grafana/dashboards/dashboard.json:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin123
