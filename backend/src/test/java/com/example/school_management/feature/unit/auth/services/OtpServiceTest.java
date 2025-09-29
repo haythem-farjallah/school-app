@@ -51,7 +51,7 @@ class OtpServiceTest {
         verify(emailService).sendTemplateEmail(
                 eq("foo@bar.com"),
                 eq("Your password-reset code"),
-                eq("otp-email"),
+                eq("otp"),
                 argThat(map -> map.get("otp").equals(user.getOtpCode()))
         );
     }

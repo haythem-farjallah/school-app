@@ -40,6 +40,8 @@ class AuthServiceTest {
     @Mock TeacherRepository teacherRepository;
     @Mock ParentRepository parentRepository;
     @Mock AdministrationRepository administrationRepository;
+    @Mock com.example.school_management.feature.auth.service.PermissionService permissionService;
+    @Mock StaffRepository staffRepository;
 
     @InjectMocks AuthService authService;
 
@@ -55,15 +57,18 @@ class AuthServiceTest {
 
         Student user = new Student();
         user.setEmail("alice@example.com");
+        user.setRole(UserRole.STUDENT);
         user.setPasswordChangeRequired(false);
         given(userDetailsService.findBaseUserByEmail("alice@example.com"))
                 .willReturn(user);
 
-
+        given(permissionService.getRoleDefaults(UserRole.STUDENT))
+                .willReturn(java.util.Set.of());
         given(jwtTokenProvider.generateAccessToken(userDetails))
                 .willReturn("ACCESS_TOKEN");
         given(jwtTokenProvider.generateRefreshToken(userDetails))
                 .willReturn("REFRESH_TOKEN");
+        given(userMapper.toDto(user)).willReturn(null); // Not important for this test
 
         // when
         LoginResponse resp = authService.login(req);
@@ -75,17 +80,24 @@ class AuthServiceTest {
 
     @Test
     void login_whenPasswordChangeRequired_throwsLocked() {
+        // given
+        Authentication fakeAuth = mock(Authentication.class);
         given(authenticationManager.authenticate(any()))
-                .willReturn(mock(Authentication.class));
+                .willReturn(fakeAuth);
 
         Student user = new Student();
         user.setEmail("chuck@example.com");
+        user.setRole(UserRole.STUDENT);
         user.setPasswordChangeRequired(true);
         given(userDetailsService.findBaseUserByEmail("chuck@example.com"))
                 .willReturn(user);
+        
+        given(permissionService.getRoleDefaults(UserRole.STUDENT))
+                .willReturn(java.util.Set.of());
 
         LoginRequest req = new LoginRequest("chuck@example.com", "any");
 
+        // when/then
         assertThatThrownBy(() -> authService.login(req))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(ex -> {

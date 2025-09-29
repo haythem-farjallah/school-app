@@ -308,7 +308,6 @@ class ClassServiceImplTest {
         classEntity.setStudents(new HashSet<>(Arrays.asList(student)));
         
         given(classRepo.findById(1L)).willReturn(Optional.of(classEntity));
-        given(studentRepo.findById(10L)).willReturn(Optional.of(student));
         given(mapper.toClassDto(classEntity)).willReturn(classDto);
 
         // when
@@ -358,7 +357,6 @@ class ClassServiceImplTest {
         classEntity.setCourses(new HashSet<>(Arrays.asList(course)));
         
         given(classRepo.findById(1L)).willReturn(Optional.of(classEntity));
-        given(courseRepo.findById(20L)).willReturn(Optional.of(course));
         given(mapper.toClassDto(classEntity)).willReturn(classDto);
 
         // when
