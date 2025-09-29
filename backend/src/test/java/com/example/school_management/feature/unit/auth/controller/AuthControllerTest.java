@@ -1,4 +1,4 @@
-/*package com.example.school_management.feature.unit.auth.controller;
+package com.example.school_management.feature.unit.auth.controller;
 
 import com.example.school_management.commons.service.EmailService;
 import com.example.school_management.feature.auth.controller.AuthController;
@@ -7,7 +7,7 @@ import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.service.AuthService;
 import com.example.school_management.feature.auth.service.OtpService;
 import com.example.school_management.feature.auth.service.CustomUserDetailsService;
-import com.example.school_management.feature.auth.repository.BaseUserRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
 import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -48,7 +49,7 @@ class AuthControllerTest {
     private PasswordEncoder passwordEncoder;
 
     @MockitoBean
-    private BaseUserRepository userRepo;
+    private UserRepository userRepo;
 
     @MockitoBean
     private EmailService emailService;
@@ -59,71 +60,100 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /forgot-password → 200 and OTP sent")
     void forgotPassword_sendsOtp() throws Exception {
-        BaseUser u = new Student(); u.setEmail("a@b.com");
-        given(uds.findBaseUserByEmail("a@b.com")).willReturn(u);
+        // given
+        BaseUser user = new Student(); 
+        user.setEmail("test@example.com");
+        given(uds.findBaseUserByEmail("test@example.com")).willReturn(user);
 
+        // when/then
         mockMvc.perform(post("/api/auth/forgot-password")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"a@b.com\"}"))
+                        .content("{\"email\":\"test@example.com\"}"))
                 .andDo(print())
                 .andExpect(status().isOk());
 
-        then(otpService).should().generateAndSendOtp(u);
+        then(otpService).should().generateAndSendOtp(user);
     }
 
     @Test
     @DisplayName("POST /reset-password → 200 and password reset")
     void resetPassword_validOtp_resetsPassword() throws Exception {
-        BaseUser u = new Student(); u.setEmail("x@y.com");
-        given(uds.findBaseUserByEmail("x@y.com")).willReturn(u);
-        willDoNothing().given(otpService).validateOtp(u, "123456");
-        given(passwordEncoder.encode("newpass")).willReturn("ENC[newpass]");
-        // ← **FIX**: save(...) returns the saved entity, so stub it to return `u`
-        given(userRepo.save(u)).willReturn(u);
+        // given
+        BaseUser user = new Student(); 
+        user.setEmail("user@example.com");
+        given(uds.findBaseUserByEmail("user@example.com")).willReturn(user);
+        willDoNothing().given(otpService).validateOtp(user, "123456");
+        given(passwordEncoder.encode("newPassword123")).willReturn("ENC[newPassword123]");
+        given(userRepo.save(user)).willReturn(user);
 
+        // when/then
         mockMvc.perform(post("/api/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {
-                              "email":"x@y.com",
+                              "email":"user@example.com",
                               "otp":"123456",
-                              "newPassword":"newpass"
+                              "newPassword":"newPassword123"
                             }
                         """))
                 .andExpect(status().isOk());
 
-        then(userRepo).should().save(u);
-        assert !u.isPasswordChangeRequired();
+        then(userRepo).should().save(user);
+        assert !user.isPasswordChangeRequired();
     }
 
     @Test
     @DisplayName("POST /change-password → 200 on valid current password")
     void changePassword_validOld_updatesPassword() throws Exception {
-        BaseUser u = new Student();
-        u.setEmail("u@v.com");
-        u.setPassword("ENC[old]");
-        u.setPasswordChangeRequired(true);
+        // given
+        BaseUser user = new Student();
+        user.setEmail("student@example.com");
+        user.setPassword("ENC[oldPassword]");
+        user.setPasswordChangeRequired(true);
 
-        given(uds.findBaseUserByEmail("u@v.com")).willReturn(u);
-        given(passwordEncoder.matches("oldpass", "ENC[old]")).willReturn(true);
-        given(passwordEncoder.encode("newpass")).willReturn("ENC[new]");
-        // ← **FIX**: same here
-        given(userRepo.save(u)).willReturn(u);
+        given(uds.findBaseUserByEmail("student@example.com")).willReturn(user);
+        given(passwordEncoder.matches("oldPassword", "ENC[oldPassword]")).willReturn(true);
+        given(passwordEncoder.encode("newPassword456")).willReturn("ENC[newPassword456]");
+        given(userRepo.save(user)).willReturn(user);
 
+        // when/then
         mockMvc.perform(post("/api/auth/change-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {
-                              "email":"u@v.com",
-                              "oldPassword":"oldpass",
-                              "newPassword":"newpass"
+                              "email":"student@example.com",
+                              "oldPassword":"oldPassword",
+                              "newPassword":"newPassword456"
                             }
                         """))
                 .andExpect(status().isOk());
 
-        then(userRepo).should().save(u);
-        assert !u.isPasswordChangeRequired();
-        assert u.getPassword().equals("ENC[new]");
+        then(userRepo).should().save(user);
+        assert !user.isPasswordChangeRequired();
+        assert user.getPassword().equals("ENC[newPassword456]");
+    }
+
+    @Test
+    @DisplayName("POST /change-password → 400 on invalid old password")
+    void changePassword_invalidOld_returnsBadRequest() throws Exception {
+        // given
+        BaseUser user = new Student();
+        user.setEmail("student@example.com");
+        user.setPassword("ENC[oldPassword]");
+
+        given(uds.findBaseUserByEmail("student@example.com")).willReturn(user);
+        given(passwordEncoder.matches("wrongPassword", "ENC[oldPassword]")).willReturn(false);
+
+        // when/then
+        mockMvc.perform(post("/api/auth/change-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email":"student@example.com",
+                              "oldPassword":"wrongPassword",
+                              "newPassword":"newPassword456"
+                            }
+                        """))
+                .andExpect(status().isBadRequest());
     }
 }
-*/
