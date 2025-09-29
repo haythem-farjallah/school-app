@@ -4,6 +4,7 @@ import com.example.school_management.commons.configs.JwtTokenProvider;
 import com.example.school_management.commons.dtos.LoginRequest;
 import com.example.school_management.commons.dtos.LoginResponse;
 import com.example.school_management.commons.dtos.RegisterRequest;
+import com.example.school_management.feature.auth.dto.UserDto;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.mapper.AuthMapper;
@@ -62,13 +63,16 @@ class AuthServiceTest {
         given(userDetailsService.findBaseUserByEmail("alice@example.com"))
                 .willReturn(user);
 
+        UserDto userDto = new UserDto();
+        userDto.setEmail("alice@example.com");
+        given(userMapper.toDto(user)).willReturn(userDto);
+        
         given(permissionService.getRoleDefaults(UserRole.STUDENT))
                 .willReturn(java.util.Set.of());
         given(jwtTokenProvider.generateAccessToken(userDetails))
                 .willReturn("ACCESS_TOKEN");
         given(jwtTokenProvider.generateRefreshToken(userDetails))
                 .willReturn("REFRESH_TOKEN");
-        given(userMapper.toDto(user)).willReturn(null); // Not important for this test
 
         // when
         LoginResponse resp = authService.login(req);
@@ -91,6 +95,10 @@ class AuthServiceTest {
         user.setPasswordChangeRequired(true);
         given(userDetailsService.findBaseUserByEmail("chuck@example.com"))
                 .willReturn(user);
+        
+        UserDto userDto = new UserDto();
+        userDto.setEmail("chuck@example.com");
+        given(userMapper.toDto(user)).willReturn(userDto);
         
         given(permissionService.getRoleDefaults(UserRole.STUDENT))
                 .willReturn(java.util.Set.of());
