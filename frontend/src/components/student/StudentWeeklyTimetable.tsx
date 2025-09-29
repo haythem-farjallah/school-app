@@ -236,10 +236,8 @@ export const StudentWeeklyTimetable: React.FC<StudentWeeklyTimetableProps> = ({
             periodIndex: apiSlot.periodIndex
           };
           
-          console.log('🎯 Transformed slot:', transformedSlot);
           return transformedSlot;
         });
-        console.log('🎯 All transformed timetable slots:', slots);
         
         // Structure the data like a dashboard response
         return {
@@ -271,7 +269,6 @@ export const StudentWeeklyTimetable: React.FC<StudentWeeklyTimetableProps> = ({
     // Only use mock data if we have no enrollment data AND we're not loading
     if (enrollmentData || enrollmentLoading || !enrollmentError) return null;
     
-    console.log('🎯 Using mock timetable data as ultimate fallback for class 4-B');
     
     // Create mock timetable slots based on the database data we verified
     const mockSlots = [
