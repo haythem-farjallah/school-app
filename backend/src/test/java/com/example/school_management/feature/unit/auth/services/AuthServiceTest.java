@@ -83,9 +83,11 @@ class AuthServiceTest {
     }
 
     @Test
-    void login_whenPasswordChangeRequired_throwsLocked() {
+    void login_whenPasswordChangeRequired_returnsResponseWithFlag() {
         // given
+        UserDetails userDetails = mock(UserDetails.class);
         Authentication fakeAuth = mock(Authentication.class);
+        given(fakeAuth.getPrincipal()).willReturn(userDetails);
         given(authenticationManager.authenticate(any()))
                 .willReturn(fakeAuth);
 
@@ -102,17 +104,20 @@ class AuthServiceTest {
         
         given(permissionService.getRoleDefaults(UserRole.STUDENT))
                 .willReturn(java.util.Set.of());
+        given(jwtTokenProvider.generateAccessToken(userDetails))
+                .willReturn("ACCESS_TOKEN");
+        given(jwtTokenProvider.generateRefreshToken(userDetails))
+                .willReturn("REFRESH_TOKEN");
 
         LoginRequest req = new LoginRequest("chuck@example.com", "any");
 
-        // when/then
-        assertThatThrownBy(() -> authService.login(req))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> {
-                    ResponseStatusException rse = (ResponseStatusException) ex;
-                    assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.LOCKED);
-                    assertThat(rse.getReason()).isEqualTo("FIRST_LOGIN_PASSWORD_CHANGE_REQUIRED");
-                });
+        // when
+        LoginResponse resp = authService.login(req);
+
+        // then
+        assertThat(resp.getAccessToken()).isEqualTo("ACCESS_TOKEN");
+        assertThat(resp.getRefreshToken()).isEqualTo("REFRESH_TOKEN");
+        assertThat(resp.isPasswordChangeRequired()).isTrue();
     }
 
     @Test
