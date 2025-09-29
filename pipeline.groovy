@@ -59,16 +59,23 @@ pipeline {
         stage('BUILDING OUR IMAGES') {
             steps {
                 script {
-
-                    // Build the backend image
-                    def backendImage = docker.build("${DOCKER_REPO}:backend-latest", "./backend")
-
-                    // Build the front image
-                    def frontImage = docker.build("${DOCKER_REPO}:front-latest", "./frontend")
-
-                    // Save the image IDs for the next stage
-                    env.BACKEND_IMAGE_ID = backendImage.id
-                    env.FRONT_IMAGE_ID = frontImage.id
+                    // Enable Docker BuildKit for better caching and performance
+                    env.DOCKER_BUILDKIT = "1"
+                    env.BUILDKIT_PROGRESS = "plain"
+                    
+                    // Build images in parallel for maximum speed
+                    parallel(
+                        "Backend Build": {
+                            echo "Building backend image..."
+                            def backendImage = docker.build("${DOCKER_REPO}:backend-latest", "./backend")
+                            env.BACKEND_IMAGE_ID = backendImage.id
+                        },
+                        "Frontend Build": {
+                            echo "Building frontend image..."
+                            def frontImage = docker.build("${DOCKER_REPO}:front-latest", "./frontend")
+                            env.FRONT_IMAGE_ID = frontImage.id
+                        }
+                    )
                 }
             }
         }

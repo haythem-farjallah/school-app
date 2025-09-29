@@ -1,20 +1,30 @@
 # ==========================
-# 1) Build Stage
+# 1) Build Stage - OPTIMIZED
 # ==========================
 FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Copy package files and install dependencies.
-# We use --omit=optional to avoid other optional dependency issues,
-# and then force-install the missing Rollup native module.
-COPY package.json package-lock.json ./
-RUN npm install --omit=optional && npm install @rollup/rollup-linux-x64-gnu
+# Install system dependencies for native modules (CRITICAL for @rollup)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy the rest of the source code.
+# Copy package files first for better Docker layer caching
+COPY package.json package-lock.json ./
+
+# Use npm ci for faster, reliable, reproducible builds
+# Install dependencies with optimizations
+RUN npm ci --omit=optional --prefer-offline --no-audit --no-fund \
+    && npm install @rollup/rollup-linux-x64-gnu \
+    && npm cache clean --force
+
+# Copy source code (this layer will be cached if dependencies don't change)
 COPY . .
 
-# Build the application.
+# Build with production optimizations
 RUN npm run build
 
 # ==========================

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode production",
+    "build:fast": "vite build --mode production --minify false",
     "lint": "eslint .",
     "preview": "vite preview",
     "cy:open": "cypress open",
@@ -13,7 +14,8 @@
     "test:unit": "vitest run --coverage",
     "test:watch": "vitest --coverage --watch",
     "audit": "audit-ci --moderate --report",
-    "clean": "rimraf dist node_modules"
+    "clean": "rimraf dist node_modules",
+    "prebuild": "npm ci --prefer-offline --no-audit --no-fund"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
