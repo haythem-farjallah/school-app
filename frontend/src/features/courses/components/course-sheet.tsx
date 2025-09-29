@@ -141,16 +141,7 @@ export function EditCourseSheet({ course, trigger, onSuccess }: EditCourseSheetP
     schema: courseSchema,
     fields: courseFields,
     onSubmit: async (values: unknown) => {
-      console.log("📝 Edit course form values:", values);
-      const typedValues = values as CourseValues;
-      console.log("📝 Edit values types:", {
-        name: typeof typedValues.name,
-        color: typeof typedValues.color,
-        credit: typeof typedValues.credit,
-        weeklyCapacity: typeof typedValues.weeklyCapacity,
-        teacherId: typeof typedValues.teacherId,
-      });
-      await editCourseMutation.mutateAsync(typedValues)
+      await editCourseMutation.mutateAsync(values as CourseValues)
     },
   }
 
@@ -189,7 +180,6 @@ export function EditCourseSheet({ course, trigger, onSuccess }: EditCourseSheetP
               color: course.color,
               credit: course.credit,
               weeklyCapacity: course.weeklyCapacity,
-              teacherId: course.teacherId,
             }}
             submitLabel="Update Course"
             submitClassName="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300"

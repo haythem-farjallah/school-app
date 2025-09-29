@@ -5,6 +5,14 @@ import com.example.school_management.feature.communication.dto.*;
 import com.example.school_management.feature.communication.service.EmailService;
 import com.example.school_management.feature.communication.service.SMSService;
 import com.example.school_management.feature.communication.service.PushNotificationService;
+import com.example.school_management.feature.communication.entity.Notification;
+import com.example.school_management.feature.communication.repository.CommunicationNotificationRepository;
+import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.auth.entity.Student;
+import com.example.school_management.feature.auth.entity.Teacher;
+import com.example.school_management.feature.auth.entity.Parent;
+import com.example.school_management.feature.auth.repository.BaseUserRepository;
+import com.example.school_management.feature.operational.dto.NotificationDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -26,6 +34,8 @@ public class CommunicationController {
     private final EmailService emailService;
     private final SMSService smsService;
     private final PushNotificationService pushNotificationService;
+    private final CommunicationNotificationRepository communicationNotificationRepository;
+    private final BaseUserRepository<BaseUser> userRepository;
 
     // =====================================================
     // EMAIL ENDPOINTS
@@ -225,6 +235,97 @@ public class CommunicationController {
     }
 
     // =====================================================
+    // NOTIFICATION FETCH ENDPOINTS
+    // =====================================================
+
+    @GetMapping("/v1/notifications")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER', 'STUDENT', 'PARENT')")
+    public ResponseEntity<ApiSuccessResponse<List<NotificationDto>>> getMyNotifications(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Boolean readStatus) {
+        log.info("📋 API: Getting notifications for current user - page: {}, size: {}, readStatus: {}", page, size, readStatus);
+        
+        try {
+            // Get current user from security context
+            org.springframework.security.core.Authentication authentication = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            String userEmail = authentication.getName();
+            
+            // Find user by email
+            BaseUser currentUser = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("Current user not found"));
+            
+            log.info("🔍 Found current user: {} (ID: {})", currentUser.getEmail(), currentUser.getId());
+            
+            // Get notifications from communication table
+            Notification.RecipientType recipientType = getRecipientType(currentUser);
+            List<com.example.school_management.feature.communication.entity.Notification> notifications;
+            
+            if (readStatus != null) {
+                if (readStatus) {
+                    // Get read notifications (where readAt is NOT null) - we'll need to filter manually
+                    List<com.example.school_management.feature.communication.entity.Notification> allNotifications = 
+                        communicationNotificationRepository.findByRecipientIdAndRecipientType(currentUser.getId(), recipientType);
+                    notifications = allNotifications.stream()
+                        .filter(n -> n.getReadAt() != null)
+                        .collect(java.util.stream.Collectors.toList());
+                } else {
+                    notifications = communicationNotificationRepository.findUnreadByRecipient(
+                        currentUser.getId(), recipientType);
+                }
+            } else {
+                notifications = communicationNotificationRepository.findByRecipientIdAndRecipientType(
+                    currentUser.getId(), recipientType);
+            }
+            
+            log.info("📋 Found {} notifications for user {}", notifications.size(), currentUser.getEmail());
+            
+            // Convert to DTOs
+            List<NotificationDto> notificationDtos = notifications.stream()
+                .map(this::convertToDto)
+                .collect(java.util.stream.Collectors.toList());
+            
+            return ResponseEntity.ok(new ApiSuccessResponse<>("success", notificationDtos));
+            
+        } catch (Exception e) {
+            log.error("❌ Error getting notifications: {}", e.getMessage(), e);
+            return ResponseEntity.ok(new ApiSuccessResponse<>("success", List.of()));
+        }
+    }
+
+    @GetMapping("/v1/notifications/unread-count")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER', 'STUDENT', 'PARENT')")
+    public ResponseEntity<ApiSuccessResponse<Integer>> getUnreadNotificationCount() {
+        log.info("📊 API: Getting unread notification count for current user");
+        
+        try {
+            // Get current user from security context
+            org.springframework.security.core.Authentication authentication = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            String userEmail = authentication.getName();
+            
+            // Find user by email
+            BaseUser currentUser = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("Current user not found"));
+            
+            // Get unread count
+            Notification.RecipientType recipientType = getRecipientType(currentUser);
+            List<com.example.school_management.feature.communication.entity.Notification> unreadNotifications = 
+                communicationNotificationRepository.findUnreadByRecipient(currentUser.getId(), recipientType);
+            
+            int unreadCount = unreadNotifications.size();
+            log.info("📊 Found {} unread notifications for user {}", unreadCount, currentUser.getEmail());
+            
+            return ResponseEntity.ok(new ApiSuccessResponse<>("success", unreadCount));
+            
+        } catch (Exception e) {
+            log.error("❌ Error getting unread count: {}", e.getMessage(), e);
+            return ResponseEntity.ok(new ApiSuccessResponse<>("success", 0));
+        }
+    }
+
+    // =====================================================
     // UTILITY ENDPOINTS
     // =====================================================
 
@@ -244,6 +345,95 @@ public class CommunicationController {
     // =====================================================
     // HELPER METHODS
     // =====================================================
+
+    /**
+     * Helper method to determine recipient type from user
+     */
+    private Notification.RecipientType getRecipientType(BaseUser user) {
+        if (user instanceof Student) {
+            return Notification.RecipientType.STUDENT;
+        } else if (user instanceof Teacher) {
+            return Notification.RecipientType.TEACHER;
+        } else if (user instanceof Parent) {
+            return Notification.RecipientType.PARENT;
+        } else {
+            return Notification.RecipientType.STAFF; // Default fallback
+        }
+    }
+
+    /**
+     * Convert communication notification entity to DTO
+     */
+    private NotificationDto convertToDto(Notification notification) {
+        // Map notification type
+        com.example.school_management.feature.operational.entity.enums.NotificationType mappedType = null;
+        if (notification.getNotificationType() != null) {
+            mappedType = mapNotificationType(notification.getNotificationType());
+        }
+        
+        // Extract metadata for entity info
+        String entityType = "ATTENDANCE";
+        Long entityId = null;
+        String actionUrl = null;
+        
+        if (notification.getMetadata() != null) {
+            try {
+                // Simple parsing - could be improved with JSON library
+                if (notification.getMetadata().contains("attendanceId")) {
+                    entityType = "ATTENDANCE";
+                    // Try to extract ID - simple approach
+                    String metadata = notification.getMetadata();
+                    if (metadata.contains("attendanceId\":")) {
+                        int start = metadata.indexOf("attendanceId\":") + 14;
+                        int end = metadata.indexOf(",", start);
+                        if (end == -1) end = metadata.indexOf("}", start);
+                        if (end != -1) {
+                            try {
+                                entityId = Long.parseLong(metadata.substring(start, end));
+                                actionUrl = "/attendance/" + entityId;
+                            } catch (NumberFormatException e) {
+                                // Ignore parsing errors
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore metadata parsing errors
+            }
+        }
+        
+        return new NotificationDto(
+            notification.getId(),
+            notification.getTitle(),
+            notification.getContent(),
+            mappedType,
+            entityType,
+            entityId,
+            actionUrl,
+            notification.getReadAt() != null,
+            notification.getCreatedAt(),
+            notification.getReadAt()
+        );
+    }
+
+    /**
+     * Map communication notification type to operational notification type
+     */
+    private com.example.school_management.feature.operational.entity.enums.NotificationType mapNotificationType(
+            Notification.NotificationType communicationType) {
+        switch (communicationType) {
+            case ATTENDANCE_ALERT:
+                return com.example.school_management.feature.operational.entity.enums.NotificationType.ATTENDANCE_MARKED;
+            case ANNOUNCEMENT:
+                return com.example.school_management.feature.operational.entity.enums.NotificationType.ANNOUNCEMENT_PUBLISHED;
+            case GRADE_PUBLISHED:
+                return com.example.school_management.feature.operational.entity.enums.NotificationType.GRADE_ADDED;
+            case ASSIGNMENT_DUE:
+                return com.example.school_management.feature.operational.entity.enums.NotificationType.ASSIGNMENT_DUE;
+            default:
+                return com.example.school_management.feature.operational.entity.enums.NotificationType.GENERAL;
+        }
+    }
 
     private String maskPhoneNumber(String phoneNumber) {
         if (phoneNumber == null || phoneNumber.length() < 4) {

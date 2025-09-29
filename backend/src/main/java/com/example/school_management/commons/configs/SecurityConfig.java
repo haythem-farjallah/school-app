@@ -1,6 +1,7 @@
 package com.example.school_management.commons.configs;
 
 import com.example.school_management.commons.filter.RateLimitingFilter;
+import com.example.school_management.feature.auth.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import lombok.RequiredArgsConstructor;
@@ -10,8 +11,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -35,15 +37,24 @@ public class SecurityConfig {
   private final JwtAuthenticationEntryPoint unauthorizedHandler;
   private final JwtAuthenticationFilter       jwtAuthFilter;
   private final RateLimitingFilter           rateLimitingFilter;
+  private final CustomUserDetailsService     userDetailsService;
 
   @Bean
-  public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
-    return cfg.getAuthenticationManager();
+  public AuthenticationManager authenticationManager() throws Exception {
+    return new ProviderManager(authenticationProvider());
   }
 
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
+  }
+
+  @Bean
+  public DaoAuthenticationProvider authenticationProvider() {
+    DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+    authProvider.setUserDetailsService(userDetailsService);
+    authProvider.setPasswordEncoder(passwordEncoder());
+    return authProvider;
   }
 
   @Bean
@@ -68,7 +79,8 @@ public class SecurityConfig {
                             "/webjars/**"
                     ).permitAll()
                     .anyRequest().authenticated()
-            );
+            )
+            .authenticationProvider(authenticationProvider()); // Use our custom authentication provider
 
 
     // Add rate limiting filter before JWT authentication

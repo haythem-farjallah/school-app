@@ -9,6 +9,11 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.Mappings;
+import org.mapstruct.Named;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Mapper(componentModel = "spring")
 public interface AdministrationMapper extends BaseUserMapper<Administration, AdministrationCreateDto, AdministrationUpdateDto, AdministrationDto> {
@@ -20,7 +25,7 @@ public interface AdministrationMapper extends BaseUserMapper<Administration, Adm
             @Mapping(target = "lastName",  source = "profile.lastName"),
             @Mapping(target = "email",     source = "profile.email"),
             @Mapping(target = "telephone", source = "profile.telephone"),
-            @Mapping(target = "birthday",  source = "profile.birthday"),
+            @Mapping(target = "birthday",  source = "profile.birthday", qualifiedByName = "localDateToLocalDateTime"),
             @Mapping(target = "gender",    source = "profile.gender"),
             @Mapping(target = "address",   source = "profile.address"),
             @Mapping(target = "role",      source = "profile.role"),
@@ -51,4 +56,12 @@ public interface AdministrationMapper extends BaseUserMapper<Administration, Adm
             @Mapping(target = "jobTitle", source = "jobTitle")
     })
     void patch(AdministrationUpdateDto dto, @MappingTarget Administration entity);
+
+    @Named("localDateToLocalDateTime")
+    default LocalDateTime localDateToLocalDateTime(LocalDate localDate) {
+        if (localDate == null) {
+            return null;
+        }
+        return localDate.atTime(LocalTime.MIDNIGHT);
+    }
 }

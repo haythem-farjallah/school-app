@@ -80,21 +80,9 @@ public class ParentController {
     @PatchMapping("/{id}")
     public ResponseEntity<ApiSuccessResponse<ParentDto>> patch(@PathVariable long id,
                           @Valid @RequestBody ParentUpdateDto body) {
-        log.info("📥 PATCH /admin/parent-management/{} - Received update request:", id);
-        log.info("   📞 Telephone: '{}'", body.getTelephone());
-        log.info("   🏠 Address: '{}'", body.getAddress());
-        log.info("   💬 Preferred Contact Method: '{}'", body.getPreferredContactMethod());
-        log.info("   👥 Relation: '{}'", body.getRelation());
-        log.info("   👶 Children emails: {}", body.getChildren());
         
         ParentDto result = mapper.toDto(service.patch(id, body));
         
-        log.info("📤 PATCH /admin/parent-management/{} - Returning updated parent:", id);
-        log.info("   📞 Telephone: '{}'", result.telephone());
-        log.info("   🏠 Address: '{}'", result.address());
-        log.info("   💬 Preferred Contact Method: '{}'", result.preferredContactMethod());
-        log.info("   👥 Relation: '{}'", result.relation());
-        log.info("   👶 Children count: {}", result.children() != null ? result.children().size() : 0);
         
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", result));
     }

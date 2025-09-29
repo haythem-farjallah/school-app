@@ -41,9 +41,7 @@ export function StudentSearchField({ field }: StudentSearchFieldProps) {
         const response = await http.get(`/v1/students`, {
           params: { page: 0, size: 1 }
         });
-        console.log("🔍 StudentSearchField - Total students check:", response);
       } catch (error) {
-        console.error("🔍 StudentSearchField - Error checking students:", error);
       }
     };
     
@@ -58,7 +56,6 @@ export function StudentSearchField({ field }: StudentSearchFieldProps) {
         return { content: [] };
       }
       
-      console.log("🔍 StudentSearchField - Searching for:", searchQuery);
       
       try {
         const response = await http.get(`/v1/students/search`, {
@@ -69,7 +66,6 @@ export function StudentSearchField({ field }: StudentSearchFieldProps) {
           }
         });
         
-        console.log("🔍 StudentSearchField - Raw response:", response);
         
         // Handle different possible response structures
         let students = [];
@@ -81,11 +77,9 @@ export function StudentSearchField({ field }: StudentSearchFieldProps) {
           students = response.data.data;
         }
         
-        console.log("🔍 StudentSearchField - Extracted students:", students);
         
         return { content: students };
       } catch (error) {
-        console.error("🔍 StudentSearchField - Search error:", error);
         throw error;
       }
     },

@@ -57,7 +57,12 @@ export function usePaginated<T>(
   const query = useQueryApi<Page<T>>(
     queryKeyArray, // Use currentPage in query key
     () => fetchPage(currentPage), // Use currentPage for fetching
-    {  placeholderData: (prev) => prev, },
+    {  
+      placeholderData: (prev) => prev,
+      // Disable caching for learning resources to always get fresh data
+      cacheTime: queryKey === "learning-resources" ? 0 : undefined,
+      staleTime: queryKey === "learning-resources" ? 0 : undefined,
+    },
   );
 
   /* ------------- helpers ------------------------------------------------ */

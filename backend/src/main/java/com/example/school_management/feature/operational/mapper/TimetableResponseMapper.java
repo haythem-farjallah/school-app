@@ -4,13 +4,21 @@ import com.example.school_management.feature.operational.dto.TimetableResponseDt
 import com.example.school_management.feature.operational.dto.TimetableSlotResponseDto;
 import com.example.school_management.feature.operational.entity.Timetable;
 import com.example.school_management.feature.operational.entity.TimetableSlot;
+import com.example.school_management.feature.operational.repository.EnrollmentRepository;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class TimetableResponseMapper {
+    
+    private final EnrollmentRepository enrollmentRepository;
     
     public TimetableResponseDto toDto(Timetable timetable) {
         if (timetable == null) {
@@ -26,7 +34,6 @@ public class TimetableResponseMapper {
         dto.setCreatedAt(timetable.getCreatedAt());
         dto.setUpdatedAt(timetable.getUpdatedAt());
         
-        // Convert slots to DTOs
         if (timetable.getSlots() != null) {
             List<TimetableSlotResponseDto> slotDtos = timetable.getSlots().stream()
                     .map(this::toSlotDto)
@@ -84,6 +91,21 @@ public class TimetableResponseMapper {
             dto.setRoomId(slot.getRoom().getId());
             dto.setRoomName(slot.getRoom().getName());
             dto.setRoomCapacity(slot.getRoom().getCapacity());
+        }
+        
+        // Student count for the class - query directly from enrollment repository
+        if (slot.getForClass() != null) {
+            Long classId = slot.getForClass().getId();
+            try {
+                Long activeStudentCount = enrollmentRepository.countActiveEnrollmentsByClassId(classId, EnrollmentStatus.ACTIVE);
+                dto.setStudentCount(activeStudentCount.intValue());
+                log.debug("Class {} ({}) has {} active students", slot.getForClass().getName(), classId, activeStudentCount);
+            } catch (Exception e) {
+                log.error("Error fetching student count for class {}: {}", classId, e.getMessage());
+                dto.setStudentCount(0);
+            }
+        } else {
+            dto.setStudentCount(0);
         }
         
         return dto;

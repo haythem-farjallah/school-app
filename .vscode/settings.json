@@ -1,6 +1,25 @@
 {
-    "yaml.schemas": {
-        "kubernetes": "*.yaml",
-        "https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.32.1-standalone-strict/all.json": "file:///c%3A/Users/haythem/Desktop/PFE/nginx.yaml"
-    }
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "typescript.suggest.autoImports": true,
+  "typescript.validate.enable": true,
+  "typescript.format.enable": true,
+  "typescript.preferences.quoteStyle": "double",
+  
+  // Suppress specific TypeScript diagnostics
+  "typescript.reportStyleChecksAsWarnings": false,
+  "typescript.preferences.noSemicolons": false,
+  
+  // Editor settings for TypeScript
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  
+  // Suppress specific error codes
+  "typescript.preferences.suppressExcessPropertyErrors": true,
+  
+  // File associations
+  "files.associations": {
+    "*.tsx": "typescriptreact",
+    "*.ts": "typescript"
+  }
 }

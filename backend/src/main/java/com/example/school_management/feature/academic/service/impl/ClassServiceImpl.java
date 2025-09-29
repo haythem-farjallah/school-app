@@ -17,6 +17,7 @@ import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
@@ -51,7 +52,6 @@ public class ClassServiceImpl implements ClassService {
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
 
-    /* ─────────────────── CRUD ─────────────────── */
 
     @Override
     public ClassDto create(CreateClassRequest r) {
@@ -123,7 +123,6 @@ public class ClassServiceImpl implements ClassService {
     public void delete(Long id) {
         log.info("Deleting class {}", id);
         
-        // Get class details before deletion for audit
         ClassEntity entity = fetch(classRepo, id, "Class");
         String className = entity.getName();
         
@@ -154,7 +153,6 @@ public class ClassServiceImpl implements ClassService {
         return mapper.toClassDto(fetch(classRepo, id, "Class"));
     }
 
-    /* ─────────────────── LIST ─────────────────── */
 
     @Override
     @Transactional(readOnly = true)
@@ -171,7 +169,6 @@ public class ClassServiceImpl implements ClassService {
         return classRepo.findAll(spec, page).map(mapper::toClassDto);
     }
 
-    /* ─────────────────── ENROLMENT (batch) ────── */
 
     @Override
     public ClassDto mutateStudents(Long classId, BatchIdsRequest req) {
@@ -191,7 +188,6 @@ public class ClassServiceImpl implements ClassService {
         return mapper.toClassDto(entity);
     }
 
-    /* ── single-item wrappers (checkbox UX) ───── */
 
     @Override public ClassDto addStudent   (Long c, Long s){
         log.debug("Add student {} to class {}", s, c);
@@ -213,15 +209,15 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional(readOnly = true)
     public Page<ClassDto> listClasses(QueryParams qp) {
-        // 1) Build a spec that fetches any includes AND applies your filters
         Specification<ClassEntity> fetchSpec  =
                 FetchJoinSpecification.joinRelations(qp.getInclude());
         Specification<ClassEntity> filterSpec =
                 new SpecificationBuilder<ClassEntity>(qp).build();
 
-        Specification<ClassEntity> combined = fetchSpec.and(filterSpec);
+        // Add enrollments to the fetch specification
+        Specification<ClassEntity> enrollmentFetchSpec = FetchJoinSpecification.joinRelations(List.of("enrollments"));
+        Specification<ClassEntity> combined = fetchSpec.and(filterSpec).and(enrollmentFetchSpec);
 
-        // 2) Build a PageRequest with sort & pagination
         PageRequest pageReq = PageRequest.of(
                 qp.getPage(),
                 qp.getSize(),
@@ -230,7 +226,6 @@ public class ClassServiceImpl implements ClassService {
                         : Sort.by(qp.getSort())
         );
 
-        // 3) Execute and map
         return classRepo
                 .findAll(combined, pageReq)
                 .map(mapper::toClassDto);
@@ -240,14 +235,18 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public Page<ClassCardDto> listCards(QueryParams qp) {
 
+        // Add enrollments to the fetch specification
+        Specification<ClassEntity> fetchSpec = FetchJoinSpecification.joinRelations(List.of("enrollments"));
+        Specification<ClassEntity> filterSpec = new SpecificationBuilder<ClassEntity>(qp).build();
+        Specification<ClassEntity> combined = fetchSpec.and(filterSpec);
+
         Page<ClassEntity> page = classRepo.findAll(
-                new SpecificationBuilder<ClassEntity>(qp).build(),
+                combined,
                 PageRequest.of(qp.getPage(), qp.getSize(),
                         qp.getSort().isEmpty()
                                 ? Sort.by("name")
                                 : Sort.by(qp.getSort())));
 
-        /* -------- aggregate counts -------- */
         Map<Long, ClassCountRow> counts =
                 assignmentRepo.aggregateForClasses(
                                 page.getContent()
@@ -259,13 +258,14 @@ public class ClassServiceImpl implements ClassService {
                                 .toMap(ClassCountRow::getClassId,
                                         Function.identity()));
 
-        /* -------- map to DTOs; fall back to 0 -------- */
         List<ClassCardDto> cards = page.getContent().stream()
                 .map(c -> {
                     ClassCountRow row = counts.get(c.getId());
                     int teachers = row != null ? row.getTeacherCnt().intValue() : 0;
                     int courses  = row != null ? row.getCourseCnt().intValue()  : 0;
-                    int students = c.getStudents().size();     // already loaded
+                    int students = (int) c.getEnrollments().stream()
+                            .filter(e -> e.getStatus() == EnrollmentStatus.ACTIVE)
+                            .count();
                     return mapper.toCardDto(c, students, courses, teachers);
                 })
                 .toList();
@@ -296,7 +296,6 @@ public class ClassServiceImpl implements ClassService {
             return new PageImpl<>(List.of(), pageable, 0);
         }
         
-        // Convert to Page manually since repository returns List
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), classes.size());
         List<ClassEntity> pageContent = classes.subList(start, end);
@@ -314,7 +313,6 @@ public class ClassServiceImpl implements ClassService {
     public Page<ClassDto> getClassesByStudentId(Long studentId, Pageable pageable) {
         log.debug("Getting classes for student: {}", studentId);
         
-        // Get classes through enrollments
         Specification<ClassEntity> spec = (root, query, cb) -> {
             var enrollmentJoin = root.join("enrollments");
             var studentJoin = enrollmentJoin.join("student");
@@ -331,7 +329,6 @@ public class ClassServiceImpl implements ClassService {
         log.debug("Getting classes for current teacher");
         
         try {
-            // Get current teacher from security context
             UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             String email = userDetails.getUsername();
             log.debug("Current teacher email: {}", email);
@@ -343,14 +340,10 @@ public class ClassServiceImpl implements ClassService {
             return getClassesByTeacherId(teacher.getId(), pageable);
         } catch (Exception e) {
             log.error("Error getting current teacher classes: {}", e.getMessage(), e);
-            // Return empty page instead of throwing exception
             return new PageImpl<>(List.of(), pageable, 0);
         }
     }
 
-    /**
-     * Get the current authenticated user
-     */
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByEmail(email)

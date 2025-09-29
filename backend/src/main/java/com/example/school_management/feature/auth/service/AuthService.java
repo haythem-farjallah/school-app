@@ -47,9 +47,11 @@ public class AuthService {
      */
     @CacheEvict(value = "auth", key = "#req.email")
     public LoginResponse login(LoginRequest req) {
+        log.info("🔐 Login attempt for email: {}", req.getEmail());
         try {
             Authentication auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
+            log.info("✅ Authentication successful for: {}", req.getEmail());
 
                     BaseUser user = userDetailsService.findBaseUserByEmail(req.getEmail());
         
@@ -68,6 +70,7 @@ public class AuthService {
         // Return login response with password change requirement flag
         return new LoginResponse(access, refresh, userDto, user.isPasswordChangeRequired());
         } catch (BadCredentialsException ex) {
+            log.error("❌ Authentication failed for email: {} - {}", req.getEmail(), ex.getMessage());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
     }

@@ -19,6 +19,10 @@ import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
+import com.example.school_management.feature.operational.service.impl.RealTimeNotificationService;
+import com.example.school_management.feature.operational.repository.EnrollmentRepository;
+import com.example.school_management.feature.operational.entity.Enrollment;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import com.example.school_management.commons.security.FileSecurityService;
 import com.example.school_management.commons.security.FileSecurityException;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import org.springframework.security.core.userdetails.UserDetails;
@@ -42,6 +45,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Set;
 import java.util.UUID;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -57,6 +61,8 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
     private final FileSecurityService fileSecurityService;
+    private final RealTimeNotificationService realTimeNotificationService;
+    private final EnrollmentRepository enrollmentRepository;
 
     @Value("${app.file.upload.path:uploads/learning-resources}")
     private String uploadPath;
@@ -202,6 +208,13 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         
         LearningResource saved = repository.save(resource);
         
+        // Send notifications to enrolled students
+        try {
+            sendResourceUploadNotifications(saved, currentTeacher);
+        } catch (Exception e) {
+            log.warn("Failed to send resource upload notifications: {}", e.getMessage());
+        }
+        
         // Create audit event
         try {
             BaseUser currentUser = getCurrentUser();
@@ -270,6 +283,14 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         }
         
         LearningResource updated = repository.save(resource);
+        
+        // Send update notifications to enrolled students
+        try {
+            sendResourceUpdateNotifications(updated, currentTeacher);
+        } catch (Exception e) {
+            log.warn("Failed to send resource update notifications: {}", e.getMessage());
+        }
+        
         return mapper.toDto(updated);
     }
 
@@ -515,26 +536,39 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         log.info("=== INCREMENTING VIEW COUNT ===");
         log.info("Looking for filename: {}", filename);
         
-        // Debug: Let's see what URLs we have in the database
-        var allResources = repository.findAll();
-        log.info("Total resources in database: {}", allResources.size());
-        for (LearningResource res : allResources) {
-            log.info("Resource {}: URL = {}", res.getId(), res.getUrl());
+        // First, try to find by filename
+        var resourceOpt = repository.findByFilename(filename);
+        
+        // If not found, try with full URL
+        if (!resourceOpt.isPresent()) {
+            String fullUrl = "/api/v1/learning-resources/files/" + filename;
+            log.info("Trying with full URL: {}", fullUrl);
+            resourceOpt = repository.findByUrl(fullUrl);
         }
         
-        var resourceOpt = repository.findByFilename(filename);
         if (resourceOpt.isPresent()) {
             LearningResource resource = resourceOpt.get();
             Long oldCount = resource.getViewCount();
             resource.setViewCount(resource.getViewCount() + 1);
             LearningResource saved = repository.save(resource);
             repository.flush(); // Force immediate database write
-            log.info("✅ View count incremented for resource {} ({}). Old count: {}, New count: {}", 
-                saved.getId(), saved.getTitle(), oldCount, saved.getViewCount());
+            
+            // Verify the update
+            LearningResource verified = repository.findById(saved.getId()).orElse(null);
+            log.info("✅ View count incremented for resource {} ({}). Old: {}, New: {}, Verified: {}", 
+                saved.getId(), saved.getTitle(), oldCount, saved.getViewCount(), 
+                verified != null ? verified.getViewCount() : "null");
         } else {
             log.warn("❌ No resource found with filename: {}", filename);
-            log.warn("Available URLs in database:");
-            allResources.forEach(res -> log.warn("  - {}", res.getUrl()));
+            
+            // Debug: Show sample URLs in database
+            var sampleResources = repository.findAll().stream().limit(3).toList();
+            if (!sampleResources.isEmpty()) {
+                log.warn("Sample resource URLs in DB:");
+                sampleResources.forEach(res -> 
+                    log.warn("  ID={}: URL='{}'", res.getId(), res.getUrl())
+                );
+            }
         }
     }
     
@@ -544,17 +578,189 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         log.info("=== INCREMENTING DOWNLOAD COUNT ===");
         log.info("Looking for filename: {}", filename);
         
+        // First, try to find by filename
         var resourceOpt = repository.findByFilename(filename);
+        
+        // If not found, try with full URL
+        if (!resourceOpt.isPresent()) {
+            String fullUrl = "/api/v1/learning-resources/files/" + filename;
+            log.info("Trying with full URL: {}", fullUrl);
+            resourceOpt = repository.findByUrl(fullUrl);
+        }
+        
         if (resourceOpt.isPresent()) {
             LearningResource resource = resourceOpt.get();
             Long oldCount = resource.getDownloadCount();
             resource.setDownloadCount(resource.getDownloadCount() + 1);
             LearningResource saved = repository.save(resource);
             repository.flush(); // Force immediate database write
-            log.info("✅ Download count incremented for resource {} ({}). Old count: {}, New count: {}", 
-                saved.getId(), saved.getTitle(), oldCount, saved.getDownloadCount());
+            
+            // Verify the update
+            LearningResource verified = repository.findById(saved.getId()).orElse(null);
+            log.info("✅ Download count incremented for resource {} ({}). Old: {}, New: {}, Verified: {}", 
+                saved.getId(), saved.getTitle(), oldCount, saved.getDownloadCount(),
+                verified != null ? verified.getDownloadCount() : "null");
         } else {
             log.warn("❌ No resource found with filename: {}", filename);
+            
+            // Debug: Show sample URLs in database
+            var sampleResources = repository.findAll().stream().limit(3).toList();
+            if (!sampleResources.isEmpty()) {
+                log.warn("Sample resource URLs in DB:");
+                sampleResources.forEach(res -> 
+                    log.warn("  ID={}: URL='{}'", res.getId(), res.getUrl())
+                );
+            }
+        }
+    }
+
+    /**
+     * Send notifications to all students enrolled in the classes when a resource is uploaded
+     */
+    private void sendResourceUploadNotifications(LearningResource resource, Teacher teacher) {
+        try {
+            log.info("📢 Sending resource upload notifications for: {}", resource.getTitle());
+            
+            // Get all target classes
+            Set<ClassEntity> targetClasses = resource.getTargetClasses();
+            if (targetClasses == null || targetClasses.isEmpty()) {
+                log.info("No target classes found for resource: {}", resource.getTitle());
+                return;
+            }
+            
+            // Send notification for each class
+            for (ClassEntity classEntity : targetClasses) {
+                sendNotificationToClassStudents(resource, teacher, classEntity);
+            }
+            
+            log.info("✅ Resource upload notifications sent successfully");
+            
+        } catch (Exception e) {
+            log.error("❌ Failed to send resource upload notifications", e);
+        }
+    }
+    
+    /**
+     * Send notification to all students enrolled in a specific class
+     */
+    private void sendNotificationToClassStudents(LearningResource resource, Teacher teacher, ClassEntity classEntity) {
+        try {
+            // Get all active enrollments for this class
+            List<Enrollment> enrollments = enrollmentRepository.findByClassIdAndStatus(
+                classEntity.getId(), 
+                EnrollmentStatus.ACTIVE
+            );
+            
+            if (enrollments.isEmpty()) {
+                log.info("No active students found for class: {}", classEntity.getName());
+                return;
+            }
+            
+            log.info("📢 Sending notifications to {} students in class: {}", 
+                enrollments.size(), classEntity.getName());
+            
+            // Create notification message
+            String title = "New Learning Resource Available";
+            String message = String.format("Your teacher %s has uploaded a new resource: %s", 
+                teacher.getFirstName() + " " + teacher.getLastName(), 
+                resource.getTitle());
+            
+            // Send notification to each student
+            for (Enrollment enrollment : enrollments) {
+                Long studentId = enrollment.getStudent().getId();
+                
+                // Send real-time notification
+                realTimeNotificationService.notifySpecificUsers(
+                    title,
+                    message,
+                    "MEDIUM", // Priority
+                    Set.of(studentId)
+                );
+                
+                log.debug("📤 Notification sent to student ID: {} for resource: {}", 
+                    studentId, resource.getTitle());
+            }
+            
+            log.info("✅ Notifications sent to {} students in class: {}", 
+                enrollments.size(), classEntity.getName());
+            
+        } catch (Exception e) {
+            log.error("❌ Failed to send notifications to class: {}", classEntity.getName(), e);
+        }
+    }
+
+    /**
+     * Send notifications to all students enrolled in the classes when a resource is updated
+     */
+    private void sendResourceUpdateNotifications(LearningResource resource, Teacher teacher) {
+        try {
+            log.info("📢 Sending resource update notifications for: {}", resource.getTitle());
+            
+            // Get all target classes
+            Set<ClassEntity> targetClasses = resource.getTargetClasses();
+            if (targetClasses == null || targetClasses.isEmpty()) {
+                log.info("No target classes found for resource: {}", resource.getTitle());
+                return;
+            }
+            
+            // Send notification for each class
+            for (ClassEntity classEntity : targetClasses) {
+                sendUpdateNotificationToClassStudents(resource, teacher, classEntity);
+            }
+            
+            log.info("✅ Resource update notifications sent successfully");
+            
+        } catch (Exception e) {
+            log.error("❌ Failed to send resource update notifications", e);
+        }
+    }
+    
+    /**
+     * Send update notification to all students enrolled in a specific class
+     */
+    private void sendUpdateNotificationToClassStudents(LearningResource resource, Teacher teacher, ClassEntity classEntity) {
+        try {
+            // Get all active enrollments for this class
+            List<Enrollment> enrollments = enrollmentRepository.findByClassIdAndStatus(
+                classEntity.getId(), 
+                EnrollmentStatus.ACTIVE
+            );
+            
+            if (enrollments.isEmpty()) {
+                log.info("No active students found for class: {}", classEntity.getName());
+                return;
+            }
+            
+            log.info("📢 Sending update notifications to {} students in class: {}", 
+                enrollments.size(), classEntity.getName());
+            
+            // Create notification message
+            String title = "Learning Resource Updated";
+            String message = String.format("Your teacher %s has updated a resource: %s", 
+                teacher.getFirstName() + " " + teacher.getLastName(), 
+                resource.getTitle());
+            
+            // Send notification to each student
+            for (Enrollment enrollment : enrollments) {
+                Long studentId = enrollment.getStudent().getId();
+                
+                // Send real-time notification
+                realTimeNotificationService.notifySpecificUsers(
+                    title,
+                    message,
+                    "MEDIUM", // Priority
+                    Set.of(studentId)
+                );
+                
+                log.debug("📤 Update notification sent to student ID: {} for resource: {}", 
+                    studentId, resource.getTitle());
+            }
+            
+            log.info("✅ Update notifications sent to {} students in class: {}", 
+                enrollments.size(), classEntity.getName());
+            
+        } catch (Exception e) {
+            log.error("❌ Failed to send update notifications to class: {}", classEntity.getName(), e);
         }
     }
 }

@@ -72,8 +72,8 @@ public class ParentService extends AbstractUserCrudService<
         // Update the parent first using the parent class method
         Parent parent = super.patch(id, dto);
         
-        // Handle children assignment if provided
-        if (dto.getChildren() != null && !dto.getChildren().isEmpty()) {
+        // Handle children assignment - always update if children list is provided (even if empty)
+        if (dto.getChildren() != null) {
             assignChildrenToParent(parent, dto.getChildren());
         }
         
@@ -151,10 +151,11 @@ public class ParentService extends AbstractUserCrudService<
     }
     
     private void assignChildrenToParent(Parent parent, List<String> childrenEmails) {
-        log.debug("Assigning {} children to parent {}", childrenEmails.size(), parent.getId());
+        log.debug("Updating children assignment for parent {} with {} emails", parent.getId(), childrenEmails.size());
         
         Set<Student> children = new HashSet<>();
         
+        // Find all students by email - even if the list is empty
         for (String email : childrenEmails) {
             studentRepository.findByEmail(email).ifPresentOrElse(
                 student -> {
@@ -165,9 +166,8 @@ public class ParentService extends AbstractUserCrudService<
             );
         }
         
-        if (!children.isEmpty()) {
-            parent.setChildren(children);
-            log.info("Assigned {} children to parent {}", children.size(), parent.getId());
-        }
+        // Always update the children set (this clears existing children if the list is empty)
+        parent.setChildren(children);
+        log.info("Updated parent {} children assignment: {} children assigned", parent.getId(), children.size());
     }
 } 

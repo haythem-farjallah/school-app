@@ -3,6 +3,7 @@ import { InputField } from "./InputField";
 import { CheckboxField } from "./CheckboxField";
 import { ColorField } from "./ColorField";
 import { SelectField } from "./SelectField";
+import { SearchableSelectField } from "./SearchableSelectField";
 import { StudentSearchField } from "./StudentSearchField";
 
 /* -------------------- Type guards -------------------- */
@@ -11,6 +12,7 @@ const isPasswordField = (f: BaseField): f is BaseField<"password"> => f.type ===
 const isNumberField = (f: BaseField): f is BaseField<"number"> => f.type === "number";
 const isDateField = (f: BaseField): f is BaseField<"date"> => f.type === "date";
 const isSelectField = (f: BaseField): f is BaseField<"select"> => f.type === "select";
+const isSearchableSelectField = (f: BaseField): f is BaseField<"searchable-select"> => f.type === "searchable-select";
 const isCheckboxField = (f: BaseField): f is BaseField<"checkbox"> => f.type === "checkbox";
 const isColorField = (f: BaseField): f is BaseField<"color"> => f.type === "color";
 const isStudentSearchField = (f: BaseField): f is BaseField<"student-search"> => f.type === "student-search";
@@ -32,6 +34,9 @@ export const renderField = (f: BaseField): JSX.Element | null => {
   }
   if (isSelectField(f)) {
     return <SelectField key={f.name} field={f} />;
+  }
+  if (isSearchableSelectField(f)) {
+    return <SearchableSelectField key={f.name} field={f} />;
   }
   if (isCheckboxField(f)) {
     return <CheckboxField key={f.name} field={f} />;

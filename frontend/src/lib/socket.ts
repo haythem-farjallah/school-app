@@ -52,29 +52,7 @@ function onMessage(message: IMessage) {
       source: 'websocket'
     }));
     
-    // Show toast notification
-    const toastMessage = msg ? `${title}: ${msg}` : title;
-    
-    switch (severity) {
-      case 'error':
-        toast.error(toastMessage, { duration: 6000 });
-        break;
-      case 'warning':
-        toast(toastMessage, { 
-          duration: 4000,
-          icon: '⚠️'
-        });
-        break;
-      case 'success':
-        toast.success(toastMessage, { duration: 3000 });
-        break;
-      default:
-        toast(toastMessage, { 
-          duration: 3000,
-          icon: '📢'
-        });
-        break;
-    }
+    // Notifications will only appear in the bell - no toasts
     
     // Dispatch custom events for specific notification types
     if (notification.type === 'ADMIN_FEED') {

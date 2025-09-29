@@ -120,8 +120,13 @@ public class LearningResourceController {
             }
             
             // Increment download count
-            log.info("Incrementing download count for filename: {}", filename);
-            service.incrementDownloadCount(filename);
+            log.info("🔥 DOWNLOAD: About to increment download count for filename: {}", filename);
+            try {
+                service.incrementDownloadCount(filename);
+                log.info("✅ DOWNLOAD: Download count increment completed for filename: {}", filename);
+            } catch (Exception e) {
+                log.error("❌ DOWNLOAD: Failed to increment download count for filename: {}", filename, e);
+            }
             
             // Determine content type
             String contentType = determineContentType(filename);
@@ -153,8 +158,13 @@ public class LearningResourceController {
             }
             
             // Increment view count
-            log.info("Incrementing view count for filename: {}", filename);
-            service.incrementViewCount(filename);
+            log.info("🔥 PREVIEW: About to increment view count for filename: {}", filename);
+            try {
+                service.incrementViewCount(filename);
+                log.info("✅ PREVIEW: View count increment completed for filename: {}", filename);
+            } catch (Exception e) {
+                log.error("❌ PREVIEW: Failed to increment view count for filename: {}", filename, e);
+            }
             
             // Determine content type
             String contentType = determineContentType(filename);
@@ -296,6 +306,7 @@ public class LearningResourceController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", null));
     }
 
+
     @Operation(summary = "Remove target courses from a learning resource")
     @Parameter(name = "id", description = "ID of the resource", required = true)
     @DeleteMapping("/{id}/courses")
@@ -305,6 +316,15 @@ public class LearningResourceController {
             @RequestBody Set<Long> courseIds) {
         service.removeTargetCourses(id, courseIds);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", null));
+    }
+
+    @Operation(summary = "Test view count increment")
+    @PostMapping("/test-view/{filename}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
+    public ResponseEntity<ApiSuccessResponse<String>> testViewIncrement(@PathVariable String filename) {
+        log.info("🧪 TEST: Manual view count increment for filename: {}", filename);
+        service.incrementViewCount(filename);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "View count incremented for: " + filename));
     }
 
     @Operation(summary = "Add teachers to a learning resource")

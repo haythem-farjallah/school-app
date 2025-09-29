@@ -105,7 +105,9 @@ public class RateLimitingFilter implements Filter {
             requestURI.startsWith("/api/v1/announcements") ||
             requestURI.startsWith("/api/v1/resources") ||
             requestURI.startsWith("/api/v1/grades") ||
-            requestURI.startsWith("/api/v1/dashboard"))) {
+            requestURI.startsWith("/api/v1/dashboard") ||
+            requestURI.startsWith("/api/v1/learning-resources") ||
+            requestURI.startsWith("/api/v1/enrollments"))) {
             return buckets.computeIfAbsent(rateLimitKey, k -> RateLimitingConfig.createListingBucket());
         }
         

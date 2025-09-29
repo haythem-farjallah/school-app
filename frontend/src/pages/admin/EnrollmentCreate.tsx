@@ -23,10 +23,11 @@ export default function EnrollmentsCreate() {
   const createMutation = useEnrollStudent();
 
   // Fetch classes and students data for the select options
-  const { data: classesPage } = useClasses({ page: 0, size: 100 });
-  const { data: studentsPage } = useStudents({ page: 0, size: 100 });
+  const { data: classesPage } = useClasses({ page: 0, size: 200 });
+  const { data: studentsPage, isLoading: studentsLoading, error: studentsError } = useStudents({ page: 0, size: 200 });
   const classes = classesPage?.data || [];
   const students = studentsPage?.data || [];
+
 
   // Create form recipe with dynamic options
   const enrollmentRecipe: FormRecipe = React.useMemo(() => ({
@@ -38,6 +39,7 @@ export default function EnrollmentsCreate() {
           options: classes.map(cls => ({
             label: cls.name,
             value: cls.id,
+            searchableText: cls.name.toLowerCase(),
           })),
         };
       }
@@ -47,6 +49,7 @@ export default function EnrollmentsCreate() {
           options: students.map(student => ({
             label: `${student.firstName} ${student.lastName}`,
             value: student.id,
+            searchableText: `${student.firstName} ${student.lastName}`.toLowerCase(),
           })),
         };
       }
@@ -67,6 +70,35 @@ export default function EnrollmentsCreate() {
       }
     },
   }), [classes, students, createMutation, navigate]);
+
+  // Show loading state
+  if (studentsLoading) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading students...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (studentsError) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center text-red-600">
+            <p>Failed to load students: {studentsError.message}</p>
+            <p className="text-sm mt-2">Please refresh the page and try again.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="container mx-auto py-6">
@@ -152,15 +184,6 @@ export default function EnrollmentsCreate() {
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3">
-                    <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-sm">Grade Entry</p>
-                      <p className="text-xs text-gray-600">
-                        Final grades are optional and can be added later. Use scale 0-20.
-                      </p>
-                    </div>
-                  </div>
                 </div>
 
                 <Separator />

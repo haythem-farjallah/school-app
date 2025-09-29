@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Edit, Trash2, Eye, EyeOff, Download, ExternalLink, FileText, Video, Image, Volume2, Presentation, Link as LinkIcon, Settings } from "lucide-react";
+import { MoreHorizontal, Trash2, Eye, EyeOff, ExternalLink, FileText, Video, Image, Volume2, Presentation, Link as LinkIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import {
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import type { LearningResource } from "@/types/learning-resource";
 import { ResourceType } from "@/types/learning-resource";
-import { EditLearningResourceSheet } from "./learning-resource-sheet";
 
 // Resource type icon mapping
 const getResourceTypeIcon = (type: ResourceType) => {
@@ -58,11 +57,7 @@ const getResourceTypeColor = (type: ResourceType) => {
 
 export function getLearningResourceColumns(actions?: {
   onView?: (resource: LearningResource) => void;
-  onEdit?: (resource: LearningResource) => void;
   onDelete?: (resource: LearningResource) => void;
-  onDownload?: (resource: LearningResource) => void;
-  onVisibility?: (resource: LearningResource) => void;
-  onSuccess?: () => void;
 }): ColumnDef<LearningResource>[] {
   return [
     {
@@ -248,34 +243,12 @@ export function getLearningResourceColumns(actions?: {
                 <span className="sr-only">Open menu</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
+            <DropdownMenuContent align="end" className="w-[160px]">
               <DropdownMenuItem onClick={() => actions?.onView?.(resource)}>
                 <Eye className="mr-2 h-4 w-4" />
                 View Details
               </DropdownMenuItem>
-              {resource.filename && (
-                <DropdownMenuItem onClick={() => actions?.onDownload?.(resource)}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => actions?.onVisibility?.(resource)}>
-                <Settings className="mr-2 h-4 w-4" />
-                Visibility Settings
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <EditLearningResourceSheet 
-                  resource={resource} 
-                  onSuccess={() => actions?.onSuccess?.()} 
-                  trigger={
-                    <div className="flex items-center w-full cursor-pointer">
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </div>
-                  }
-                />
-              </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => actions?.onDelete?.(resource)}
                 className="text-red-600 focus:text-red-600"

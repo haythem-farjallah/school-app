@@ -128,18 +128,7 @@ export function getStaffColumns(actions?: {
           </div>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "select",
-        label: "Staff Type",
-        options: [
-          { label: "Administrative", value: "ADMINISTRATIVE" },
-          { label: "Maintenance", value: "MAINTENANCE" },
-          { label: "Security", value: "SECURITY" },
-          { label: "Librarian", value: "LIBRARIAN" },
-          { label: "Counselor", value: "COUNSELOR" },
-        ],
-      },
+      enableColumnFilter: false,
       size: 180,
     },
     {
@@ -161,21 +150,7 @@ export function getStaffColumns(actions?: {
           </div>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "select",
-        label: "Department",
-        options: [
-          { label: "Human Resources", value: "Human Resources" },
-          { label: "Finance", value: "Finance" },
-          { label: "Operations", value: "Operations" },
-          { label: "Facilities", value: "Facilities" },
-          { label: "Student Services", value: "Student Services" },
-          { label: "Academic Affairs", value: "Academic Affairs" },
-          { label: "Technology", value: "Technology" },
-          { label: "Health Services", value: "Health Services" },
-        ],
-      },
+      enableColumnFilter: false,
       size: 180,
     },
     {
@@ -202,16 +177,7 @@ export function getStaffColumns(actions?: {
           </Badge>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "select",
-        label: "Gender",
-        options: [
-          { label: "Male", value: "Male" },
-          { label: "Female", value: "Female" },
-          { label: "Other", value: "Other" },
-        ],
-      },
+      enableColumnFilter: false,
       size: 120,
     },
     {

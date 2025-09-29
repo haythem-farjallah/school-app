@@ -27,20 +27,16 @@ export function AddStaffSheet({ onSuccess }: AddStaffSheetProps) {
 
   const addStaffMutation = useMutationApi<Staff, CreateStaffRequest>(
     async (data) => {
-      console.log("➕ AddStaffSheet - Creating staff:", data);
       const response = await http.post<{ status: string; data: Staff }>("/admin/staff", data)
-      console.log("➕ AddStaffSheet - Response:", response.data);
       return response.data.data
     },
     {
       onSuccess: (data) => {
-        console.log("✅ AddStaffSheet - Staff created successfully:", data);
         toast.success("Staff member added successfully!")
         setOpen(false)
         onSuccess?.()
       },
       onError: (error: unknown) => {
-        console.error("❌ AddStaffSheet - Failed to create staff:", error);
         const message = error && typeof error === 'object' && 'response' in error && 
           error.response && typeof error.response === 'object' && 'data' in error.response &&
           error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
@@ -54,7 +50,6 @@ export function AddStaffSheet({ onSuccess }: AddStaffSheetProps) {
     schema: staffSchema,
     fields: staffFields,
     onSubmit: async (values: unknown) => {
-      console.log("➕ AddStaffSheet - Form submitted with values:", values);
       const formValues = values as StaffValues;
       const staffData: CreateStaffRequest = {
         profile: {
@@ -70,7 +65,6 @@ export function AddStaffSheet({ onSuccess }: AddStaffSheetProps) {
         staffType: formValues.staffType,
         department: formValues.department,
       };
-      console.log("➕ AddStaffSheet - Transformed staff data:", staffData);
       await addStaffMutation.mutateAsync(staffData);
     },
   }
@@ -134,20 +128,30 @@ export function EditStaffSheet({ staff, trigger, onSuccess }: EditStaffSheetProp
 
   const editStaffMutation = useMutationApi<Staff, StaffValues>(
     async (data) => {
-      console.log("✏️ EditStaffSheet - Updating staff:", data);
-      const response = await http.patch<{ status: string; data: Staff }>(`/admin/staff/${staff.id}`, data)
-      console.log("✏️ EditStaffSheet - Response:", response.data);
+      const formValues = data as StaffValues;
+      const updateData = {
+        profile: {
+          firstName: formValues.firstName,
+          lastName: formValues.lastName,
+          email: formValues.email,
+          telephone: formValues.telephone || "",
+          birthday: formValues.birthday || "",
+          gender: (formValues.gender as 'M' | 'F' | 'O') || 'M',
+          address: formValues.address || "",
+        },
+        staffType: formValues.staffType,
+        department: formValues.department,
+      };
+      const response = await http.patch<{ status: string; data: Staff }>(`/admin/staff/${staff.id}`, updateData)
       return response.data.data
     },
     {
       onSuccess: (data) => {
-        console.log("✅ EditStaffSheet - Staff updated successfully:", data);
         toast.success("Staff member updated successfully!")
         setOpen(false)
         onSuccess?.()
       },
       onError: (error: unknown) => {
-        console.error("❌ EditStaffSheet - Failed to update staff:", error);
         const message = error && typeof error === 'object' && 'response' in error && 
           error.response && typeof error.response === 'object' && 'data' in error.response &&
           error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
@@ -161,7 +165,6 @@ export function EditStaffSheet({ staff, trigger, onSuccess }: EditStaffSheetProp
     schema: staffSchema,
     fields: staffFields,
     onSubmit: async (values: unknown) => {
-      console.log("✏️ EditStaffSheet - Form submitted with values:", values);
       await editStaffMutation.mutateAsync(values as StaffValues)
     },
   }

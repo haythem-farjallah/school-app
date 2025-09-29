@@ -6,15 +6,11 @@ import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Library, BookOpen, TrendingUp, Upload, Eye, Settings } from "lucide-react";
+import { Library, BookOpen, TrendingUp } from "lucide-react";
 
-import { useLearningResources, useDeleteLearningResource, useDownloadResource } from "../hooks/use-learning-resources";
+import { useLearningResources, useDeleteLearningResource } from "../hooks/use-learning-resources";
 import { getLearningResourceColumns } from "./learning-resource-columns";
-import { AddLearningResourceSheet } from "./learning-resource-sheet";
 import { ResourceViewDialog } from "./resource-view-dialog";
-import { ResourceUploadDialog } from "./resource-upload-dialog";
-import { ResourceVisibilityDialog } from "./resource-visibility-dialog";
 import type { LearningResource } from "@/types/learning-resource";
 
 export function LearningResourcesTable() {
@@ -24,8 +20,6 @@ export function LearningResourcesTable() {
 
   // Dialog states
   const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
-  const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
-  const [visibilityDialogOpen, setVisibilityDialogOpen] = React.useState(false);
   const [selectedResource, setSelectedResource] = React.useState<LearningResource | null>(null);
 
   const { data: pageData, isLoading, error, refetch } = useLearningResources({ size: pageSize });
@@ -35,16 +29,10 @@ export function LearningResourcesTable() {
   const totalPages = pageData?.totalPages || 0;
 
   const deleteMutation = useDeleteLearningResource();
-  const downloadMutation = useDownloadResource();
 
   const handleView = React.useCallback((resource: LearningResource) => {
     setSelectedResource(resource);
     setViewDialogOpen(true);
-  }, []);
-
-  const handleEdit = React.useCallback((resource: LearningResource) => {
-    // Edit logic is handled by the EditLearningResourceSheet component
-    console.log(`Editing resource: ${resource.title}`);
   }, []);
 
   const handleDelete = React.useCallback(async (resource: LearningResource) => {
@@ -59,43 +47,12 @@ export function LearningResourcesTable() {
     }
   }, [deleteMutation, refetch]);
 
-  const handleVisibility = React.useCallback((resource: LearningResource) => {
-    setSelectedResource(resource);
-    setVisibilityDialogOpen(true);
-  }, []);
-
-  const handleDownload = React.useCallback(async (resource: LearningResource) => {
-    if (!resource.filename) {
-      toast.error("No file available for download");
-      return;
-    }
-
-    try {
-      const blob = await downloadMutation.mutateAsync(resource.filename);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = resource.filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success(`Downloaded: ${resource.title}`);
-    } catch {
-      toast.error("Failed to download resource");
-    }
-  }, [downloadMutation]);
-
   const columns = React.useMemo(
     () => getLearningResourceColumns({
       onView: handleView,
-      onEdit: handleEdit,
       onDelete: handleDelete,
-      onDownload: handleDownload,
-      onVisibility: handleVisibility,
-      onSuccess: () => refetch(),
     }),
-    [handleView, handleEdit, handleDelete, handleDownload, handleVisibility, refetch]
+    [handleView, handleDelete]
   );
 
   const { table } = useDataTable({
@@ -147,71 +104,61 @@ export function LearningResourcesTable() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <Card className="border-indigo-200/60 bg-gradient-to-br from-indigo-50/80 via-purple-50/40 to-pink-50/20 shadow-xl backdrop-blur-sm">
+      <Card className="border-blue-200/50 bg-gradient-to-br from-blue-50/90 via-slate-50/60 to-white shadow-lg">
         <CardHeader className="pb-6">
-                      <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <CardTitle className="text-3xl font-bold bg-gradient-to-r from-indigo-900 via-purple-800 to-pink-700 bg-clip-text text-transparent">
-                  Learning Resources
-                </CardTitle>
-                <CardDescription className="text-indigo-700/80 text-lg">
-                  Manage educational content, videos, documents, and learning materials
-                </CardDescription>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  onClick={() => setUploadDialogOpen(true)}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Files
-                </Button>
-                <AddLearningResourceSheet onSuccess={() => refetch()} />
-              </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <CardTitle className="text-3xl font-bold text-slate-800">
+                Learning Resources
+              </CardTitle>
+              <CardDescription className="text-slate-600 text-lg">
+                Manage educational content, videos, documents, and learning materials
+              </CardDescription>
             </div>
+          </div>
         </CardHeader>
       </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-indigo-200/60 bg-gradient-to-br from-indigo-50/60 to-purple-50/30 hover:shadow-lg transition-shadow duration-300">
+        <Card className="border-slate-200/60 bg-white hover:shadow-md transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-semibold text-indigo-900">Total Resources</CardTitle>
-            <Library className="h-6 w-6 text-indigo-600" />
+            <CardTitle className="text-lg font-semibold text-slate-700">Total Resources</CardTitle>
+            <Library className="h-6 w-6 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-indigo-700">{totalElements}</div>
-            <p className="text-indigo-600/70 text-sm mt-1">Learning materials available</p>
+            <div className="text-3xl font-bold text-slate-800">{totalElements}</div>
+            <p className="text-slate-500 text-sm mt-1">Learning materials available</p>
           </CardContent>
         </Card>
         
-        <Card className="border-purple-200/60 bg-gradient-to-br from-purple-50/60 to-pink-50/30 hover:shadow-lg transition-shadow duration-300">
+        <Card className="border-slate-200/60 bg-white hover:shadow-md transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-semibold text-purple-900">Selected</CardTitle>
-            <BookOpen className="h-6 w-6 text-purple-600" />
+            <CardTitle className="text-lg font-semibold text-slate-700">Selected</CardTitle>
+            <BookOpen className="h-6 w-6 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-purple-700">
+            <div className="text-3xl font-bold text-slate-800">
               {table.getFilteredSelectedRowModel().rows.length}
             </div>
-            <p className="text-purple-600/70 text-sm mt-1">Resources selected</p>
+            <p className="text-slate-500 text-sm mt-1">Resources selected</p>
           </CardContent>
         </Card>
         
-        <Card className="border-pink-200/60 bg-gradient-to-br from-pink-50/60 to-rose-50/30 hover:shadow-lg transition-shadow duration-300">
+        <Card className="border-slate-200/60 bg-white hover:shadow-md transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-semibold text-pink-900">Total Pages</CardTitle>
-            <TrendingUp className="h-6 w-6 text-pink-600" />
+            <CardTitle className="text-lg font-semibold text-slate-700">Total Pages</CardTitle>
+            <TrendingUp className="h-6 w-6 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-pink-700">{totalPages}</div>
-            <p className="text-pink-600/70 text-sm mt-1">Pages of data</p>
+            <div className="text-3xl font-bold text-slate-800">{totalPages}</div>
+            <p className="text-slate-500 text-sm mt-1">Pages of data</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Table */}
-      <Card className="border-slate-200/60 shadow-xl bg-white/95 backdrop-blur-sm">
+      <Card className="border-slate-200/60 shadow-lg bg-white">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-6">
@@ -235,26 +182,7 @@ export function LearningResourcesTable() {
         resource={selectedResource}
         open={viewDialogOpen}
         onOpenChange={setViewDialogOpen}
-        onDownload={handleDownload}
-        onEdit={handleEdit}
         onDelete={handleDelete}
-      />
-
-      <ResourceUploadDialog
-        open={uploadDialogOpen}
-        onOpenChange={setUploadDialogOpen}
-        onSuccess={() => refetch()}
-      />
-
-      <ResourceVisibilityDialog
-        resource={selectedResource}
-        open={visibilityDialogOpen}
-        onOpenChange={setVisibilityDialogOpen}
-        onSave={async (resourceId, settings) => {
-          // TODO: Implement visibility settings save
-          console.log('Saving visibility settings:', resourceId, settings);
-          toast.success("Visibility settings updated");
-        }}
       />
     </div>
   );

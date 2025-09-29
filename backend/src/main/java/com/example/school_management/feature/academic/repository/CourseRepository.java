@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecificationExecutor<Course> {
     boolean existsByNameIgnoreCase(String name);
+    long countByCodeLike(String codePattern);
 }

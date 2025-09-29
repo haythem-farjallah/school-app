@@ -120,12 +120,12 @@ public class EnrollmentController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("Student enrollments retrieved successfully", dto));
     }
 
-    @GetMapping("/class/{classId}")
+    @GetMapping("/by-class/{classId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
     @Operation(summary = "Get all enrollments for a class")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getClassEnrollments(
             @PathVariable Long classId,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 100) Pageable pageable) {
         log.debug("Fetching enrollments for class {}", classId);
         
         Page<EnrollmentDto> enrollments = enrollmentService.getClassEnrollments(classId, pageable);
@@ -260,4 +260,5 @@ public class EnrollmentController {
             @NotNull Long classId,
             @NotEmpty List<Long> studentIds
     ) {}
+
 } 

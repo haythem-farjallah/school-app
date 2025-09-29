@@ -148,13 +148,6 @@ const CoursesCreate = () => {
                     <p className="text-sm text-slate-600">Define how many hours per week this course will be taught</p>
                   </div>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <h4 className="font-semibold text-slate-900">Teacher Assignment</h4>
-                    <p className="text-sm text-slate-600">Assign a qualified teacher who will be responsible for this course</p>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>

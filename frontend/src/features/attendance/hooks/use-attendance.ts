@@ -10,6 +10,7 @@ import type {
   AttendanceResponse,
   ClassAttendanceSummary
 } from "@/types/attendance";
+import { AttendanceStatus, UserType } from "@/types/attendance";
 
 const ATTENDANCE_KEY = "attendance";
 
@@ -154,7 +155,7 @@ export function useCreateAttendance() {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
       // Don't show toast here as components handle it
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Failed to record attendance:', error);
     },
   });
@@ -179,7 +180,7 @@ export function useUpdateAttendance() {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
       // Don't show toast here as components handle it
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Failed to update attendance:', error);
     },
   });
@@ -197,7 +198,7 @@ export function useDeleteAttendance() {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
       // Don't show toast here as components handle it
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Failed to delete attendance:', error);
     },
   });
@@ -211,14 +212,14 @@ export function useBulkMarkAttendance() {
     mutationFn: async (data: BulkAttendanceRequest): Promise<void> => {
       await http.post("/v1/attendance/bulk", data);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
       queryClient.invalidateQueries({ 
-        queryKey: [ATTENDANCE_KEY, "class", variables.classId] 
+        queryKey: [ATTENDANCE_KEY, "class"] 
       });
-      toast.success(`Attendance marked for ${variables.attendances.length} students`);
+      toast.success(`Attendance marked successfully`);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(`Failed to mark attendance: ${error.message}`);
     },
   });
@@ -244,14 +245,14 @@ export function useCopyPreviousAttendance() {
         toDate,
       });
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
       queryClient.invalidateQueries({ 
-        queryKey: [ATTENDANCE_KEY, "class", variables.classId] 
+        queryKey: [ATTENDANCE_KEY, "class"] 
       });
       toast.success("Attendance copied from previous day");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(`Failed to copy attendance: ${error.message}`);
     },
   });
@@ -267,8 +268,25 @@ export function useTeacherTodaySchedule(teacherId: number, date?: string) {
     queryKey: [ATTENDANCE_KEY, "teacher-today", teacherId, targetDate],
     queryFn: async (): Promise<Attendance[]> => {
       try {
-        const response = await http.get(`/v1/attendance/teacher/${teacherId}/today?date=${targetDate}`);
-        return response.data?.data || [];
+        // Get teacher's timetable slots for today
+        const timetableResponse = await http.get(`/v1/timetables/teacher/${teacherId}`);
+        const slots = timetableResponse.data?.data || [];
+        
+        // Filter slots for today's day of week
+        const today = new Date(targetDate);
+        const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+        const todaySlots = slots.filter((slot: { dayOfWeek: string }) => slot.dayOfWeek === dayOfWeek);
+        
+        return todaySlots.map((slot: { id: number }) => ({
+          id: slot.id,
+          userId: teacherId,
+          timetableSlotId: slot.id,
+          date: targetDate,
+          status: AttendanceStatus.PRESENT,
+          userType: UserType.TEACHER,
+          remarks: '',
+          excuse: ''
+        }));
       } catch (error) {
         console.error('Error fetching teacher today schedule:', error);
         return [];
@@ -286,8 +304,9 @@ export function useTeacherAbsentStudents(teacherId: number, date?: string) {
     queryKey: [ATTENDANCE_KEY, "teacher-absent", teacherId, targetDate],
     queryFn: async (): Promise<Attendance[]> => {
       try {
-        const response = await http.get(`/v1/attendance/teacher/${teacherId}/absent-students?date=${targetDate}`);
-        return response.data?.data || [];
+        // For now, return empty array - this would need proper implementation
+        // based on actual attendance records
+        return [];
       } catch (error) {
         console.error('Error fetching teacher absent students:', error);
         return [];
@@ -302,8 +321,39 @@ export function useTeacherWeeklySummary(teacherId: number, startOfWeek: string) 
   return useQuery({
     queryKey: [ATTENDANCE_KEY, "teacher-weekly", teacherId, startOfWeek],
     queryFn: async (): Promise<Record<string, Attendance[]>> => {
-      const response = await http.get(`/v1/attendance/teacher/${teacherId}/weekly-summary?startOfWeek=${startOfWeek}`);
-      return response.data?.data || {};
+      try {
+        // Get teacher's timetable for the week
+        const timetableResponse = await http.get(`/v1/timetables/teacher/${teacherId}`);
+        const slots = timetableResponse.data?.data || [];
+        
+        // Group slots by date (simplified implementation)
+        const weeklyData: Record<string, Attendance[]> = {};
+        const startDate = new Date(startOfWeek);
+        
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + i);
+          const dateStr = date.toISOString().split('T')[0];
+          const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+          
+        const daySlots = slots.filter((slot: { dayOfWeek: string }) => slot.dayOfWeek === dayOfWeek);
+        weeklyData[dateStr] = daySlots.map((slot: { id: number }) => ({
+            id: slot.id,
+            userId: teacherId,
+            timetableSlotId: slot.id,
+            date: dateStr,
+            status: AttendanceStatus.PRESENT,
+            userType: UserType.TEACHER,
+            remarks: '',
+            excuse: ''
+          }));
+        }
+        
+        return weeklyData;
+      } catch (error) {
+        console.error('Error fetching teacher weekly summary:', error);
+        return {};
+      }
     },
     enabled: !!teacherId && !!startOfWeek,
   });
@@ -328,21 +378,100 @@ export function useStudentsForSlot(slotId: number, date?: string) {
   });
 }
 
-// Get students for a class (simple list)
+// Get students for a class (simple list) - uses enrollment system
 export function useStudentsForClass(classId: number) {
   return useQuery({
     queryKey: [ATTENDANCE_KEY, "class-students", classId],
     queryFn: async (): Promise<Attendance[]> => {
+      if (!classId || classId <= 0) {
+        console.log('❌ Invalid classId:', classId);
+        return [];
+      }
+
+      console.log('🚀 SIMPLE CALL: Getting students for class', classId);
+      
       try {
-        const response = await http.get(`/v1/attendance/class/${classId}/students-simple`);
-        return response.data?.data || [];
-      } catch (error) {
-        console.error('Error fetching students for class:', classId, error);
-        throw error; // Let React Query handle the error
+        const url = `/v1/attendance/class/${classId}/students-simple`;
+        console.log('📞 Calling:', url);
+        
+        const response = await http.get(url);
+        
+        console.log('📥 Raw response:', response);
+        
+        // The HTTP interceptor unwraps res.data, so response IS the unwrapped data
+        // Backend sends: {success: true, data: [students]} 
+        // HTTP interceptor gives us: {success: true, data: [students]}
+        // So we need response.data for the actual students array
+        
+        let students = [];
+        
+        if (response && response.data && Array.isArray(response.data)) {
+          students = response.data;
+          console.log('✅ SUCCESS: Found', students.length, 'students in response.data');
+        } else if (Array.isArray(response)) {
+          students = response;
+          console.log('✅ SUCCESS: Response is direct array with', students.length, 'students');
+        } else {
+          console.log('⚠️ Unexpected response structure');
+          console.log('⚠️ Response type:', typeof response);
+          console.log('⚠️ Response:', response);
+          students = [];
+        }
+        
+        console.log('👥 FINAL STUDENTS:', students);
+        return students;
+      } catch (error: any) {
+        console.error('❌ API ERROR:', error);
+        console.error('❌ Error status:', error?.response?.status);
+        console.error('❌ Error data:', error?.response?.data);
+        return [];
       }
     },
     enabled: !!classId && classId > 0,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // 30 seconds for testing
+    retry: false, // Don't retry for easier debugging
+  });
+}
+
+// Get enrollments for a class (to verify enrollment system)
+export function useClassEnrollments(classId: number) {
+  return useQuery({
+    queryKey: ["enrollments", "class", classId],
+    queryFn: async () => {
+      try {
+        console.log('🔍 Fetching enrollments for class:', classId);
+        const response = await http.get(`/v1/enrollments/by-class/${classId}?size=100`);
+        const enrollments = response.data?.data?.content || [];
+        console.log('✅ Found', enrollments.length, 'enrollments for class', classId);
+        return enrollments;
+      } catch (error) {
+        console.error('❌ Error fetching enrollments for class:', classId, error);
+        return [];
+      }
+    },
+    enabled: !!classId && classId > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+// Debug: Get attendance service debug info for a class
+export function useAttendanceDebug(classId: number) {
+  return useQuery({
+    queryKey: ["attendance-debug", "class", classId],
+    queryFn: async () => {
+      try {
+        console.log('🔧 Fetching attendance debug info for class:', classId);
+        const response = await http.get(`/v1/attendance/debug/class/${classId}/enrollments`);
+        const debugInfo = response.data?.data || {};
+        console.log('🔧 Debug info for class', classId, ':', debugInfo);
+        return debugInfo;
+      } catch (error) {
+        console.error('❌ Error fetching debug info for class:', classId, error);
+        return { error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    },
+    enabled: !!classId && classId > 0,
+    staleTime: 30 * 1000, // 30 seconds (short cache for debugging)
   });
 }
 
@@ -396,14 +525,14 @@ export function useMarkAttendanceForSlot() {
       const response = await http.post(`/v1/attendance/slot/${slotId}/mark?date=${targetDate}`, attendanceList);
       return response.data?.data || [];
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
       queryClient.invalidateQueries({ 
-        queryKey: [ATTENDANCE_KEY, "slot-students", variables.slotId] 
+        queryKey: [ATTENDANCE_KEY, "slot-students"] 
       });
       // Don't show toast here as components handle it
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Failed to mark attendance:', error);
     },
   });
@@ -417,24 +546,36 @@ export function useMarkAttendanceForClass() {
     mutationFn: async ({ 
       classId, 
       date, 
+      time,
+      course,
+      teacherId,
       attendanceList 
     }: { 
       classId: number; 
       date?: string; 
+      time?: string;
+      course?: string;
+      teacherId?: number;
       attendanceList: CreateAttendanceRequest[] 
     }): Promise<Attendance[]> => {
       const targetDate = date || new Date().toISOString().split('T')[0];
-      const response = await http.post(`/v1/attendance/class/${classId}/mark?date=${targetDate}`, attendanceList);
+      const payload = {
+        attendanceList,
+        time,
+        course,
+        teacherId
+      };
+      const response = await http.post(`/v1/attendance/class/${classId}/mark?date=${targetDate}`, payload);
       return response.data?.data || [];
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
       queryClient.invalidateQueries({ 
-        queryKey: [ATTENDANCE_KEY, "class-students", variables.classId] 
+        queryKey: [ATTENDANCE_KEY, "class-students"]
       });
       // Don't show toast here as components handle it
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Failed to mark attendance:', error);
     },
   });

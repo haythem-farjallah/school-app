@@ -49,17 +49,14 @@ export function StudentsTable() {
   const bulkImportMutation = useBulkImportStudents();
 
   const handleView = React.useCallback((student: Student) => {
-    console.log("👁️ StudentsTable - Viewing student:", student);
     navigate(`${basePath}/students/view/${student.id}`);
   }, [navigate, basePath]);
 
   const handleEdit = React.useCallback((student: Student) => {
-    console.log("✏️ StudentsTable - Editing student:", student);
     // Edit logic is now handled by the EditStudentSheet component
   }, []);
 
   const handleDelete = React.useCallback((student: Student) => {
-    console.log("🗑️ StudentsTable - Deleting student:", student);
     setStudentToDelete(student);
     setDeleteDialogOpen(true);
   }, []);
@@ -159,8 +156,6 @@ export function StudentsTable() {
       firstName: "firstNameLike",
       lastName: "lastNameLike",
       email: "emailLike",
-      gradeLevel: "gradeLevel", // same name
-      enrollmentYear: "enrollmentYear", // same name
     };
 
     const params: Record<string, unknown> = {};
@@ -199,7 +194,6 @@ export function StudentsTable() {
   });
 
   if (error) {
-    console.error("❌ StudentsTable - Error loading students:", error);
     return (
       <Card className="border-red-200 shadow-lg">
         <CardContent className="pt-6">

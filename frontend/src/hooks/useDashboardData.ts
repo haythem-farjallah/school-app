@@ -269,7 +269,12 @@ export function useNotifications(userId?: number) {
         throw new Error("User ID is required");
       }
 
-      const response = await http.get(`/v1/notifications/user/${targetUserId}`);
+      const response = await http.get(`/notifications/v1/notifications`, {
+        params: { 
+          page: 0,
+          size: 50
+        }
+      });
       return response.data;
     },
     enabled: !!targetUserId,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,7 +73,7 @@ const LearningSpace = () => {
   // Get classes data
   const { data: classesData } = usePaginated(
     isStudent 
-      ? '/v1/students/me/classes'
+      ? `/v1/enrollments/student/${user?.id}`  // Use enrollments endpoint for students
       : isTeacher 
       ? '/v1/classes/teacher/me'
       : '/v1/classes',
@@ -81,19 +81,66 @@ const LearningSpace = () => {
     50
   );
 
-  // Add a refresh trigger to force cache invalidation
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  
-  // Get learning resources with filters
-  const resourcesQuery = useLearningResources({
-    size: 20,
-    search: searchQuery || undefined,
-    classId: selectedClass || undefined,
-    _refresh: refreshTrigger, // Force cache invalidation when this changes
-  });
+  // Get all classes for mapping class names to IDs
+  const { data: allClassesData } = usePaginated(
+    '/v1/classes',
+    "all-classes",
+    100
+  );
 
-  const myClasses = classesData?.data || [];
-  const classResources = resourcesQuery.data?.data || [];
+  // Transform enrollment data to class data for students
+  const myClasses = React.useMemo(() => {
+    if (isStudent) {
+      return ((classesData?.data || []) as any[]).map((enrollment: any) => {
+        // Find the class ID by matching class name from all classes
+        const matchingClass = ((allClassesData?.data || []) as any[]).find((cls: any) => 
+          cls.name === enrollment.className
+        );
+        return {
+          id: matchingClass?.id || null,
+          name: enrollment.className,
+          level: matchingClass?.level || null
+        };
+      }).filter((cls: any) => cls.id !== null); // Filter out classes without ID
+    }
+    return (classesData?.data || []) as any[];
+  }, [isStudent, classesData?.data, allClassesData?.data]);
+
+  // For students, automatically set selectedClass to their enrolled class
+  const studentClassId = isStudent && myClasses.length > 0 ? (myClasses[0] as any).id : null;
+  
+  // Debug logging for students
+  if (isStudent) {
+    console.log('🎓 Student Learning Space Debug:', {
+      userId: user?.id,
+      enrollmentData: classesData?.data,
+      allClassesData: allClassesData?.data,
+      myClasses,
+      studentClassId,
+      effectiveClassId: studentClassId
+    });
+  }
+
+  // Get learning resources with filters
+  // For students, always filter by their enrolled class
+  const effectiveClassId = isStudent ? studentClassId : selectedClass;
+  
+  const resourcesQuery = useLearningResources({
+    size: 100,
+    search: searchQuery || undefined,
+    classId: effectiveClassId || undefined,
+  });
+  
+  const classResources = React.useMemo(() => {
+    const resources = resourcesQuery.data?.data || [];
+    console.log('🔍 Frontend received resources:', resources.map(r => ({
+      id: r.id,
+      title: r.title,
+      viewCount: r.viewCount,
+      downloadCount: r.downloadCount
+    })));
+    return resources;
+  }, [resourcesQuery.data?.data]);
 
   // Download hook
   // Download and preview mutations
@@ -113,12 +160,20 @@ const LearningSpace = () => {
     isPublic: true
   });
 
-  // No need for frontend filtering - backend already filters by classId
-  // Only filter by search query since backend handles class filtering
+  // Frontend filtering - for students, only show resources that include their class
   const filteredResources = classResources.filter((resource: ClassResource) => {
     const matchesSearch = searchQuery === '' || 
                          resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          resource.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // For students, only show resources that include their class in the tags
+    if (isStudent && studentClassId) {
+      // Show resources that include the student's class (can have other classes too)
+      const includesStudentClass = resource.classIds && 
+                                  resource.classIds.includes(studentClassId);
+      return matchesSearch && includesStudentClass;
+    }
+    
     return matchesSearch;
   });
 
@@ -133,141 +188,121 @@ const LearningSpace = () => {
     if (!resource.classIds || resource.classIds.length === 0) {
       return ['All Classes'];
     }
+    
+    // Always show all classes the resource belongs to (don't change the tags)
     return resource.classIds.map(classId => getClassNameById(classId));
   };
+
+  // Debug logging for API call (after function definitions)
+  React.useEffect(() => {
+    if (isStudent && classResources.length > 0) {
+      console.log('📚 Learning Resources Debug:', {
+        classId: effectiveClassId,
+        studentClassId,
+        totalResources: classResources.length,
+        filteredResources: filteredResources.length
+      });
+      
+      // Debug each resource's class associations and filtering
+      classResources.forEach((resource: any) => {
+        const includesStudentClass = resource.classIds && 
+                                    resource.classIds.includes(studentClassId);
+        console.log(`📋 Resource "${resource.title}":`, {
+          id: resource.id,
+          originalClassIds: resource.classIds,
+          classCount: resource.classIds?.length || 0,
+          includesStudentClass,
+          willShow: includesStudentClass
+        });
+      });
+    }
+  }, [isStudent, classResources, filteredResources, studentClassId, effectiveClassId]);
 
   // Handle upload button click
   const handleUploadClick = () => {
     navigate('/teacher/upload-resource');
   };
 
+  // Handle open - works for both students and teachers
+  const handleOpen = async (resource: ClassResource) => {
+    if (!resource.url) {
+      toast.error("No file available");
+      return;
+    }
+
+    try {
+      const filename = resource.url.split('/').pop();
+      if (!filename) {
+        toast.error("Invalid file URL");
+        return;
+      }
+
+      console.log(`🔥 Opening resource: ${resource.title}, current view count: ${resource.viewCount}`);
+      
+      // Use preview endpoint to increment view count and get file
+      const blob = await previewMutation.mutateAsync(filename);
+      
+      console.log(`✅ Preview API call completed for: ${filename}`);
+      
+      // Open the file in new tab
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      
+      // Clean up
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 5000);
+      
+      // Force immediate refresh to show updated view count
+      resourcesQuery.refetch();
+      
+    } catch (error) {
+      console.error('Open error:', error);
+      toast.error("Failed to open file");
+    }
+  };
+
   // Handle download
   const handleDownload = async (resource: ClassResource) => {
+    console.log(`💾 Downloading resource: ${resource.title}, current download count: ${resource.downloadCount}`);
+    
     if (!resource.url) {
       toast.error("No file available for download");
       return;
     }
 
     try {
-      // Extract filename from URL
       const filename = resource.url.split('/').pop();
       if (!filename) {
         toast.error("Invalid file URL");
         return;
       }
 
-      console.log('Download Debug:', {
-        resourceUrl: resource.url,
-        filename,
-        downloadEndpoint: `/v1/learning-resources/files/${filename}`
-      });
-
-      // Show loading toast
-      const loadingToast = toast.loading("Downloading file...");
-
-      try {
-        const blob = await downloadMutation.mutateAsync(filename);
-        
-        console.log('Download blob debug:', {
-          blob,
-          blobType: typeof blob,
-          blobSize: blob?.size,
-          blobConstructor: blob?.constructor?.name
-        });
-        
-        // Ensure we have a valid blob
-        if (!blob || !(blob instanceof Blob)) {
-          throw new Error('Invalid blob received from server');
-        }
-        
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        toast.success(`Downloaded: ${resource.title}`);
-        // Wait a bit for backend to process the increment, then refetch
-        setTimeout(() => {
-          setRefreshTrigger(prev => prev + 1); // Force cache invalidation
-          resourcesQuery.refetch();
-        }, 1000);
-      } finally {
-        toast.dismiss(loadingToast);
-      }
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error("Failed to download file. Make sure the backend server is running.");
-    }
-  };
-
-  // Handle preview
-  const handlePreview = async (resource: ClassResource) => {
-    if (!resource.url) {
-      toast.error("No file available for preview");
-      return;
-    }
-
-    try {
-      // Extract filename from URL
-      const filename = resource.url.split('/').pop();
-      if (!filename) {
-        toast.error("Invalid file URL");
-        return;
-      }
-
-      // Show loading toast
-      const loadingToast = toast.loading("Loading preview...");
-
-      try {
-        // Preview the file as blob using authenticated request (increments view count)
-        const blob = await previewMutation.mutateAsync(filename);
-        
-        console.log('Preview blob debug:', {
-          blob,
-          blobType: typeof blob,
-          blobSize: blob?.size,
-          blobConstructor: blob?.constructor?.name,
-          isBlob: blob instanceof Blob
-        });
-        
-        // Ensure we have a valid blob
-        if (!blob || !(blob instanceof Blob)) {
-          console.error('Invalid blob received:', blob);
-          throw new Error(`Invalid blob received from server. Got: ${typeof blob}`);
-        }
-        
-        // Create a blob URL for preview
-        const blobUrl = window.URL.createObjectURL(blob);
-        
-        // Open the blob URL in a new tab
-        const newWindow = window.open(blobUrl, '_blank');
-        
-        if (!newWindow) {
-          toast.error("Please allow popups to preview files");
-        } else {
-          toast.success("Preview opened in new tab");
-          // Wait a bit for backend to process the increment, then refetch
-          setTimeout(() => {
-            setRefreshTrigger(prev => prev + 1); // Force cache invalidation
-            resourcesQuery.refetch();
-          }, 1000);
-        }
-        
-        // Clean up the blob URL after a delay to allow the browser to load it
-        setTimeout(() => {
-          window.URL.revokeObjectURL(blobUrl);
-        }, 5000);
-        
-      } finally {
-        toast.dismiss(loadingToast);
-      }
+      console.log(`📁 Calling download endpoint: /v1/learning-resources/files/${filename}`);
+      
+      // Reset mutation state before calling to ensure it can be called multiple times
+      downloadMutation.reset();
+      
+      const blob = await downloadMutation.mutateAsync(filename);
+      
+      console.log(`✅ Download API call completed for: ${filename}`);
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success("File downloaded");
+      // Force immediate refresh to show updated download count
+      console.log('🔄 Refreshing data to get updated download count...');
+      await resourcesQuery.refetch();
+      console.log('✅ Data refreshed after download');
       
     } catch (error) {
-      console.error('Preview error:', error);
-      toast.error("Failed to preview file. Make sure the backend server is running.");
+      console.error('Download error:', error);
+      toast.error("Failed to download file");
     }
   };
 
@@ -280,7 +315,6 @@ const LearningSpace = () => {
     try {
       await deleteMutation.mutateAsync(resource.id);
       toast.success(`Resource "${resource.title}" deleted successfully`);
-      setRefreshTrigger(prev => prev + 1);
       resourcesQuery.refetch();
     } catch (error) {
       console.error('Delete error:', error);
@@ -310,7 +344,6 @@ const LearningSpace = () => {
       });
       toast.success(`Resource "${editForm.title}" updated successfully`);
       setEditingResource(null);
-      setRefreshTrigger(prev => prev + 1);
       resourcesQuery.refetch();
     } catch (error) {
       console.error('Update error:', error);
@@ -319,24 +352,24 @@ const LearningSpace = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+    <div className="min-h-screen bg-gray-50">
       <Helmet>
-        <title>{isStudent ? "My Learning Space" : "Learning Space"} - School Management System</title>
+        <title>{isStudent ? "My Learning Space" : "Learning Resources"} - School Management System</title>
         <meta name="description" content="Access learning resources, assignments, and course materials" />
       </Helmet>
 
       <div className="container mx-auto px-4 py-6 sm:px-6 lg:px-8 max-w-7xl">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Header Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 {isStudent ? "My Learning Space" : "Learning Resources"}
               </h1>
-              <p className="text-slate-600 text-sm sm:text-base">
+              <p className="text-gray-600 mt-1">
                 {isStudent 
-                  ? "Access your course materials, assignments, and resources" 
-                  : "Manage and share educational content with your students"
+                  ? "Access your course materials and resources" 
+                  : "Manage and share educational content"
                 }
               </p>
             </div>
@@ -344,37 +377,36 @@ const LearningSpace = () => {
             {isTeacher && (
               <Button 
                 onClick={handleUploadClick}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow transition-all flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
                 Upload Resource
               </Button>
             )}
           </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex-1 w-full sm:max-w-md">
+          
+          {/* Search and View Controls */}
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 max-w-lg">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search resources, assignments..."
+                  placeholder="Search resources..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white/80 backdrop-blur-sm border-slate-200 focus:border-blue-300 focus:ring-blue-200"
+                  className="pl-10 bg-gray-50 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-lg p-1">
+            <div className="flex items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex bg-gray-100 rounded-lg p-1">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('grid')}
-                  className="h-8 w-8 p-0"
+                  className={`h-8 px-3 ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
                 >
                   <Grid3X3 className="h-4 w-4" />
                 </Button>
@@ -382,7 +414,7 @@ const LearningSpace = () => {
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('list')}
-                  className="h-8 w-8 p-0"
+                  className={`h-8 px-3 ${viewMode === 'list' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
                 >
                   <List className="h-4 w-4" />
                 </Button>
@@ -391,47 +423,92 @@ const LearningSpace = () => {
           </div>
         </div>
 
-        {/* All Resources Section */}
-        <div className="space-y-4 sm:space-y-6">
-            {/* Class Filter Pills */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                variant={selectedClass === null ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedClass(null)}
-                className={`rounded-full ${selectedClass === null ? 'bg-blue-600 text-white hover:bg-blue-700' : 'hover:bg-blue-50'}`}
-              >
-                All Classes
-              </Button>
-              {myClasses.map((classInfo: any) => (
-                <Button
-                  key={classInfo.id}
-                  variant={selectedClass === classInfo.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedClass(classInfo.id)}
-                  className={`rounded-full ${selectedClass === classInfo.id ? 'bg-blue-600 text-white hover:bg-blue-700' : 'hover:bg-blue-50'}`}
-                >
-                  {classInfo.name}
-                </Button>
-              ))}
-            </div>
+        {/* Main Content Section */}
+        <div className="space-y-6">
+            {/* Class Filter Pills - Only show for teachers and admins */}
+            {!isStudent && myClasses.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by Class</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant={selectedClass === null ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedClass(null)}
+                    className={`rounded-full ${selectedClass === null ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white hover:bg-gray-50'}`}
+                  >
+                    All Classes
+                  </Button>
+                  {myClasses.map((classInfo: any) => (
+                    <Button
+                      key={classInfo.id}
+                      variant={selectedClass === classInfo.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedClass(classInfo.id)}
+                      className={`rounded-full ${selectedClass === classInfo.id ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white hover:bg-gray-50'}`}
+                    >
+                      {classInfo.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Student Class Info */}
+            {isStudent && myClasses.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-blue-600" />
+                  <span className="font-medium text-blue-900">
+                    Resources for {(myClasses[0] as any).name}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Resources Grid/List */}
-            {viewMode === 'grid' ? (
+            {filteredResources.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <BookOpen className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Resources Found</h3>
+                  <p className="text-gray-600 max-w-sm mx-auto">
+                    {isStudent 
+                      ? "No learning resources are currently available for your class." 
+                      : searchQuery 
+                        ? "No resources match your search criteria. Try different keywords."
+                        : "No learning resources found. Upload your first resource to get started."
+                    }
+                  </p>
+                  {isTeacher && !searchQuery && (
+                    <Button 
+                      onClick={handleUploadClick}
+                      className="mt-6 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Upload First Resource
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {filteredResources.map((resource) => {
                   const IconComponent = resource.type === 'VIDEO' ? Video : FileText;
                   
                   return (
-                    <Card key={resource.id} className="group hover:shadow-xl transition-all duration-300 border-slate-200/60 bg-white/95 backdrop-blur-sm hover:border-blue-300/60">
-                      <CardContent className="p-4 sm:p-6">
-                        <div className="space-y-4">
-                          <div className="flex items-start justify-between">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                    <Card key={resource.id} className="group hover:shadow-lg transition-all duration-300 border-gray-200 bg-white overflow-hidden">
+                      <CardContent className="p-0">
+                        <div className="p-5">
+                          {/* Header with Icon and Menu */}
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
                               <IconComponent className="h-6 w-6 text-white" />
                             </div>
                             
-                            {isStudent ? (
+                            {/* Only show dropdown menu for teachers */}
+                            {isTeacher && canEditResource(resource) && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -439,131 +516,84 @@ const LearningSpace = () => {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handlePreview(resource)}>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    Preview
+                                  <DropdownMenuItem onClick={() => handleEdit(resource)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDownload(resource)}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download
+                                  <DropdownMenuItem onClick={() => handleDelete(resource)} className="text-red-600 hover:text-red-700">
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Star className="h-4 w-4 mr-2" />
-                                    Bookmark
-                                  </DropdownMenuItem>
-                                  {canEditResource(resource) && (
-                                    <>
-                                      <DropdownMenuItem onClick={() => handleEdit(resource)}>
-                                        <Edit className="h-4 w-4 mr-2" />
-                                        Edit
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleDelete(resource)} className="text-red-600 hover:text-red-700">
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Delete
-                                      </DropdownMenuItem>
-                                    </>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handlePreview(resource)}>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    Preview
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDownload(resource)}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Share2 className="h-4 w-4 mr-2" />
-                                    Share
-                                  </DropdownMenuItem>
-                                  {canEditResource(resource) && (
-                                    <>
-                                      <DropdownMenuItem onClick={() => handleEdit(resource)}>
-                                        <Edit className="h-4 w-4 mr-2" />
-                                        Edit
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleDelete(resource)} className="text-red-600 hover:text-red-700">
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Delete
-                                      </DropdownMenuItem>
-                                    </>
-                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}
                           </div>
                           
-                          <div className="space-y-2">
-                            <CardTitle className="text-lg font-semibold text-slate-900 group-hover:text-blue-900 transition-colors line-clamp-2">
+                          {/* Title and Description */}
+                          <div className="mb-4">
+                            <h3 className="text-base font-semibold text-gray-900 line-clamp-2 mb-1">
                               {resource.title}
-                            </CardTitle>
-                            <p className="text-sm text-slate-600 line-clamp-2">
+                            </h3>
+                            <p className="text-sm text-gray-600 line-clamp-2">
                               {resource.description}
                             </p>
                           </div>
                           
-                          <div className="space-y-3">
-                            <div className="flex flex-wrap gap-1">
-                              {getResourceClassNames(resource).map((className, index) => (
-                                <Badge key={index} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                  {className}
-                                </Badge>
-                              ))}
-                            </div>
-                            
-                            {/* View and Download Counts */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3 text-xs text-slate-500">
-                                <div className="flex items-center gap-1">
-                                  <Eye className="h-3 w-3" />
-                                  <span>{resource.viewCount || 0}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Download className="h-3 w-3" />
-                                  <span>{resource.downloadCount || 0}</span>
-                                </div>
-                              </div>
-                              
-                              {isStudent ? (
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => handlePreview(resource)}
-                                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
-                                >
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  View
-                                </Button>
-                              ) : (
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
-                                  onClick={() => handlePreview(resource)}
-                                  className="text-blue-600 hover:text-blue-700"
-                                >
-                                  Open
-                                  <ChevronRight className="h-3 w-3 ml-1" />
-                                </Button>
-                              )}
-                            </div>
+                          {/* Class Badges */}
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {getResourceClassNames(resource).map((className, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-0">
+                                {className}
+                              </Badge>
+                            ))}
                           </div>
                           
-                          {/* Student-specific progress indicator */}
-                          {isStudent && resource.type === 'DOCUMENT' && (
-                            <div className="mt-3 pt-3 border-t border-slate-100">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-500">Progress</span>
-                                <span className="font-medium text-green-600">Completed</span>
-                              </div>
+                          {/* Stats */}
+                          <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                            <div className="flex items-center gap-3">
+                              <span className="flex items-center gap-1">
+                                <Eye className="h-3.5 w-3.5" />
+                                {resource.viewCount || 0}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Download className="h-3.5 w-3.5" />
+                                {resource.downloadCount || 0}
+                              </span>
                             </div>
+                            <span>{new Date(resource.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Action Buttons - Full Width Bottom Section */}
+                        <div className="border-t border-gray-100 p-4 bg-gray-50">
+                          {isStudent ? (
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleOpen(resource)}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-9"
+                              >
+                                <Eye className="h-4 w-4 mr-1.5" />
+                                Open ({resource.viewCount || 0})
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleDownload(resource)}
+                                className="flex-1 border-gray-300 hover:bg-white h-9"
+                              >
+                                <Download className="h-4 w-4 mr-1.5" />
+                                Download ({resource.downloadCount || 0})
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleOpen(resource)}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white h-9"
+                            >
+                              Open Resource
+                            </Button>
                           )}
                         </div>
                       </CardContent>
@@ -577,100 +607,98 @@ const LearningSpace = () => {
                   const IconComponent = resource.type === 'VIDEO' ? Video : FileText;
                   
                   return (
-                    <Card key={resource.id} className="group hover:shadow-lg transition-all duration-200 border-slate-200/60 bg-white/95 backdrop-blur-sm">
+                    <Card key={resource.id} className="group hover:shadow-md transition-all duration-200 border-gray-200 bg-white">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
+                          {/* Icon */}
                           <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md flex-shrink-0">
                             <IconComponent className="h-6 w-6 text-white" />
                           </div>
                           
+                          {/* Content */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-slate-900 group-hover:text-blue-900 transition-colors line-clamp-1">
+                            <h3 className="font-semibold text-gray-900 line-clamp-1">
                               {resource.title}
                             </h3>
-                            <p className="text-sm text-slate-600 line-clamp-1 mt-1">
+                            <p className="text-sm text-gray-600 line-clamp-1 mt-1">
                               {resource.description}
                             </p>
-                            <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                              <div className="flex flex-wrap gap-1">
-                                {getResourceClassNames(resource).map((className, index) => (
-                                  <span key={index} className="bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs">
-                                    {className}
-                                  </span>
-                                ))}
-                              </div>
-                              <span>•</span>
-                              <span>Teacher</span>
-                              <span>•</span>
-                              <span>{new Date(resource.createdAt).toLocaleDateString()}</span>
+                            <div className="flex items-center gap-2 mt-2">
+                              {getResourceClassNames(resource).map((className, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-0">
+                                  {className}
+                                </Badge>
+                              ))}
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-4 text-xs text-slate-500">
-                            <div className="flex items-center gap-1">
-                              <Eye className="h-3 w-3" />
+                          {/* Stats */}
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-4 w-4" />
                               {resource.viewCount || 0}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Download className="h-3 w-3" />
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Download className="h-4 w-4" />
                               {resource.downloadCount || 0}
-                            </div>
+                            </span>
                           </div>
                           
+                          {/* Action Buttons */}
                           {isStudent ? (
                             <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" className="text-yellow-600 hover:text-yellow-700">
-                                <Star className="h-4 w-4" />
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleOpen(resource)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                              >
+                                <Eye className="h-4 w-4 mr-1.5" />
+                                Open
                               </Button>
                               <Button 
                                 size="sm" 
-                                onClick={() => handlePreview(resource)}
-                                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                                variant="outline"
+                                onClick={() => handleDownload(resource)}
+                                className="border-gray-300 hover:bg-gray-50"
                               >
-                                <Eye className="h-3 w-3 mr-1" />
-                                View
+                                <Download className="h-4 w-4" />
                               </Button>
                             </div>
                           ) : (
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handlePreview(resource)}
-                              className="text-blue-600 hover:text-blue-700"
-                            >
-                              Open
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleOpen(resource)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                              >
+                                Open
+                              </Button>
+                              {canEditResource(resource) && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleEdit(resource)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDelete(resource)} className="text-red-600">
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </div>
                           )}
                         </div>
                       </CardContent>
                     </Card>
                   );
                 })}
-              </div>
-            )}
-
-            {/* Empty State */}
-            {filteredResources.length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                  <BookOpen className="h-12 w-12 text-slate-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No resources found</h3>
-                <p className="text-slate-600 mb-6">
-                  {selectedClass 
-                    ? "No resources available for the selected class." 
-                    : "No resources match your search criteria."
-                  }
-                </p>
-                {isTeacher && (
-                  <Button 
-                    onClick={handleUploadClick}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Upload First Resource
-                  </Button>
-                )}
               </div>
             )}
         </div>

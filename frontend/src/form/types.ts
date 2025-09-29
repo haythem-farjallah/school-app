@@ -9,12 +9,14 @@ export type FieldType =
   | "color"
   | "date"
   | "select"
+  | "searchable-select"
   | "student-search"
   | "custom";
 
 export interface Option {
   value: string | number;
   label: string;
+  searchableText?: string;
 }
 
 export interface BaseField<T extends FieldType = FieldType> {
@@ -28,6 +30,9 @@ export interface BaseField<T extends FieldType = FieldType> {
   options?: Option[];
   /** Custom component for custom field types */
   component?: ElementType;
+  /** For searchable select fields */
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 export type FormRecipe = {

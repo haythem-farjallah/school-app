@@ -64,7 +64,11 @@ http.interceptors.response.use(
         }
       }
   
-      notifyError(getErrorMessage(err));
+      const errorMessage = getErrorMessage(err);
+      // Only show notification if there's an actual error message
+      if (errorMessage && errorMessage.trim() !== "") {
+        notifyError(errorMessage);
+      }
       return Promise.reject(err);
     },
   );

@@ -49,10 +49,6 @@ export function EditParentSheet({ parent, trigger, onSuccess }: EditParentSheetP
     onSubmit: async (values: unknown) => {
       const formValues = values as ParentUpdateValues;
       
-      // Debug: Log the raw form values
-      console.log("🔍 EditParentSheet - Raw form values:", formValues);
-      console.log("🔍 EditParentSheet - Telephone value:", formValues.telephone, "Type:", typeof formValues.telephone);
-      console.log("🔍 EditParentSheet - Address value:", formValues.address, "Type:", typeof formValues.address);
       
       // For updates, send the data in the format expected by ParentUpdateDto (flat structure)
       const parentData: UpdateParentData & { id: number } = {
@@ -65,7 +61,6 @@ export function EditParentSheet({ parent, trigger, onSuccess }: EditParentSheetP
         // Send children as array of emails if present, else undefined
         children: formValues.children?.length ? formValues.children.map((child: Student) => child.email) : undefined,
       };
-      console.log("✏️ EditParentSheet - Transformed data:", parentData)
       await editParentMutation.mutateAsync(parentData)
     },
   }

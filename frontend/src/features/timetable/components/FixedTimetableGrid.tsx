@@ -240,31 +240,6 @@ export function FixedTimetableGrid({ classId }: FixedTimetableGridProps) {
     }
   };
 
-  // Auto-generate timetable
-  const handleAutoGenerate = async () => {
-    if (!confirm('This will replace the existing timetable. Are you sure?')) return;
-
-    setIsLoading(true);
-    try {
-      // Use the debug endpoint that we know exists
-      await http.post(`/v1/timetables/debug/class/${classId}/optimize`);
-      toast.success('Timetable generated successfully');
-      await refetchTimetable();
-    } catch (error) {
-      console.error('Error generating timetable:', error);
-      // Try alternative endpoint
-      try {
-        await http.post(`/v1/timetables/class/${classId}/optimize`);
-        toast.success('Timetable generated successfully');
-        await refetchTimetable();
-      } catch (altError) {
-        console.error('Alternative endpoint also failed:', altError);
-        toast.error('Failed to generate timetable. Please check if the optimization service is running.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   if (timetableLoading || periodsLoading) {
     return (
@@ -290,21 +265,7 @@ export function FixedTimetableGrid({ classId }: FixedTimetableGridProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={() => refetchTimetable()} 
-            variant="outline"
-            disabled={isLoading}
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          <Button 
-            onClick={handleAutoGenerate}
-            disabled={isLoading}
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            Auto Generate
-          </Button>
+          {/* Removed unnecessary Refresh and Auto Generate buttons */}
         </div>
       </div>
 

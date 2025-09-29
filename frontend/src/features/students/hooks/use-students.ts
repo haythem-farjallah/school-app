@@ -14,7 +14,6 @@ export function useStudents(
 ) {
   const { page, size = 10, search, ...filters } = options;
 
-  console.log("🔍 useStudents - Called with options:", { size, search, filters });
 
   // Map frontend column keys to backend filter parameter names
   const apiParams = React.useMemo(() => {
@@ -22,9 +21,6 @@ export function useStudents(
       firstName: "firstNameLike",
       lastName: "lastNameLike",
       email: "emailLike",
-      gradeLevel: "gradeLevel",
-      enrollmentYear: "enrollmentYear",
-      status: "status",
     };
 
     const params: Record<string, unknown> = {};
@@ -51,13 +47,6 @@ export function useStudents(
     page, // external page number
   );
 
-  console.log("🔍 useStudents - Result:", {
-    data: result.data,
-    isLoading: result.isLoading,
-    error: result.error?.message,
-    totalElements: result.data?.totalItems,
-    totalPages: result.data?.totalPages
-  });
 
   return result;
 }

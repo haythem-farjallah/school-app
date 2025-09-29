@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
 
 @Slf4j
 @RestController
@@ -53,7 +55,7 @@ public class DashboardController {
     }
 
     @GetMapping("/parent/{parentId}")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'PARENT_READ')")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'PARENT_READ') or hasRole('PARENT')")
     @Operation(summary = "Get parent-specific dashboard data")
     public ResponseEntity<ApiSuccessResponse<Object>> getParentDashboard(
             @PathVariable Long parentId) {
@@ -111,7 +113,7 @@ public class DashboardController {
     }
 
     @GetMapping("/parent/children-summary/{parentId}")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'PARENT_READ')")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'PARENT_READ') or hasRole('PARENT')")
     @Operation(summary = "Get parent's children summary")
     public ResponseEntity<ApiSuccessResponse<Object>> getParentChildrenSummary(
             @PathVariable Long parentId) {
@@ -130,5 +132,56 @@ public class DashboardController {
         // This could extract just the system stats portion
         Object health = dashboardService.getAdminDashboard(null);
         return ResponseEntity.ok(new ApiSuccessResponse<>("System health retrieved successfully", health));
+    }
+
+    // Enhanced Parent Dashboard Endpoints
+    @GetMapping("/parent/children-timetables/{parentId}")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'PARENT_READ') or hasRole('PARENT')")
+    @Operation(summary = "Get timetables for all parent's children")
+    public ResponseEntity<ApiSuccessResponse<Object>> getParentChildrenTimetables(
+            @PathVariable Long parentId) {
+        log.debug("Fetching children timetables for parent {}", parentId);
+        
+        Object timetables = dashboardService.getParentChildrenTimetables(parentId);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Children timetables retrieved successfully", timetables));
+    }
+
+    @GetMapping("/parent/children-attendance/{parentId}")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'PARENT_READ') or hasRole('PARENT')")
+    @Operation(summary = "Get attendance data for all parent's children")
+    public ResponseEntity<ApiSuccessResponse<Object>> getParentChildrenAttendance(
+            @PathVariable Long parentId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.debug("Fetching children attendance for parent {} from {} to {}", parentId, startDate, endDate);
+        
+        LocalDate start = startDate != null ? startDate : LocalDate.now().minusWeeks(4);
+        LocalDate end = endDate != null ? endDate : LocalDate.now();
+        
+        Object attendance = dashboardService.getParentChildrenAttendance(parentId, start, end);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Children attendance retrieved successfully", attendance));
+    }
+
+    @GetMapping("/parent/children-statistics/{parentId}")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'PARENT_READ') or hasRole('PARENT')")
+    @Operation(summary = "Get comprehensive statistics for all parent's children")
+    public ResponseEntity<ApiSuccessResponse<Object>> getParentChildrenStatistics(
+            @PathVariable Long parentId) {
+        log.debug("Fetching children statistics for parent {}", parentId);
+        
+        Object statistics = dashboardService.getParentChildrenStatistics(parentId);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Children statistics retrieved successfully", statistics));
+    }
+
+    @GetMapping("/parent/child-details/{parentId}/{studentId}")
+    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'PARENT_READ') or hasRole('PARENT')")
+    @Operation(summary = "Get detailed information for a specific child")
+    public ResponseEntity<ApiSuccessResponse<Object>> getChildDetails(
+            @PathVariable Long parentId,
+            @PathVariable Long studentId) {
+        log.debug("Fetching child details for parent {} and student {}", parentId, studentId);
+        
+        Object childDetails = dashboardService.getChildDetails(parentId, studentId);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Child details retrieved successfully", childDetails));
     }
 } 

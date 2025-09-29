@@ -166,6 +166,7 @@ public class TimetableController {
 
     @Operation(summary = "Get class timetable as JSON")
     @GetMapping("/class/{classId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF', 'STUDENT')")
     public ResponseEntity<ApiSuccessResponse<TimetableResponseDto>> getClassTimetable(@PathVariable Long classId) {
         log.debug("Getting class timetable: {}", classId);
         

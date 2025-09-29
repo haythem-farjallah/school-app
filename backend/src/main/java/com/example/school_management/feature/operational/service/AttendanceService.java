@@ -82,9 +82,16 @@ public interface AttendanceService {
     // Get all students in a class (simple list without date filtering)
     List<AttendanceDto> getStudentsForClassSimple(Long classId);
     
+    // Debug method to test enrollment repository directly
+    List<Object[]> debugEnrollmentQuery(Long classId);
+    
     // Get teacher attendance class view (similar to grade system)
     TeacherAttendanceClassView getTeacherAttendanceClass(Long teacherId, Long classId, Long courseId);
     
     // Mark attendance for all students in a class
     List<AttendanceDto> markAttendanceForClass(Long classId, LocalDate date, List<AttendanceDto> attendanceList);
+    
+    // Enhanced attendance marking with notifications
+    List<AttendanceDto> markEnhancedAttendanceForClass(Long classId, LocalDate date, String time, 
+        String course, Long teacherId, List<AttendanceDto> attendanceList);
 } 

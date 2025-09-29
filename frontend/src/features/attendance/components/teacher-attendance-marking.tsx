@@ -121,7 +121,15 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
   };
 
   const handleSaveAttendance = async () => {
-    if (!selectedSlot && !selectedClassId) return;
+    if (!selectedSlot && !selectedClassId) {
+      toast.error('Please select a class or time slot first');
+      return;
+    }
+
+    if (studentAttendance.length === 0) {
+      toast.error('No students to mark attendance for');
+      return;
+    }
 
     const attendanceList = studentAttendance.map(student => ({
       userId: student.userId,
@@ -129,8 +137,8 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
       date: currentDate,
       status: student.status,
       userType: UserType.STUDENT,
-      remarks: student.remarks,
-      excuse: student.excuse,
+      remarks: student.remarks || '',
+      excuse: student.excuse || '',
     }));
 
     try {
@@ -152,6 +160,8 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
       
       setSelectedSlot(null);
       setSelectedClassId(null);
+      setStudentAttendance([]);
+      
       if (selectedClassId) {
         refetchClassStudents();
       } else {

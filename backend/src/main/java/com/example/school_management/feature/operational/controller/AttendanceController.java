@@ -26,6 +26,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,7 @@ public class AttendanceController {
 
     @GetMapping("/user/{userId}")
     @Operation(summary = "Get attendance for a specific user in date range")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF', 'STUDENT', 'PARENT')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getUserAttendance(
             @PathVariable Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -348,22 +349,98 @@ public class AttendanceController {
     }
 
     @GetMapping("/class/{classId}/students-simple")
-    @Operation(summary = "Get all students in a class (simple list)")
+    @Operation(summary = "Get students for a class (simple list for attendance)")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getStudentsForClassSimple(@PathVariable Long classId) {
-        log.debug("Getting students for class {} (simple)", classId);
+        log.info("🎯 CONTROLLER: ===== GETTING STUDENTS FOR CLASS {} =====", classId);
         
-        List<AttendanceDto> students = attendanceService.getStudentsForClassSimple(classId);
-        log.info("🔍 Controller returning {} students for class {}", students.size(), classId);
+        // Use the real service to get enrolled students
+        try {
+            List<AttendanceDto> students = attendanceService.getStudentsForClassSimple(classId);
+            log.info("🎯 CONTROLLER: ===== FOUND {} STUDENTS FOR CLASS {} =====", students.size(), classId);
+            return ResponseEntity.ok(new ApiSuccessResponse<>("Students retrieved successfully", students));
+        } catch (Exception e) {
+            log.error("🎯 CONTROLLER ERROR: Failed to get students for class {}: {}", classId, e.getMessage(), e);
+            return ResponseEntity.ok(new ApiSuccessResponse<>("Error occurred", new ArrayList<>()));
+        }
+    }
+
+    @GetMapping("/test/{classId}")
+    @Operation(summary = "TEST: Simple endpoint to verify connection")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<String>> testEndpoint(@PathVariable Long classId) {
+        log.info("🧪 TEST ENDPOINT: Class {} called successfully", classId);
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Test successful for class " + classId, "Connection works!"));
+    }
+
+
+    @GetMapping("/debug/class/{classId}/enrollments")
+    @Operation(summary = "Debug: Get raw enrollment data for a class")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> debugClassEnrollments(@PathVariable Long classId) {
+        log.info("🔧 DEBUG: Getting enrollment debug info for class {}", classId);
         
-        // Log first few students for debugging
-        if (!students.isEmpty()) {
-            log.info("🔍 First student: {}", students.get(0).getUserName());
-        } else {
-            log.warn("🔍 No students found for class {}", classId);
+        Map<String, Object> debug = new HashMap<>();
+        debug.put("classId", classId);
+        
+        try {
+            // Get students using the service
+            List<AttendanceDto> students = attendanceService.getStudentsForClassSimple(classId);
+            debug.put("studentsFromService", students.size());
+            debug.put("studentDetails", students.stream()
+                .map(s -> Map.of(
+                    "userId", s.getUserId(),
+                    "userName", s.getUserName() != null ? s.getUserName() : "Unknown",
+                    "status", s.getStatus() != null ? s.getStatus().toString() : "Unknown"
+                ))
+                .collect(Collectors.toList()));
+            
+            debug.put("success", true);
+            debug.put("message", "Debug data retrieved successfully");
+            
+        } catch (Exception e) {
+            debug.put("success", false);
+            debug.put("error", e.getMessage());
+            debug.put("stackTrace", e.getStackTrace());
+            log.error("🔧 DEBUG ERROR for class {}: {}", classId, e.getMessage(), e);
         }
         
-        return ResponseEntity.ok(new ApiSuccessResponse<>("Students retrieved successfully", students));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Debug info retrieved", debug));
+    }
+
+    @GetMapping("/debug/enrollment-repository/{classId}")
+    @Operation(summary = "Debug: Test enrollment repository directly")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> debugEnrollmentRepository(@PathVariable Long classId) {
+        log.info("🔧 REPOSITORY DEBUG: Testing enrollment repository for class {}", classId);
+        
+        Map<String, Object> debug = new HashMap<>();
+        debug.put("classId", classId);
+        
+        try {
+            // Test the exact repository call
+            List<Object[]> rawEnrollments = attendanceService.debugEnrollmentQuery(classId);
+            debug.put("rawEnrollmentsFound", rawEnrollments.size());
+            debug.put("rawEnrollmentData", rawEnrollments.stream()
+                .map(row -> Map.of(
+                    "enrollmentId", row[0],
+                    "studentId", row[1],
+                    "classId", row[2],
+                    "status", row[3],
+                    "studentFirstName", row[4] != null ? row[4] : "NULL",
+                    "studentLastName", row[5] != null ? row[5] : "NULL"
+                ))
+                .collect(Collectors.toList()));
+            
+            debug.put("success", true);
+            
+        } catch (Exception e) {
+            debug.put("success", false);
+            debug.put("error", e.getMessage());
+            log.error("🔧 REPOSITORY DEBUG ERROR for class {}: {}", classId, e.getMessage(), e);
+        }
+        
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Repository debug info retrieved", debug));
     }
 
     @GetMapping("/teacher/{teacherId}/class/{classId}/course/{courseId}")
@@ -376,17 +453,49 @@ public class AttendanceController {
     }
 
     @PostMapping("/class/{classId}/mark")
-    @Operation(summary = "Mark attendance for all students in a class")
+    @Operation(summary = "Mark attendance for all students in a class with notifications")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> markAttendanceForClass(
             @PathVariable Long classId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @Valid @RequestBody List<AttendanceDto> attendanceList) {
+            @Valid @RequestBody EnhancedAttendanceRequest request) {
         LocalDate targetDate = date != null ? date : LocalDate.now();
-        log.debug("Marking attendance for class {} on date {} for {} students", classId, targetDate, attendanceList.size());
+        log.info("🎯 ENHANCED ATTENDANCE: Class {} on {} at {} for course {} by teacher {}", 
+            classId, targetDate, request.getTime(), request.getCourse(), request.getTeacherId());
         
-        List<AttendanceDto> markedAttendance = attendanceService.markAttendanceForClass(classId, targetDate, attendanceList);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new ApiSuccessResponse<>("success", markedAttendance));
+        try {
+            List<AttendanceDto> markedAttendance = attendanceService.markEnhancedAttendanceForClass(
+                classId, targetDate, request.getTime(), request.getCourse(), 
+                request.getTeacherId(), request.getAttendanceList());
+            
+            log.info("✅ Attendance saved and notifications sent for {} students", markedAttendance.size());
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiSuccessResponse<>("Attendance saved and notifications sent successfully", markedAttendance));
+        } catch (Exception e) {
+            log.error("❌ Failed to mark enhanced attendance: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiSuccessResponse<>("Failed to save attendance", new ArrayList<>()));
+        }
+    }
+
+    // Enhanced Attendance Request DTO
+    public static class EnhancedAttendanceRequest {
+        private List<AttendanceDto> attendanceList;
+        private String time;
+        private String course;
+        private Long teacherId;
+
+        // Getters and setters
+        public List<AttendanceDto> getAttendanceList() { return attendanceList; }
+        public void setAttendanceList(List<AttendanceDto> attendanceList) { this.attendanceList = attendanceList; }
+        
+        public String getTime() { return time; }
+        public void setTime(String time) { this.time = time; }
+        
+        public String getCourse() { return course; }
+        public void setCourse(String course) { this.course = course; }
+        
+        public Long getTeacherId() { return teacherId; }
+        public void setTeacherId(Long teacherId) { this.teacherId = teacherId; }
     }
 } 

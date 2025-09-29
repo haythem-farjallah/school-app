@@ -25,11 +25,21 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
+import com.example.school_management.feature.operational.entity.Attendance;
+import com.example.school_management.feature.operational.entity.Enrollment;
+import com.example.school_management.feature.operational.entity.TimetableSlot;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
+import com.example.school_management.feature.operational.service.TimetableService;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -47,6 +57,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final EnrollmentRepository enrollmentRepository;
     private final GradeRepository gradeRepository;
     private final NotificationRepository notificationRepository;
+    private final TimetableService timetableService;
 
     private BaseUser getCurrentUser() {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -198,6 +209,267 @@ public class DashboardServiceImpl implements DashboardService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         return createBaseDashboard(user);
+    }
+
+    @Override
+    public Object getParentChildrenTimetables(Long parentId) {
+        log.debug("Getting children timetables for parent: {}", parentId);
+        
+        List<Student> children = studentRepository.findByParentId(parentId);
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> childrenTimetables = new ArrayList<>();
+        
+        for (Student child : children) {
+            Map<String, Object> childTimetable = new HashMap<>();
+            childTimetable.put("studentId", child.getId());
+            childTimetable.put("studentName", child.getFirstName() + " " + child.getLastName());
+            
+            // Get child's enrollments and timetables
+            List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndStatus(child.getId(), EnrollmentStatus.ACTIVE);
+            List<Map<String, Object>> timetableData = new ArrayList<>();
+            
+            for (Enrollment enrollment : enrollments) {
+                try {
+                    List<TimetableSlot> slots = timetableService.getSlotsByClassId(enrollment.getClassEntity().getId());
+                    
+                    Map<String, Object> classSchedule = new HashMap<>();
+                    classSchedule.put("classId", enrollment.getClassEntity().getId());
+                    classSchedule.put("className", enrollment.getClassEntity().getName());
+                    classSchedule.put("slots", slots.stream().map(this::mapTimetableSlot).collect(Collectors.toList()));
+                    
+                    timetableData.add(classSchedule);
+                } catch (Exception e) {
+                    log.warn("Error loading timetable for class {}: {}", enrollment.getClassEntity().getId(), e.getMessage());
+                }
+            }
+            
+            childTimetable.put("timetables", timetableData);
+            childrenTimetables.add(childTimetable);
+        }
+        
+        result.put("children", childrenTimetables);
+        result.put("totalChildren", children.size());
+        
+        return result;
+    }
+
+    @Override
+    public Object getParentChildrenAttendance(Long parentId, LocalDate startDate, LocalDate endDate) {
+        log.debug("Getting children attendance for parent: {} from {} to {}", parentId, startDate, endDate);
+        
+        List<Student> children = studentRepository.findByParentId(parentId);
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> childrenAttendance = new ArrayList<>();
+        
+        for (Student child : children) {
+            Map<String, Object> childAttendance = new HashMap<>();
+            childAttendance.put("studentId", child.getId());
+            childAttendance.put("studentName", child.getFirstName() + " " + child.getLastName());
+            
+            // Get attendance records for the child
+            List<Attendance> attendanceRecords = attendanceRepository.findByUserIdAndDateBetween(
+                child.getId(), startDate, endDate);
+            
+            // Calculate statistics
+            long totalDays = attendanceRecords.size();
+            long presentDays = attendanceRecords.stream()
+                .mapToLong(a -> a.isPresent() ? 1 : 0)
+                .sum();
+            long absentDays = attendanceRecords.stream()
+                .mapToLong(a -> a.isAbsent() ? 1 : 0)
+                .sum();
+            long lateDays = attendanceRecords.stream()
+                .mapToLong(a -> a.isLate() ? 1 : 0)
+                .sum();
+            
+            double attendanceRate = totalDays > 0 ? (double) presentDays / totalDays * 100 : 0.0;
+            
+            childAttendance.put("totalDays", totalDays);
+            childAttendance.put("presentDays", presentDays);
+            childAttendance.put("absentDays", absentDays);
+            childAttendance.put("lateDays", lateDays);
+            childAttendance.put("attendanceRate", Math.round(attendanceRate * 100.0) / 100.0);
+            
+            // Group attendance by date for calendar view
+            Map<String, Map<String, Object>> attendanceByDate = attendanceRecords.stream()
+                .collect(Collectors.toMap(
+                    a -> a.getDate().format(DateTimeFormatter.ISO_LOCAL_DATE),
+                    a -> {
+                        Map<String, Object> attendanceInfo = new HashMap<>();
+                        attendanceInfo.put("status", a.getStatus().name());
+                        attendanceInfo.put("remarks", a.getRemarks() != null ? a.getRemarks() : "");
+                        attendanceInfo.put("recordedAt", a.getRecordedAt());
+                        return attendanceInfo;
+                    },
+                    (existing, replacement) -> existing
+                ));
+            
+            childAttendance.put("attendanceByDate", attendanceByDate);
+            childAttendance.put("recentAttendance", attendanceRecords.stream()
+                .limit(10)
+                .map(this::mapAttendanceRecord)
+                .collect(Collectors.toList()));
+            
+            childrenAttendance.add(childAttendance);
+        }
+        
+        result.put("children", childrenAttendance);
+        result.put("dateRange", Map.of("startDate", startDate, "endDate", endDate));
+        
+        return result;
+    }
+
+    @Override
+    public Object getParentChildrenStatistics(Long parentId) {
+        log.debug("Getting children statistics for parent: {}", parentId);
+        
+        List<Student> children = studentRepository.findByParentId(parentId);
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> childrenStats = new ArrayList<>();
+        
+        // Overall statistics
+        int totalChildren = children.size();
+        double overallAttendanceRate = 0.0;
+        int totalAbsences = 0;
+        int totalLateArrivals = 0;
+        
+        for (Student child : children) {
+            Map<String, Object> childStats = new HashMap<>();
+            childStats.put("studentId", child.getId());
+            childStats.put("studentName", child.getFirstName() + " " + child.getLastName());
+            
+            // Get current class info
+            List<Enrollment> activeEnrollments = enrollmentRepository.findByStudentIdAndStatus(child.getId(), EnrollmentStatus.ACTIVE);
+            if (!activeEnrollments.isEmpty()) {
+                Enrollment currentEnrollment = activeEnrollments.get(0);
+                childStats.put("currentClass", currentEnrollment.getClassEntity().getName());
+                childStats.put("classId", currentEnrollment.getClassEntity().getId());
+            }
+            
+            // Attendance statistics (last 30 days)
+            LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
+            List<Attendance> recentAttendance = attendanceRepository.findByUserIdAndDateBetween(
+                child.getId(), thirtyDaysAgo, LocalDate.now());
+            
+            long totalDays = recentAttendance.size();
+            long presentDays = recentAttendance.stream()
+                .mapToLong(a -> a.isPresent() ? 1 : 0)
+                .sum();
+            long absentDays = recentAttendance.stream()
+                .mapToLong(a -> a.isAbsent() ? 1 : 0)
+                .sum();
+            long lateDays = recentAttendance.stream()
+                .mapToLong(a -> a.isLate() ? 1 : 0)
+                .sum();
+            
+            double attendanceRate = totalDays > 0 ? (double) presentDays / totalDays * 100 : 0.0;
+            
+            childStats.put("attendanceRate", Math.round(attendanceRate * 100.0) / 100.0);
+            childStats.put("totalAbsences", absentDays);
+            childStats.put("totalLateArrivals", lateDays);
+            childStats.put("totalDaysTracked", totalDays);
+            
+            // Academic performance (mock data - can be enhanced with real grades)
+            childStats.put("averageGrade", 85.0 + (Math.random() * 15)); // Mock data
+            childStats.put("academicStanding", attendanceRate > 90 ? "Excellent" : 
+                                             attendanceRate > 80 ? "Good" : 
+                                             attendanceRate > 70 ? "Satisfactory" : "Needs Improvement");
+            
+            // Recent alerts
+            List<String> alerts = new ArrayList<>();
+            if (absentDays > 3) {
+                alerts.add("High absence count in the last 30 days");
+            }
+            if (lateDays > 5) {
+                alerts.add("Frequent late arrivals");
+            }
+            if (attendanceRate < 80) {
+                alerts.add("Low attendance rate - below 80%");
+            }
+            childStats.put("alerts", alerts);
+            
+            childrenStats.add(childStats);
+            
+            // Add to overall statistics
+            overallAttendanceRate += attendanceRate;
+            totalAbsences += absentDays;
+            totalLateArrivals += lateDays;
+        }
+        
+        // Calculate overall statistics
+        if (totalChildren > 0) {
+            overallAttendanceRate = overallAttendanceRate / totalChildren;
+        }
+        
+        result.put("children", childrenStats);
+        result.put("overallStatistics", Map.of(
+            "totalChildren", totalChildren,
+            "averageAttendanceRate", Math.round(overallAttendanceRate * 100.0) / 100.0,
+            "totalAbsences", totalAbsences,
+            "totalLateArrivals", totalLateArrivals,
+            "childrenWithGoodAttendance", childrenStats.stream()
+                .mapToInt(child -> (Double) child.get("attendanceRate") > 90 ? 1 : 0)
+                .sum(),
+            "childrenNeedingAttention", childrenStats.stream()
+                .mapToInt(child -> (Double) child.get("attendanceRate") < 80 ? 1 : 0)
+                .sum()
+        ));
+        
+        return result;
+    }
+
+    @Override
+    public Object getChildDetails(Long parentId, Long studentId) {
+        log.debug("Getting child details for parent: {} and student: {}", parentId, studentId);
+        
+        // Verify parent-child relationship
+        Student child = studentRepository.findById(studentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+        
+        // Verify parent-child relationship by checking if student exists in parent's children list
+        List<Student> parentChildren = studentRepository.findByParentId(parentId);
+        boolean isChildOfParent = parentChildren.stream().anyMatch(s -> s.getId().equals(studentId));
+        if (!isChildOfParent) {
+            throw new ResourceNotFoundException("Student is not a child of this parent");
+        }
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("studentId", child.getId());
+        result.put("studentName", child.getFirstName() + " " + child.getLastName());
+        result.put("email", child.getEmail());
+        result.put("birthday", child.getBirthday());
+        
+        // Current enrollments
+        List<Enrollment> activeEnrollments = enrollmentRepository.findByStudentIdAndStatus(studentId, EnrollmentStatus.ACTIVE);
+        result.put("currentEnrollments", activeEnrollments.stream()
+            .map(this::mapEnrollment)
+            .collect(Collectors.toList()));
+        
+        // Recent attendance (last 14 days)
+        LocalDate twoWeeksAgo = LocalDate.now().minusDays(14);
+        List<Attendance> recentAttendance = attendanceRepository.findByUserIdAndDateBetween(
+            studentId, twoWeeksAgo, LocalDate.now());
+        result.put("recentAttendance", recentAttendance.stream()
+            .map(this::mapAttendanceRecord)
+            .collect(Collectors.toList()));
+        
+        // Timetable for current week
+        if (!activeEnrollments.isEmpty()) {
+            List<TimetableSlot> weeklySchedule = new ArrayList<>();
+            for (Enrollment enrollment : activeEnrollments) {
+                try {
+                    List<TimetableSlot> classSlots = timetableService.getSlotsByClassId(enrollment.getClassEntity().getId());
+                    weeklySchedule.addAll(classSlots);
+                } catch (Exception e) {
+                    log.warn("Error loading timetable for class {}: {}", enrollment.getClassEntity().getId(), e.getMessage());
+                }
+            }
+            result.put("weeklySchedule", weeklySchedule.stream()
+                .map(this::mapTimetableSlot)
+                .collect(Collectors.toList()));
+        }
+        
+        return result;
     }
 
     // Helper methods for creating dashboard components
@@ -421,20 +693,77 @@ public class DashboardServiceImpl implements DashboardService {
         List<Map<String, Object>> children = new ArrayList<>();
         
         try {
-            var parentChildren = studentRepository.findByParentId(parentId);
+            List<Student> parentChildren = studentRepository.findByParentId(parentId);
+            log.debug("Found {} children for parent {}", parentChildren.size(), parentId);
             
-            for (var child : parentChildren) {
+            for (Student child : parentChildren) {
                 Map<String, Object> childData = new HashMap<>();
                 childData.put("studentId", child.getId());
                 childData.put("name", child.getFirstName() + " " + child.getLastName());
-                childData.put("currentClass", "Grade 10A"); // Mock data
-                childData.put("averageGrade", 88.5);
-                childData.put("totalAbsences", 3);
-                childData.put("academicStanding", "Good Standing");
+                
+                // Get current class
+                List<Enrollment> activeEnrollments = enrollmentRepository.findByStudentIdAndStatus(child.getId(), EnrollmentStatus.ACTIVE);
+                if (!activeEnrollments.isEmpty()) {
+                    childData.put("currentClass", activeEnrollments.get(0).getClassEntity().getName());
+                    childData.put("classId", activeEnrollments.get(0).getClassEntity().getId());
+                } else {
+                    childData.put("currentClass", "Not Enrolled");
+                    childData.put("classId", null);
+                }
+                
+                // Calculate real attendance statistics (last 30 days) - PER COURSE CALCULATION
+                LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
+                List<Attendance> recentAttendance = attendanceRepository.findByUserIdAndDateBetween(
+                    child.getId(), thirtyDaysAgo, LocalDate.now());
+                
+                // Group attendance by date to calculate daily attendance rates
+                Map<LocalDate, List<Attendance>> attendanceByDate = recentAttendance.stream()
+                    .collect(Collectors.groupingBy(Attendance::getDate));
+                
+                double totalAttendanceRate = 0.0;
+                int totalDaysWithAttendance = 0;
+                long totalAbsences = 0;
+                long totalCoursesTracked = recentAttendance.size();
+                
+                for (Map.Entry<LocalDate, List<Attendance>> entry : attendanceByDate.entrySet()) {
+                    List<Attendance> dayAttendance = entry.getValue();
+                    
+                    long presentCourses = dayAttendance.stream()
+                        .mapToLong(a -> a.isPresent() ? 1 : 0)
+                        .sum();
+                    long absentCourses = dayAttendance.stream()
+                        .mapToLong(a -> a.isAbsent() ? 1 : 0)
+                        .sum();
+                    
+                    totalAbsences += absentCourses;
+                    
+                    // Calculate daily attendance rate (present courses / total courses that day)
+                    double dailyAttendanceRate = dayAttendance.size() > 0 ? 
+                        (double) presentCourses / dayAttendance.size() * 100 : 0.0;
+                    
+                    totalAttendanceRate += dailyAttendanceRate;
+                    totalDaysWithAttendance++;
+                }
+                
+                // Calculate overall attendance rate (average of daily rates)
+                double attendanceRate = totalDaysWithAttendance > 0 ? 
+                    totalAttendanceRate / totalDaysWithAttendance : 0.0;
+                
+                childData.put("attendanceRate", Math.round(attendanceRate * 100.0) / 100.0);
+                childData.put("totalAbsences", totalAbsences);
+                childData.put("totalDaysTracked", totalDaysWithAttendance);
+                childData.put("totalCoursesTracked", totalCoursesTracked);
+                
+                // Mock average grade (can be enhanced with real grade calculation)
+                childData.put("averageGrade", 85.0 + (Math.random() * 15));
+                childData.put("academicStanding", attendanceRate > 90 ? "Excellent" : 
+                                                 attendanceRate > 80 ? "Good" : 
+                                                 attendanceRate > 70 ? "Satisfactory" : "Needs Improvement");
+                
                 children.add(childData);
             }
         } catch (Exception e) {
-            log.warn("Error loading parent children info: {}", e.getMessage());
+            log.error("Error loading parent children info for parent {}: {}", parentId, e.getMessage(), e);
         }
         
         return children;
@@ -598,5 +927,41 @@ public class DashboardServiceImpl implements DashboardService {
         alerts.add(alert2);
         
         return alerts;
+    }
+
+    // Helper methods for mapping entities to DTOs
+    private Map<String, Object> mapTimetableSlot(TimetableSlot slot) {
+        Map<String, Object> slotMap = new HashMap<>();
+        slotMap.put("id", slot.getId());
+        slotMap.put("dayOfWeek", slot.getDayOfWeek().name());
+        slotMap.put("startTime", slot.getPeriod() != null ? slot.getPeriod().getStartTime() : null);
+        slotMap.put("endTime", slot.getPeriod() != null ? slot.getPeriod().getEndTime() : null);
+        slotMap.put("periodIndex", slot.getPeriod() != null ? slot.getPeriod().getIndex() : null);
+        slotMap.put("courseName", slot.getForCourse() != null ? slot.getForCourse().getName() : "");
+        slotMap.put("courseCode", slot.getForCourse() != null ? slot.getForCourse().getCode() : "");
+        slotMap.put("teacherName", slot.getTeacher() != null ? 
+            slot.getTeacher().getFirstName() + " " + slot.getTeacher().getLastName() : "");
+        slotMap.put("roomName", slot.getRoom() != null ? slot.getRoom().getName() : "");
+        return slotMap;
+    }
+
+    private Map<String, Object> mapAttendanceRecord(Attendance attendance) {
+        Map<String, Object> attendanceMap = new HashMap<>();
+        attendanceMap.put("id", attendance.getId());
+        attendanceMap.put("date", attendance.getDate());
+        attendanceMap.put("status", attendance.getStatus().name());
+        attendanceMap.put("remarks", attendance.getRemarks());
+        attendanceMap.put("recordedAt", attendance.getRecordedAt());
+        return attendanceMap;
+    }
+
+    private Map<String, Object> mapEnrollment(Enrollment enrollment) {
+        Map<String, Object> enrollmentMap = new HashMap<>();
+        enrollmentMap.put("id", enrollment.getId());
+        enrollmentMap.put("className", enrollment.getClassEntity().getName());
+        enrollmentMap.put("classId", enrollment.getClassEntity().getId());
+        enrollmentMap.put("status", enrollment.getStatus().name());
+        enrollmentMap.put("enrolledAt", enrollment.getEnrolledAt());
+        return enrollmentMap;
     }
 } 

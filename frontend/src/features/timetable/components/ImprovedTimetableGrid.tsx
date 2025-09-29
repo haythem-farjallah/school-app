@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   DndContext, 
   closestCenter,
@@ -25,9 +26,12 @@ import {
   Calendar,
   AlertCircle,
   Users,
-  User
+  User,
+  Edit3,
+  GripVertical,
+  UserCheck
 } from 'lucide-react';
-import { useTimetable, usePeriods } from '../hooks';
+import { useTimetable, usePeriods, useClassStudentCount } from '../hooks';
 import { Teacher } from '../../../types/teacher';
 import { Period } from '../../../types/period';
 import { TimetableSlot, DayOfWeek } from '../../../types/timetable';
@@ -46,6 +50,15 @@ interface TeacherCourseCombo {
   id: string;
 }
 
+interface ExistingSlotData {
+  teacher: Teacher;
+  course: Course;
+  room?: Room;
+  slotId: string;
+  isLocal: boolean;
+  originalSlot?: TimetableSlot;
+}
+
 const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const DAY_NAMES = {
   MONDAY: 'Monday',
@@ -57,32 +70,7 @@ const DAY_NAMES = {
   SUNDAY: 'Sunday'
 };
 
-// Simple Test Drop Zone
-function TestDropZone() {
-  const { isOver, setNodeRef } = useDroppable({
-    id: 'test-drop-zone',
-  });
 
-  useEffect(() => {
-    console.log('🧪 TEST DROP ZONE registered with ID: test-drop-zone');
-  }, []);
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`
-        p-4 border-2 border-dashed border-red-300 rounded-lg text-center transition-all duration-200
-        ${isOver ? 'bg-red-100 border-red-500 scale-105' : 'hover:bg-red-50'}
-      `}
-    >
-      <div className="text-red-600 font-bold">🧪 TEST DROP ZONE</div>
-      <div className="text-xs text-red-500">Drop here to test</div>
-      <div className="text-xs text-gray-500">isOver: {isOver ? 'YES' : 'NO'}</div>
-    </div>
-  );
-}
-
-// Draggable Teacher-Course Card
 function DraggableTeacherCourse({ teacherCourse }: { teacherCourse: TeacherCourseCombo }) {
   const {
     attributes,
@@ -163,14 +151,121 @@ function DraggableTeacherCourse({ teacherCourse }: { teacherCourse: TeacherCours
   );
 }
 
-// Droppable Time Slot
+function RoomEditor({ 
+  currentRoom, 
+  rooms, 
+  onRoomChange
+}: { 
+  currentRoom?: Room; 
+  rooms: Room[]; 
+  onRoomChange: (room: Room | undefined) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
+
+  const handleRoomSelect = (room: Room) => {
+    onRoomChange(room);
+    setIsOpen(false);
+    toast.success(`Room changed to ${room.name}`);
+  };
+
+  const handleRemoveRoom = () => {
+    onRoomChange(undefined);
+    setIsOpen(false);
+    toast.success('Room removed');
+  };
+
+  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!isOpen) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setButtonRect(rect);
+    }
+    setIsOpen(!isOpen);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      const handleClickOutside = () => setIsOpen(false);
+      const handleScroll = (e: Event) => {
+        const target = e.target as Element;
+        if (target && target.closest('[data-dropdown="true"]')) {
+          return;
+        }
+        setIsOpen(false);
+      };
+      
+      document.addEventListener('click', handleClickOutside);
+      window.addEventListener('scroll', handleScroll, true);
+      
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+        window.removeEventListener('scroll', handleScroll, true);
+      };
+    }
+  }, [isOpen]);
+
+  const dropdown = isOpen && buttonRect ? (
+    <div 
+      className="fixed bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-[160px] z-[999999]"
+      style={{ 
+        top: buttonRect.bottom + 4,
+        left: buttonRect.right - 160,
+        zIndex: 999999,
+        isolation: 'isolate'
+      }}
+      onClick={(e) => e.stopPropagation()}
+      data-dropdown="true"
+    >
+      <div className="text-xs font-medium text-gray-600 mb-2">Select Room:</div>
+      <div className="space-y-1 max-h-32 overflow-y-auto">
+        {rooms.map((room) => (
+          <button
+            key={room.id}
+            className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 rounded"
+            onClick={() => handleRoomSelect(room)}
+          >
+            {room.name}
+          </button>
+        ))}
+        <button
+          className="w-full text-left px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
+          onClick={handleRemoveRoom}
+        >
+          Remove Room
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 px-3 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+        onClick={handleButtonClick}
+        style={{ pointerEvents: 'auto' }}
+      >
+        <Edit3 className="w-3 h-3 mr-1" />
+        {currentRoom ? currentRoom.name : 'Edit Room'}
+      </Button>
+      
+      {dropdown && createPortal(dropdown, document.body)}
+    </>
+  );
+}
+
 function DroppableTimeSlot({ 
   day, 
   period, 
   slot, 
   localSlot,
   onDeleteSlot,
-  onDeleteLocalSlot
+  onDeleteLocalSlot,
+  onUpdateRoom,
+  localSlots,
+  rooms
 }: { 
   day: DayOfWeek; 
   period: Period; 
@@ -178,72 +273,114 @@ function DroppableTimeSlot({
   localSlot?: { teacher: Teacher; course: Course; room?: Room };
   onDeleteSlot: (slotId: number) => void;
   onDeleteLocalSlot: (slotId: string) => void;
+  onUpdateRoom: (slotId: string, room: Room | undefined) => void;
+  localSlots: Record<string, { teacher: Teacher; course: Course; room?: Room; _deleteOriginal?: boolean; _originalSlotId?: number }>;
+  rooms: Room[];
 }) {
   const slotId = `${day}-${period.id}`;
   const { isOver, setNodeRef } = useDroppable({
     id: slotId,
   });
 
-  // Debug drop zone registration
-  useEffect(() => {
-    console.log('📍 DROP ZONE registered:', slotId);
-  }, [slotId]);
 
-  // Use local slot if available, otherwise use API slot
-  const displaySlot = localSlot || slot;
+  const isMarkedForDeletion = localSlots[`DELETE_${slotId}`]?._deleteOriginal;
+  const displaySlot = isMarkedForDeletion ? null : (localSlot || slot);
   
-  // Handle both nested and flat course color structures
+  const {
+    attributes: dragAttributes,
+    listeners: dragListeners,
+    setNodeRef: setDragRef,
+    transform: dragTransform,
+    isDragging: isSlotDragging,
+  } = useDraggable({
+    id: `existing-slot-${slotId}`,
+    data: {
+      type: 'existing-slot',
+      slotId,
+      slot: displaySlot,
+      isLocal: !!localSlot,
+      originalSlot: slot,
+      teacher: localSlot?.teacher || (slot as any)?.teacher || {
+        firstName: (slot as any)?.teacherFirstName || (slot as any)?.teacher?.firstName,
+        lastName: (slot as any)?.teacherLastName || (slot as any)?.teacher?.lastName,
+        id: (slot as any)?.teacherId || (slot as any)?.teacher?.id
+      },
+      course: localSlot?.course || (slot as any)?.forCourse || {
+        name: (slot as any)?.forCourseName || (slot as any)?.forCourse?.name,
+        id: (slot as any)?.forCourseId || (slot as any)?.forCourse?.id,
+        color: (slot as any)?.forCourseColor || (slot as any)?.forCourse?.color
+      },
+      room: localSlot?.room || (slot as any)?.room || {
+        name: (slot as any)?.roomName || (slot as any)?.room?.name,
+        id: (slot as any)?.roomId || (slot as any)?.room?.id
+      }
+    },
+    disabled: !displaySlot
+  });
+  
   const courseColor = localSlot?.course?.color || 
                      (slot as any)?.forCourse?.color || 
                      (slot as any)?.forCourseColor || 
                      '#e5e7eb';
 
+  const dragTransformStyle = dragTransform ? {
+    transform: `translate3d(${dragTransform.x}px, ${dragTransform.y}px, 0)`,
+  } : undefined;
+
 
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        setDragRef(node);
+      }}
       className={`
-        p-3 border-2 rounded-lg min-h-[120px] w-full transition-all duration-200
+        p-4 border-2 rounded-xl min-h-[140px] w-full min-w-[180px] transition-all duration-300 ease-in-out
         ${displaySlot 
-          ? 'border-solid hover:opacity-80' 
+          ? 'border-solid shadow-md hover:shadow-lg hover:scale-[1.02] bg-white' 
           : 'border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50'
         }
-        ${isOver ? 'ring-4 ring-blue-500 ring-opacity-75 bg-blue-100 border-blue-500 scale-105' : ''}
-        relative cursor-pointer
+        ${isOver ? 'ring-4 ring-blue-500 ring-opacity-75 bg-blue-50 border-blue-500 scale-105 shadow-xl' : ''}
+        ${isSlotDragging ? 'opacity-60 bg-blue-50 shadow-xl' : ''}
+        relative cursor-pointer group
       `}
       style={{
-        backgroundColor: displaySlot ? `${courseColor}15` : (isOver ? '#dbeafe' : undefined),
-        borderColor: displaySlot ? `${courseColor}60` : (isOver ? '#3b82f6' : undefined),
+        backgroundColor: displaySlot ? `${courseColor}08` : (isOver ? '#dbeafe' : undefined),
+        borderColor: displaySlot ? `${courseColor}80` : (isOver ? '#3b82f6' : undefined),
+        borderLeftWidth: displaySlot ? '4px' : '2px',
+        borderLeftColor: displaySlot ? courseColor : undefined,
         pointerEvents: 'auto',
+        ...dragTransformStyle,
       }}
-
+      {...(displaySlot ? dragListeners : {})}
+      {...(displaySlot ? dragAttributes : {})}
     >
       {displaySlot ? (
-        <div className="space-y-2">
-                          {/* Course Header */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <div 
-                              className="w-4 h-4 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: courseColor }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-sm text-gray-800 truncate">
-                                {localSlot?.course?.name || 
-                                 (slot as any)?.forCourse?.name || 
-                                 (slot as any)?.forCourseName || 
-                                 'Unknown Course'}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {localSlot ? 'Local Assignment' : `Saved (ID: ${slot?.id})`}
-                              </div>
-                            </div>
-                          </div>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3 mb-3">
+            <div 
+              className="w-5 h-5 rounded-full flex-shrink-0 shadow-sm"
+              style={{ backgroundColor: courseColor }}
+            />
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-lg text-gray-900 leading-tight">
+                {localSlot?.course?.name || 
+                 (slot as any)?.forCourse?.name || 
+                 (slot as any)?.forCourseName || 
+                 'Unknown Course'}
+              </div>
+            </div>
+            {displaySlot && (
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors cursor-grab active:cursor-grabbing">
+                <GripVertical className="w-4 h-4 text-gray-500" />
+              </div>
+            )}
+          </div>
 
-          {/* Teacher */}
-          <div className="flex items-center gap-1 text-sm text-gray-700">
-            <User className="w-3 h-3" />
-            <span className="truncate">
+          <div className="flex items-center gap-2 text-sm text-gray-800 bg-gray-50 rounded-lg p-2">
+            <User className="w-4 h-4 text-gray-600" />
+            <span className="font-medium truncate">
               {localSlot?.teacher?.firstName || 
                (slot as any)?.teacher?.firstName || 
                (slot as any)?.teacherFirstName || 
@@ -254,21 +391,30 @@ function DroppableTimeSlot({
             </span>
           </div>
 
-          {/* Room */}
-          <div className="flex items-center gap-1 text-xs text-gray-600">
-            <MapPin className="w-3 h-3" />
-            <span className="truncate">{localSlot?.room?.name || 
-                                              (slot as any)?.room?.name || 
-                                              (slot as any)?.roomName || 
-                                              'No Room Assigned'}</span>
+          <div className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg p-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <MapPin className="w-4 h-4 text-gray-600 flex-shrink-0" />
+              <span className="font-medium truncate">
+                {localSlot?.room?.name || 
+                 (slot as any)?.room?.name || 
+                 (slot as any)?.roomName || 
+                 'No Room Assigned'}
+              </span>
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-1 mt-2" style={{ pointerEvents: 'auto' }}>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
+
+          <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-gray-200" style={{ pointerEvents: 'auto' }}>
+            <RoomEditor
+              currentRoom={localSlot?.room || (slot as any)?.room || {
+                name: (slot as any)?.roomName || (slot as any)?.room?.name,
+                id: (slot as any)?.roomId || (slot as any)?.room?.id
+              }}
+              rooms={rooms}
+              onRoomChange={(room) => onUpdateRoom(slotId, room)}
+            />
+            <button
+              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 if (localSlot) {
@@ -278,15 +424,19 @@ function DroppableTimeSlot({
                 }
               }}
               style={{ pointerEvents: 'auto' }}
+              title="Remove slot"
             >
-              <Trash2 className="w-3 h-3" />
-            </Button>
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center h-full text-gray-400">
-          <Plus className="w-6 h-6" />
-          <span className="text-xs mt-1 opacity-50">{slotId}</span>
+        <div className="flex flex-col items-center justify-center h-full text-gray-400 group-hover:text-gray-600 transition-colors">
+          <div className="w-12 h-12 rounded-full bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center mb-2 transition-colors">
+            <Plus className="w-6 h-6" />
+          </div>
+          <span className="text-sm font-medium">Drop here</span>
+          <span className="text-xs mt-1 opacity-60">{slotId}</span>
         </div>
       )}
     </div>
@@ -300,30 +450,29 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
   const [teacherCourseCombos, setTeacherCourseCombos] = useState<TeacherCourseCombo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeItem, setActiveItem] = useState<TeacherCourseCombo | null>(null);
+  const [activeExistingSlot, setActiveExistingSlot] = useState<ExistingSlotData | null>(null);
   const [currentDropTarget, setCurrentDropTarget] = useState<string | null>(null);
-  const [localSlots, setLocalSlots] = useState<Record<string, { teacher: Teacher; course: Course; room?: Room }>>({});
+  const [localSlots, setLocalSlots] = useState<Record<string, { teacher: Teacher; course: Course; room?: Room; _deleteOriginal?: boolean; _originalSlotId?: number }>>({});
 
-  // Optimized sensors configuration
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // Reduced for better responsiveness
+        distance: 5,
       },
     }),
     useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 5, // Reduced for better responsiveness
+        distance: 5,
       },
     })
   );
 
 
 
-  // Data fetching hooks
   const { data: timetableData, isLoading: timetableLoading, refetch: refetchTimetable } = useTimetable(classId);
   const { data: periodsData, isLoading: periodsLoading } = usePeriods();
+  const { data: studentCount } = useClassStudentCount(classId);
 
-  // Extract and process data with safe fallbacks
   const periods = Array.isArray(periodsData) ? periodsData : [];
   const timetableSlots = useMemo(() => {
     const data = timetableData as { slots?: TimetableSlot[] } | null | undefined;
@@ -336,18 +485,15 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
   }, [timetableData]);
   const sortedPeriods = periods.sort((a: Period, b: Period) => (a.index || 0) - (b.index || 0));
 
-  // Create slot map with useMemo for performance
   const slotMap = useMemo(() => {
     const map = new Map<string, TimetableSlot>();
     if (Array.isArray(timetableSlots)) {
       timetableSlots.forEach((slot: any) => {
-        // Handle both nested period object and flat periodId structure
         const periodId = slot.period?.id || slot.periodId;
         if (periodId) {
           const key = `${slot.dayOfWeek}-${periodId}`;
           map.set(key, slot);
           
-          // Handle both nested and flat course/teacher names
           const courseName = (slot as any).forCourse?.name || (slot as any).forCourseName || 'Unknown Course';
           const teacherName = (slot as any).teacher?.firstName || (slot as any).teacherFirstName || 'Unknown Teacher';
           
@@ -361,11 +507,9 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
     return map;
   }, [timetableSlots]);
 
-  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch teachers
         let teachersData: Teacher[] = [];
         try {
           console.log('🔍 Fetching teachers from /admin/teachers...');
@@ -395,7 +539,6 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
           console.error('❌ Error fetching teachers:', error);
         }
 
-        // Fetch courses
         let coursesData: Course[] = [];
         try {
           console.log('🔍 Fetching courses from /v1/courses...');
@@ -425,7 +568,6 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
           console.error('❌ Error fetching courses:', error);
         }
 
-        // Fetch rooms
         let roomsData: Room[] = [];
         try {
           console.log('🔍 Fetching rooms from /v1/rooms...');
@@ -455,7 +597,6 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
           console.error('❌ Error fetching rooms:', error);
         }
 
-        // Ensure arrays
         const finalTeachers = Array.isArray(teachersData) ? teachersData : [];
         const finalCourses = Array.isArray(coursesData) ? coursesData : [];
         const finalRooms = Array.isArray(roomsData) ? roomsData : [];
@@ -469,19 +610,18 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
         console.log('📚 Courses:', finalCourses.map(c => ({ id: c.id, name: c.name, color: c.color })));
         console.log('🏢 Rooms:', finalRooms.map(r => ({ id: r.id, name: r.name })));
 
-        // Create teacher-course combinations - all teachers but only their first subject
         const combos: TeacherCourseCombo[] = [];
         if (finalTeachers.length > 0 && finalCourses.length > 0) {
-          // Show ALL teachers (no limit) but only their first subject
-          finalTeachers.forEach((teacher: Teacher) => {
+          finalTeachers.forEach((teacher: Teacher, index: number) => {
             if (teacher && teacher.id) {
-              // Each teacher gets only their FIRST subject for cleaner UI
-              const firstCourse = finalCourses[0]; // Use first available course for all teachers
-              if (firstCourse && firstCourse.id) {
+              const courseIndex = index % finalCourses.length;
+              const assignedCourse = finalCourses[courseIndex];
+              
+              if (assignedCourse && assignedCourse.id) {
                 combos.push({
                   teacher,
-                  course: firstCourse,
-                  id: `teacher-${teacher.id}-course-${firstCourse.id}`
+                  course: assignedCourse,
+                  id: `teacher-${teacher.id}-course-${assignedCourse.id}`
                 });
               }
             }
@@ -499,7 +639,6 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
     fetchData();
   }, []);
 
-  // Optimized drag over handler
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const dropTargetId = event.over?.id;
     console.log('🎯 DRAG OVER - Target ID:', dropTargetId);
@@ -516,11 +655,31 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
     console.log('🎯 DRAG START - Active data:', active.data);
     
     if (active.data.current) {
-      const combo = active.data.current as TeacherCourseCombo;
-      console.log('🎯 DRAG START - Setting active item:', combo);
-      console.log('🎯 DRAG START - Combo teacher:', combo.teacher);
-      console.log('🎯 DRAG START - Combo course:', combo.course);
-      setActiveItem(combo);
+      const data = active.data.current;
+      
+      if (data.type === 'existing-slot') {
+        const existingSlotData: ExistingSlotData = {
+          teacher: data.teacher,
+          course: data.course,
+          room: data.room,
+          slotId: data.slotId,
+          isLocal: data.isLocal,
+          originalSlot: data.originalSlot
+        };
+        console.log('🎯 DRAG START - Setting active existing slot:', existingSlotData);
+        console.log('🎯 DRAG START - Teacher:', existingSlotData.teacher);
+        console.log('🎯 DRAG START - Course:', existingSlotData.course);
+        console.log('🎯 DRAG START - Room:', existingSlotData.room);
+        setActiveExistingSlot(existingSlotData);
+        setActiveItem(null);
+      } else {
+        const combo = data.current as TeacherCourseCombo;
+        console.log('🎯 DRAG START - Setting active item:', combo);
+        console.log('🎯 DRAG START - Combo teacher:', combo.teacher);
+        console.log('🎯 DRAG START - Combo course:', combo.course);
+        setActiveItem(combo);
+        setActiveExistingSlot(null);
+      }
     }
   }, []);
 
@@ -528,51 +687,85 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
     console.log('🎯 DRAG END - Starting drop process...');
     const { over } = event;
     
-    // Use currentDropTarget if over is null (common issue with DndKit)
     const dropTargetId = over?.id || currentDropTarget;
     
     console.log('🎯 Drop target ID:', dropTargetId);
     console.log('🎯 Active item:', activeItem);
-    console.log('🎯 Active item keys:', activeItem ? Object.keys(activeItem) : 'null');
-    console.log('🎯 Active item type:', typeof activeItem);
+    console.log('🎯 Active existing slot:', activeExistingSlot);
     
-    // Handle the nested data structure - activeItem might have a 'current' property
-    let actualData = activeItem;
-    if (activeItem && 'current' in activeItem) {
-      actualData = (activeItem as { current: TeacherCourseCombo }).current;
+    if (activeExistingSlot && dropTargetId) {
+      const targetSlotId = String(dropTargetId);
+      
+      if (targetSlotId === activeExistingSlot.slotId) {
+        console.log('❌ Cannot drop on same slot');
+        setActiveExistingSlot(null);
+        setCurrentDropTarget(null);
+        return;
+      }
+      
+      console.log('🎯 Moving existing slot from', activeExistingSlot.slotId, 'to', targetSlotId);
+      
+      try {
+        setLocalSlots(prev => {
+          const newSlots = { ...prev };
+          
+          if (activeExistingSlot.isLocal) {
+            delete newSlots[activeExistingSlot.slotId];
+          } else {
+            newSlots[`DELETE_${activeExistingSlot.slotId}`] = {
+              _deleteOriginal: true,
+              _originalSlotId: activeExistingSlot.originalSlot?.id,
+              teacher: activeExistingSlot.teacher,
+              course: activeExistingSlot.course,
+              room: activeExistingSlot.room
+            };
+          }
+          
+          newSlots[targetSlotId] = {
+            teacher: activeExistingSlot.teacher,
+            course: activeExistingSlot.course,
+            room: activeExistingSlot.room
+          };
+          
+          return newSlots;
+        });
+        
+        toast.success(`✅ Moved ${activeExistingSlot.course?.name || 'course'} to ${targetSlotId}`);
+        console.log('✅ Existing slot move completed successfully!');
+        
+      } catch (error) {
+        console.error('❌ Error moving existing slot:', error);
+        toast.error(`❌ Failed to move slot`);
+      }
     }
-    console.log('🎯 Actual data:', actualData);
-    console.log('🎯 Actual data teacher:', actualData?.teacher);
-    console.log('🎯 Actual data course:', actualData?.course);
-    
-    if (!dropTargetId || !actualData || !actualData.course || !actualData.teacher) {
-      console.log('❌ Drop failed - missing data:', { 
-        dropTargetId: !!dropTargetId, 
-        activeItem: !!activeItem, 
-        actualData: !!actualData,
-        course: !!actualData?.course, 
-        teacher: !!actualData?.teacher 
-      });
-      setActiveItem(null);
-      setCurrentDropTarget(null);
-      return;
-    }
+    else if (activeItem && dropTargetId) {
+      let actualData = activeItem;
+      if (activeItem && 'current' in activeItem) {
+        actualData = (activeItem as { current: TeacherCourseCombo }).current;
+      }
+      console.log('🎯 Actual data:', actualData);
+      console.log('🎯 Actual data teacher:', actualData?.teacher);
+      console.log('🎯 Actual data course:', actualData?.course);
+      
+      if (!dropTargetId || !actualData || !actualData.course || !actualData.teacher) {
+        console.log('❌ Drop failed - missing data:', { 
+          dropTargetId: !!dropTargetId, 
+          activeItem: !!activeItem, 
+          actualData: !!actualData,
+          course: !!actualData?.course, 
+          teacher: !!actualData?.teacher 
+        });
+        setActiveItem(null);
+        setCurrentDropTarget(null);
+        return;
+      }
 
     const targetSlotId = String(dropTargetId);
     console.log('🎯 Target slot ID:', targetSlotId);
     
-    // Handle test drop zone
-    if (targetSlotId === 'test-drop-zone') {
-      toast.success(`🎉 SUCCESS! Dropped ${actualData.teacher?.firstName} ${actualData.teacher?.lastName} teaching ${actualData.course?.name} on test zone!`);
-      setActiveItem(null);
-      setCurrentDropTarget(null);
-      return;
-    }
-    
     const [day, periodIdStr] = targetSlotId.split('-');
     console.log('🎯 Parsed day:', day, 'period string:', periodIdStr);
     
-    // For now, just update local state without API calls
     try {
       const defaultRoom = rooms.length > 0 ? rooms[0] : undefined;
       
@@ -593,10 +786,12 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
       console.error('❌ Error updating slot:', error);
       toast.error(`❌ Failed to update slot`);
     }
+    }
     
     setActiveItem(null);
+    setActiveExistingSlot(null);
     setCurrentDropTarget(null);
-  }, [activeItem, rooms, currentDropTarget]);
+  }, [activeItem, activeExistingSlot, rooms, currentDropTarget]);
 
   // Delete slot
   const handleDeleteSlot = async (slotId: number) => {
@@ -625,6 +820,20 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
     toast.success('Local assignment removed');
   };
 
+  // Update room for a slot
+  const handleUpdateRoom = (slotId: string, room: Room | undefined) => {
+    setLocalSlots(prev => {
+      const newSlots = { ...prev };
+      if (newSlots[slotId]) {
+        newSlots[slotId] = {
+          ...newSlots[slotId],
+          room
+        };
+      }
+      return newSlots;
+    });
+  };
+
   // Save timetable
   const handleSaveTimetable = async () => {
     if (Object.keys(localSlots).length === 0) {
@@ -639,8 +848,23 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
     setIsLoading(true);
     try {
       const slotsToSave = [];
+      const slotsToDelete = [];
       
       for (const [slotId, slotData] of Object.entries(localSlots)) {
+        // Handle deletion markers for moved slots
+        if (slotId.startsWith('DELETE_') && slotData._deleteOriginal) {
+          slotsToDelete.push({
+            slotId: slotData._originalSlotId,
+            originalSlotKey: slotId.replace('DELETE_', '')
+          });
+          continue;
+        }
+        
+        // Skip deletion markers
+        if (slotId.startsWith('DELETE_')) {
+          continue;
+        }
+        
         const [day, periodIdStr] = slotId.split('-');
         const requestedPeriodId = Number(periodIdStr);
         
@@ -651,7 +875,6 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
         }
         
         if (!actualPeriod) {
-          console.warn(`⚠️ Period not found for slot ${slotId}, skipping`);
           continue;
         }
 
@@ -665,18 +888,19 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
           description: `${slotData.course?.name || 'Course'} - ${slotData.teacher?.firstName || 'Teacher'} ${slotData.teacher?.lastName || ''}`
         };
 
-        console.log(`💾 Preparing to save slot ${slotId}:`, {
-          originalSlotId: slotId,
-          day,
-          periodIdStr,
-          actualPeriod: { id: actualPeriod.id, index: actualPeriod.index },
-          slotPayload
-        });
 
         slotsToSave.push(slotPayload);
       }
 
-      console.log('🎯 Saving slots:', slotsToSave);
+
+      // Delete original slots first (for moved slots)
+      const deletePromises = slotsToDelete.map(deleteData => {
+        return http.delete(`/v1/timetables/slots/${deleteData.slotId}`);
+      });
+      
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+      }
 
       // Save all slots
       const savePromises = slotsToSave.map(slotData => {
@@ -690,67 +914,24 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
         }
       });
 
-      const results = await Promise.all(savePromises);
-      console.log('🎯 Save results:', results);
+      await Promise.all(savePromises);
       
       toast.success(`✅ Successfully saved ${slotsToSave.length} timetable slots!`);
       
-      // Refresh the timetable data multiple times to ensure we get the latest
-      console.log('🔄 Refreshing timetable data...');
+      // Clear local slots immediately after successful save
+      setLocalSlots({});
+      
+      // Refresh the timetable data to get the latest from API
       await refetchTimetable();
       
-      // Wait a bit and refresh again to ensure backend has processed the save
-      setTimeout(async () => {
-        console.log('🔄 Second refresh to ensure data consistency...');
-        await refetchTimetable();
-      }, 1000);
-      
-      // Don't clear local slots immediately - keep them until we confirm they're in the API response
-      console.log('✅ Timetable refreshed successfully');
-      
-      // Check if our saved slots are now in the API response
-      const savedSlotKeys = Object.keys(localSlots);
-      let allSlotsFound = true;
-      
-      savedSlotKeys.forEach(slotKey => {
-        if (!slotMap.has(slotKey)) {
-          console.warn(`⚠️ Saved slot ${slotKey} not found in API response`);
-          allSlotsFound = false;
-        }
-      });
-      
-      // Only clear local slots if all saved slots are confirmed in API
-      if (allSlotsFound && savedSlotKeys.length > 0) {
-        console.log('✅ All saved slots confirmed in API, clearing local slots');
-        setLocalSlots({});
-      } else if (savedSlotKeys.length > 0) {
-        console.log('⚠️ Some saved slots missing from API, keeping local slots for display');
-      }
-      
     } catch (error) {
-      console.error('❌ Error saving timetable:', error);
-      toast.error('❌ Failed to save timetable. Please try again.');
+      console.error('Error saving timetable:', error);
+      toast.error('Failed to save timetable. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Auto-generate
-  const handleAutoGenerate = async () => {
-    if (!confirm('This will replace the existing timetable. Are you sure?')) return;
-
-    setIsLoading(true);
-    try {
-      await http.post(`/v1/timetables/debug/class/${classId}/optimize`);
-      toast.success('Timetable generated successfully');
-      await refetchTimetable();
-    } catch (error) {
-      console.error('Error generating timetable:', error);
-      toast.error('Failed to generate timetable');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   if (timetableLoading || periodsLoading) {
     return (
@@ -780,10 +961,6 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* Teacher Sidebar */}
         <div className="xl:col-span-1 space-y-4">
-
-          {/* Simple Test Drop Zone */}
-          <TestDropZone />
-          
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -791,6 +968,7 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
                 Teachers & Subjects
                 <Badge variant="secondary">{teacherCourseCombos.length}</Badge>
                 {activeItem && <Badge variant="destructive">DRAGGING!</Badge>}
+                {activeExistingSlot && <Badge variant="destructive">MOVING SLOT!</Badge>}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 max-h-[600px] overflow-y-auto">
@@ -819,18 +997,10 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
         <div>
               <h2 className="text-2xl font-bold text-gray-900">Enhanced Timetable</h2>
           <p className="text-gray-600">
-                Drag teachers from the sidebar to assign them to time slots
+                Drag teachers from the sidebar to assign them to time slots, or drag existing slots to move them
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={() => refetchTimetable()} 
-            variant="outline"
-            disabled={isLoading}
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
           <Button 
             onClick={handleSaveTimetable}
             disabled={isLoading || Object.keys(localSlots).length === 0}
@@ -842,19 +1012,11 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
               : `Save Changes (${Object.keys(localSlots).length})`
             }
           </Button>
-          <Button 
-            onClick={handleAutoGenerate}
-            disabled={isLoading}
-            variant="outline"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Auto Generate
-          </Button>
         </div>
       </div>
 
       {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -890,6 +1052,20 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Students</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {studentCount || 0}
+                </p>
+              </div>
+              <UserCheck className="w-8 h-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Timetable Grid */}
@@ -909,9 +1085,9 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
                 </div>
               ) : (
           <div className="overflow-x-auto">
-            <div className="min-w-full">
+            <div className="min-w-[800px]">
               {/* Header */}
-              <div className="grid grid-cols-7 gap-2 mb-4">
+              <div className="grid grid-cols-7 gap-3 mb-4">
                 <div className="font-semibold text-sm text-gray-600 p-3 bg-gray-50 rounded">
                   Time
                 </div>
@@ -923,9 +1099,9 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
               </div>
 
               {/* Schedule Grid */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                       {sortedPeriods.map((period: Period) => (
-                  <div key={period.id} className="grid grid-cols-7 gap-2">
+                  <div key={period.id} className="grid grid-cols-7 gap-3">
                     {/* Time Column */}
                     <div className="p-3 text-sm font-medium text-gray-700 bg-gray-50 rounded border">
                       <div className="font-semibold">Period {period.index}</div>
@@ -951,6 +1127,9 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
                                 localSlot={localSlot}
                                 onDeleteSlot={handleDeleteSlot}
                                 onDeleteLocalSlot={handleDeleteLocalSlot}
+                                onUpdateRoom={handleUpdateRoom}
+                                localSlots={localSlots}
+                                rooms={rooms}
                               />
                       );
                     })}
@@ -969,34 +1148,67 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
       {/* Drag Overlay */}
       <DragOverlay dropAnimation={null}>
         {(() => {
+          // Handle existing slot overlay
+          if (activeExistingSlot) {
+            return (
+              <div 
+                className="p-3 rounded-lg border-2 shadow-lg bg-white opacity-90 pointer-events-none"
+                style={{ 
+                  transform: 'rotate(5deg)',
+                  pointerEvents: 'none',
+                  borderLeftColor: activeExistingSlot.course?.color || '#9660EB',
+                  backgroundColor: `${activeExistingSlot.course?.color || '#9660EB'}15`,
+                  borderColor: `${activeExistingSlot.course?.color || '#9660EB'}60`
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: activeExistingSlot.course?.color || '#9660EB' }}
+                  />
+                  <span className="font-medium text-sm">
+                    {activeExistingSlot.teacher?.firstName} {activeExistingSlot.teacher?.lastName}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-600 mt-1">
+                  {activeExistingSlot.course?.name}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Moving existing slot...
+                </div>
+              </div>
+            );
+          }
+          
+          // Handle teacher-course combo overlay
           let overlayData = activeItem;
           if (activeItem && 'current' in activeItem) {
             overlayData = (activeItem as { current: TeacherCourseCombo }).current;
           }
           return overlayData && overlayData.course && overlayData.teacher ? (
-          <div 
-            className="p-3 rounded-lg border-2 shadow-lg bg-white opacity-90 pointer-events-none"
-            style={{ 
-              transform: 'rotate(5deg)',
-              pointerEvents: 'none',
-              borderLeftColor: overlayData.course.color || '#9660EB',
-              backgroundColor: `${overlayData.course.color || '#9660EB'}15`,
-              borderColor: `${overlayData.course.color || '#9660EB'}60`
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: overlayData.course.color || '#9660EB' }}
-              />
-              <span className="font-medium text-sm">
-                {overlayData.teacher.firstName} {overlayData.teacher.lastName}
-              </span>
+            <div 
+              className="p-3 rounded-lg border-2 shadow-lg bg-white opacity-90 pointer-events-none"
+              style={{ 
+                transform: 'rotate(5deg)',
+                pointerEvents: 'none',
+                borderLeftColor: overlayData.course.color || '#9660EB',
+                backgroundColor: `${overlayData.course.color || '#9660EB'}15`,
+                borderColor: `${overlayData.course.color || '#9660EB'}60`
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: overlayData.course.color || '#9660EB' }}
+                />
+                <span className="font-medium text-sm">
+                  {overlayData.teacher.firstName} {overlayData.teacher.lastName}
+                </span>
+              </div>
+              <div className="text-xs text-gray-600 mt-1">
+                {overlayData.course.name}
+              </div>
             </div>
-            <div className="text-xs text-gray-600 mt-1">
-              {overlayData.course.name}
-            </div>
-          </div>
           ) : null;
         })()}
       </DragOverlay>

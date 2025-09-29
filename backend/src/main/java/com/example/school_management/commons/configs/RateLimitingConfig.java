@@ -62,19 +62,19 @@ public class RateLimitingConfig {
     public static class RateLimits {
         
         // Authentication endpoints - stricter limits
-        public static final Bandwidth AUTH_BANDWIDTH = Bandwidth.classic(10, Refill.intervally(10, Duration.ofMinutes(1)));
+        public static final Bandwidth AUTH_BANDWIDTH = Bandwidth.classic(30, Refill.intervally(30, Duration.ofMinutes(1)));
         
-        // General API endpoints - moderate limits
-        public static final Bandwidth API_BANDWIDTH = Bandwidth.classic(100, Refill.intervally(100, Duration.ofMinutes(1)));
+        // General API endpoints - higher limits for development
+        public static final Bandwidth API_BANDWIDTH = Bandwidth.classic(300, Refill.intervally(300, Duration.ofMinutes(1)));
         
-        // Listing endpoints - higher limits
-        public static final Bandwidth LISTING_BANDWIDTH = Bandwidth.classic(200, Refill.intervally(200, Duration.ofMinutes(1)));
+        // Listing endpoints - much higher limits
+        public static final Bandwidth LISTING_BANDWIDTH = Bandwidth.classic(500, Refill.intervally(500, Duration.ofMinutes(1)));
         
-        // File upload endpoints - lower limits
-        public static final Bandwidth UPLOAD_BANDWIDTH = Bandwidth.classic(20, Refill.intervally(20, Duration.ofMinutes(1)));
+        // File upload endpoints - moderate limits
+        public static final Bandwidth UPLOAD_BANDWIDTH = Bandwidth.classic(50, Refill.intervally(50, Duration.ofMinutes(1)));
         
-        // Admin endpoints - moderate limits
-        public static final Bandwidth ADMIN_BANDWIDTH = Bandwidth.classic(50, Refill.intervally(50, Duration.ofMinutes(1)));
+        // Admin endpoints - higher limits
+        public static final Bandwidth ADMIN_BANDWIDTH = Bandwidth.classic(150, Refill.intervally(150, Duration.ofMinutes(1)));
     }
 
     /**

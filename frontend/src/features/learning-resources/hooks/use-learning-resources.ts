@@ -27,7 +27,7 @@ export function useLearningResources(
     "/v1/learning-resources",
     LIST_KEY,
     size,
-    filters,
+    filters
   );
 }
 
@@ -107,14 +107,17 @@ export function useDeleteLearningResource() {
 export function useDownloadResource() {
   return useMutationApi<Blob, string>(
     async (filename) => {
-      // Use axios directly to bypass the response interceptor for blob responses
-      const response = await axios.get(`${API_URL}/v1/learning-resources/files/${filename}`, {
+      // Add timestamp to prevent caching and ensure each request is unique
+      const timestamp = Date.now();
+      console.log(`🔥 Download API call starting for ${filename} at ${timestamp}`);
+      
+      // Use the configured http instance to include auth interceptors
+      const response = await http.get(`/v1/learning-resources/files/${filename}?t=${timestamp}`, {
         responseType: 'blob',
-        headers: {
-          Authorization: `Bearer ${token.access}`,
-        },
       });
-      return response.data;
+      
+      console.log(`✅ Download API call completed for ${filename} at ${timestamp}`);
+      return response as unknown as Blob; // Cast because interceptor unwraps data
     }
   );
 }
@@ -123,14 +126,11 @@ export function useDownloadResource() {
 export function usePreviewResource() {
   return useMutationApi<Blob, string>(
     async (filename) => {
-      // Use axios directly to bypass the response interceptor for blob responses
-      const response = await axios.get(`${API_URL}/v1/learning-resources/preview/${filename}`, {
+      // Use the configured http instance to include auth interceptors
+      const response = await http.get(`/v1/learning-resources/preview/${filename}`, {
         responseType: 'blob',
-        headers: {
-          Authorization: `Bearer ${token.access}`,
-        },
       });
-      return response.data;
+      return response as unknown as Blob; // Cast because interceptor unwraps data
     }
   );
 }

@@ -24,11 +24,6 @@ export const enrollmentFormDefinition = z.object({
     })
     .default(EnrollmentStatus.ACTIVE),
 
-  finalGrad: z
-    .number()
-    .min(0, "Grade must be between 0 and 20")
-    .max(20, "Grade must be between 0 and 20")
-    .optional(),
 });
 
 export type EnrollmentFormValues = z.infer<typeof enrollmentFormDefinition>;
@@ -37,17 +32,21 @@ export type EnrollmentFormValues = z.infer<typeof enrollmentFormDefinition>;
 export const enrollmentFormFields: BaseField[] = [
   {
     name: "studentId",
-    type: "select",
+    type: "searchable-select",
     label: "Student",
-    placeholder: "Choose a student...",
+    placeholder: "Search and select a student...",
     options: [], // Will be populated dynamically
+    searchable: true,
+    searchPlaceholder: "Type to search students by name or email...",
   },
   {
     name: "classId",
-    type: "select",
+    type: "searchable-select",
     label: "Class",
-    placeholder: "Choose a class...",
+    placeholder: "Search and select a class...",
     options: [], // Will be populated dynamically
+    searchable: true,
+    searchPlaceholder: "Type to search classes by name...",
   },
   {
     name: "status",
@@ -61,12 +60,6 @@ export const enrollmentFormFields: BaseField[] = [
       { label: "Completed", value: EnrollmentStatus.COMPLETED },
       { label: "Dropped", value: EnrollmentStatus.DROPPED },
     ],
-  },
-  {
-    name: "finalGrad",
-    type: "number",
-    label: "Final Grade (Optional)",
-    placeholder: "Enter grade (0-20)...",
   },
 ];
 

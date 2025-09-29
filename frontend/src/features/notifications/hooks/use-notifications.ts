@@ -27,7 +27,7 @@ export function useNotifications(userId?: string, filters?: {
   return useQueryApi<Notification[]>(
     ['notifications', userId, filters],
     async () => {
-      const response = await http.get<Notification[]>('/v1/notifications', {
+      const response = await http.get<Notification[]>('/notifications/v1/notifications', {
         params: {
           page: filters?.page || 0,
           size: filters?.size || 10,
@@ -43,7 +43,7 @@ export function useUnreadNotifications(userId?: string) {
   return useQueryApi<Notification[]>(
     ['notifications', 'unread', userId],
     async () => {
-      const response = await http.get<Notification[]>('/v1/notifications', {
+      const response = await http.get<Notification[]>('/notifications/v1/notifications', {
         params: { 
           page: 0,
           size: 50,

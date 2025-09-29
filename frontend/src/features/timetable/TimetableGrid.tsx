@@ -149,7 +149,6 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({ classId }) => {
   const timetable = timetableRaw as Timetable | null; // Changed from undefined to null
   const [activeTeacher, setActiveTeacher] = useState<Teacher | null>(null);
   const [dragSourceSlotId, setDragSourceSlotId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeSlot, setActiveSlot] = useState<EnhancedSlot | null>(null);
@@ -627,70 +626,6 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({ classId }) => {
 
   // Removed unused template function
   
-  // Auto-generate handler
-  const handleAutoGenerate = async () => {
-    try {
-      setIsGenerating(true);
-      console.log('Starting auto-generation for class:', selectedClassId);
-      
-      // Call the optimization endpoint
-      const response = await http.post(`/v1/timetables/debug/class/${selectedClassId}/optimize`);
-      console.log('Debug optimization response:', response);
-      
-      // Wait a bit for the backend to complete the optimization
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Refetch the timetable data
-      const refetchResult = await refetch();
-      
-      // Update local slots with the new timetable data
-      if (refetchResult.data && periods) {
-        const apiResponse = refetchResult.data as { data?: Timetable } | Timetable;
-        const freshTimetable = 'data' in apiResponse ? apiResponse.data : apiResponse as Timetable;
-        
-        if (!freshTimetable || !('slots' in freshTimetable)) return;
-        
-        const newLocalSlots: Record<string, LocalSlotData> = {};
-        
-        periods.forEach((period: Period) => {
-          ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'].forEach(day => {
-            const slotKey = `${day}-${period.id}`;
-            const existingSlot = freshTimetable.slots?.find((s: TimetableSlot) => 
-              s.dayOfWeek === day && s.period?.id === period.id
-            );
-            
-            newLocalSlots[slotKey] = {
-              teacher: existingSlot?.teacher || undefined,
-              course: existingSlot?.forCourse || undefined,
-              room: existingSlot?.room || undefined,
-              isOver: false
-            };
-          });
-        });
-        
-        setLocalSlots(newLocalSlots);
-        setOriginalSlots(newLocalSlots);
-        console.log('Updated local slots after auto-generation:', newLocalSlots);
-      }
-      
-      dispatch(addNotification({
-        title: 'Success',
-        type: 'success',
-        message: 'Timetable optimization completed successfully!'
-      }));
-      
-    } catch (error: unknown) {
-      console.error('Auto-generation failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      dispatch(addNotification({
-        title: 'Error',
-        type: 'error',
-        message: `Auto-generation failed: ${errorMessage}`
-      }));
-    } finally {
-      setIsGenerating(false);
-    }
-  };
   // Loading and error states
   if (teachersLoading || periodsLoading || timetableLoading) return <div>Loading...</div>;
   if (teachersError) return <div>Error loading teachers.</div>;
@@ -713,21 +648,8 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({ classId }) => {
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
       <div className="flex flex-col gap-6">
-        {/* ONLY Auto-generate and Save Buttons */}
+        {/* Save Button Only */}
         <div className="mb-4 flex gap-3 items-center">
-          <button 
-            onClick={handleAutoGenerate} 
-            disabled={isGenerating}
-            className={`
-              px-6 py-3 text-white border-none rounded-md font-bold text-base transition-all duration-200
-              ${isGenerating 
-                ? 'bg-gray-500 cursor-not-allowed opacity-60' 
-                : 'bg-emerald-500 hover:bg-emerald-600 cursor-pointer'
-              }
-            `}
-          >
-            {isGenerating ? '⏳ Generating...' : '🎯 Auto-generate'}
-          </button>
           <button 
             onClick={handleSave} 
             disabled={!hasChanges || isSaving}

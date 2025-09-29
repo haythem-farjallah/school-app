@@ -41,17 +41,14 @@ export function ParentsTable() {
   const bulkImportMutation = useBulkImportParents();
 
   const handleView = React.useCallback((parent: Parent) => {
-    console.log("👁️ ParentsTable - Viewing parent:", parent);
     navigate(`/admin/parents/view/${parent.id}`);
   }, [navigate]);
 
   const handleEdit = React.useCallback((parent: Parent) => {
-    console.log("✏️ ParentsTable - Editing parent:", parent);
-    // Edit logic is now handled by the EditParentSheet component
-  }, []);
+    navigate(`/admin/parents/edit/${parent.id}`);
+  }, [navigate]);
 
   const handleDelete = React.useCallback((parent: Parent) => {
-    console.log("🗑️ ParentsTable - Deleting parent:", parent);
     setParentToDelete(parent);
     setDeleteDialogOpen(true);
   }, []);
@@ -59,14 +56,12 @@ export function ParentsTable() {
   const confirmDelete = React.useCallback(async () => {
     if (!parentToDelete) return;
     
-    console.log("✅ ParentsTable - Confirming delete for:", parentToDelete);
     
     try {
       await deleteMutation.mutateAsync(parentToDelete.id);
       toast.success(`Parent "${parentToDelete.firstName} ${parentToDelete.lastName}" deleted successfully`);
       refetch();
     } catch (error) {
-      console.error("❌ ParentsTable - Delete failed:", error);
       toast.error("Failed to delete parent");
     } finally {
       setDeleteDialogOpen(false);
@@ -75,7 +70,6 @@ export function ParentsTable() {
   }, [deleteMutation, parentToDelete]);
 
   const handleCreate = React.useCallback(() => {
-    console.log("➕ ParentsTable - Creating new parent");
     navigate("/admin/parents/create");
   }, [navigate]);
 

@@ -35,8 +35,10 @@ public class CustomUserDetailsService implements UserDetailsService
     @Override
     public UserDetails loadUserByUsername(String email)
             throws UsernameNotFoundException {
-
+        
+        log.info("🔍 Loading user by email: {}", email);
         BaseUser user = findBaseUserByEmail(email);
+        log.info("✅ Found user: {} with role: {} and status: {}", user.getEmail(), user.getRole(), user.getStatus());
 
         /* 1. ROLE_… authority */
         Collection<GrantedAuthority> auth = new ArrayList<>();
@@ -53,20 +55,39 @@ public class CustomUserDetailsService implements UserDetailsService
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
+                user.getStatus() == com.example.school_management.feature.auth.entity.Status.ACTIVE,  // enabled
+                true,  // accountNonExpired
+                true,  // credentialsNonExpired
+                true,  // accountNonLocked
                 auth
         );
     }
 
     /* ---------- helper ---------- */
-    @Cacheable(value = "users", key = "#email")
     public BaseUser findBaseUserByEmail(String email) {
-
-        return Stream.of(
+        // Try exact match first
+        Optional<? extends BaseUser> user = Stream.of(
                         studentRepo.findByEmail(email),
                         teacherRepo.findByEmail(email),
                         parentRepo.findByEmail(email),
                         adminRepo.findByEmail(email),
                         staffRepo.findByEmail(email)
+                )
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
+        
+        if (user.isPresent()) {
+            return user.get();
+        }
+        
+        // If not found, try case-insensitive search
+        return Stream.of(
+                        studentRepo.findByEmailIgnoreCase(email),
+                        teacherRepo.findByEmailIgnoreCase(email),
+                        parentRepo.findByEmailIgnoreCase(email),
+                        adminRepo.findByEmailIgnoreCase(email),
+                        staffRepo.findByEmailIgnoreCase(email)
                 )
                 .filter(Optional::isPresent)
                 .map(Optional::get)

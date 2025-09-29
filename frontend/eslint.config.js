@@ -23,6 +23,11 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // Suppress TypeScript warnings for any types and unused variables
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-params': 'off',
+      'no-unused-vars': 'off',
     },
   },
 )

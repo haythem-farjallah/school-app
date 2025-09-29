@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+  - name: School-Management-Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    editable: false
+    jsonData:
+      httpMethod: POST

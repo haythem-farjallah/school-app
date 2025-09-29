@@ -30,9 +30,6 @@ export function CoursesTable() {
     // Define the parsers based on known filterable columns
     const filterableColumns = [
       { key: "name", enableColumnFilter: true },
-      { key: "credit", enableColumnFilter: true },
-      { key: "weeklyCapacity", enableColumnFilter: true },
-      { key: "teacherId", enableColumnFilter: true },
     ];
     
     filterableColumns.forEach((col) => {
@@ -49,9 +46,6 @@ export function CoursesTable() {
   const apiParams = React.useMemo(() => {
     const keyMap: Record<string, string> = {
       name: "nameLike",
-      credit: "credit",
-      weeklyCapacity: "weeklyCapacity", 
-      teacherId: "teacherId",
     };
 
     const params: Record<string, unknown> = {};
@@ -77,17 +71,14 @@ export function CoursesTable() {
   const totalPages = Math.ceil(totalItems / pageSize);
 
   const handleView = React.useCallback((course: Course) => {
-    console.log("👁️ CoursesTable - Viewing course:", course);
     navigate(`/admin/courses/view/${course.id}`);
   }, [navigate]);
 
   const handleEdit = React.useCallback((course: Course) => {
-    console.log("✏️ CoursesTable - Editing course:", course);
     // Edit logic is now handled by the EditCourseSheet component
   }, []);
 
   const handleDelete = React.useCallback((course: Course) => {
-    console.log("🗑️ CoursesTable - Deleting course:", course);
     if (window.confirm(`Are you sure you want to delete the course "${course.name}"?`)) {
       deleteMutation.mutate(course.id, {
         onSuccess: () => {
@@ -95,7 +86,6 @@ export function CoursesTable() {
           refetch();
         },
         onError: (error) => {
-          console.error("❌ CoursesTable - Delete error:", error);
           toast.error("Failed to delete course");
         },
       });
@@ -103,7 +93,6 @@ export function CoursesTable() {
   }, [deleteMutation, refetch]);
 
   const handleCreate = React.useCallback(() => {
-    console.log("➕ CoursesTable - Creating new course");
     navigate("/admin/courses/create");
   }, [navigate]);
 

@@ -12,5 +12,6 @@ public interface BaseUserRepository<E extends BaseUser>
         extends JpaRepository<E, Long>, JpaSpecificationExecutor<E> {
 
     Optional<E> findByEmail(String email);
+    Optional<E> findByEmailIgnoreCase(String email);
     boolean existsByEmail(String email);
 }

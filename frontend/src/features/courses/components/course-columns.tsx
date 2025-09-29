@@ -40,23 +40,6 @@ export function getCoursesColumns(actions?: {
       size: 50,
     },
     {
-      accessorKey: "id",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="ID" />
-      ),
-      cell: ({ row }) => (
-        <div className="font-mono text-sm font-semibold text-blue-700 bg-blue-50/50 px-2 py-1 rounded-md border border-blue-200/60">
-          #{row.getValue("id")}
-        </div>
-      ),
-      size: 80,
-      enableColumnFilter: true,
-      meta: {
-        variant: "number",
-        label: "Course ID",
-      },
-    },
-    {
       accessorKey: "name",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Course Name" />
@@ -117,11 +100,7 @@ export function getCoursesColumns(actions?: {
           </Badge>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "range",
-        label: "Credit",
-      },
+      enableColumnFilter: false,
       size: 100,
     },
     {
@@ -140,34 +119,8 @@ export function getCoursesColumns(actions?: {
           </Badge>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "range",
-        label: "Weekly Hours",
-      },
+      enableColumnFilter: false,
       size: 120,
-    },
-    {
-      accessorKey: "teacherId",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Teacher" />
-      ),
-      cell: ({ row }) => (
-        <div className="flex items-center space-x-2">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-200/60 flex items-center justify-center">
-            <span className="text-xs font-semibold text-purple-700">T</span>
-          </div>
-          <span className="text-sm text-slate-700 font-medium">
-            Teacher #{row.getValue("teacherId")}
-          </span>
-        </div>
-      ),
-      enableColumnFilter: true,
-      meta: {
-        variant: "number",
-        label: "Teacher ID",
-      },
-      size: 140,
     },
     {
       id: "actions",

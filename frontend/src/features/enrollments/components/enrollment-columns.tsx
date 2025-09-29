@@ -124,59 +124,6 @@ export function getEnrollmentColumns({
       enableSorting: true,
     },
     {
-      accessorKey: "gradeCount",
-      id: "gradeCount",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Grades" />
-      ),
-      cell: ({ row }) => {
-        const gradeCount = row.getValue("gradeCount") as number;
-        return (
-          <div className="flex items-center">
-            <Badge variant="outline" className="text-xs">
-              {gradeCount || 0} grades
-            </Badge>
-          </div>
-        );
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: "finalGrad",
-      id: "finalGrad", 
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Final Grade" />
-      ),
-      cell: ({ row }) => {
-        const finalGrad = row.getValue("finalGrad") as number | undefined;
-        
-        if (finalGrad === undefined || finalGrad === null) {
-          return <span className="text-gray-400">-</span>;
-        }
-
-        // Color code the grade
-        let gradeColor = "text-gray-700";
-        if (finalGrad >= 18) gradeColor = "text-green-600 font-semibold";
-        else if (finalGrad >= 14) gradeColor = "text-blue-600 font-medium";
-        else if (finalGrad >= 10) gradeColor = "text-yellow-600 font-medium";
-        else gradeColor = "text-red-600 font-semibold";
-
-        return (
-          <span className={gradeColor}>
-            {finalGrad.toFixed(2)}/20
-          </span>
-        );
-      },
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: "includesString",
-      meta: {
-        variant: "number",
-        label: "Final Grade",
-        placeholder: "Min grade...",
-      },
-    },
-    {
       id: "actions",
       cell: ({ row }) => {
         const enrollment = row.original;

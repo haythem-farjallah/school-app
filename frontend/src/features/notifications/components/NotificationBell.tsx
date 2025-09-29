@@ -4,6 +4,8 @@ import { Bell, BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { NotificationCenter } from './NotificationCenter';
+import { useAppSelector, useAppDispatch } from '@/stores/store';
+import { mergeBackendNotifications } from '@/stores/notificationSlice';
 import { useUnreadNotifications } from '../hooks/use-notifications';
 import { useAuth } from '@/hooks/useAuth';
 import { getRoleClasses } from '@/lib/theme';
@@ -18,10 +20,21 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const { user } = useAuth();
   const userId = user?.id;
   const roleClasses = getRoleClasses(user?.role);
+  const dispatch = useAppDispatch();
   
-  const { data: unreadNotifications = [] } = useUnreadNotifications(userId);
-  const safeUnreadNotifications = Array.isArray(unreadNotifications) ? unreadNotifications : [];
-  const unreadCount = safeUnreadNotifications.length;
+  // Load backend notifications into Redux store
+  const { data: backendNotifications } = useUnreadNotifications(userId);
+  const { unreadCount } = useAppSelector(state => state.notification);
+
+  // Ensure backendNotifications is an array
+  const safeBackendNotifications = Array.isArray(backendNotifications) ? backendNotifications : [];
+
+  // Update Redux store when backend data loads
+  useEffect(() => {
+    if (safeBackendNotifications.length > 0) {
+      dispatch(mergeBackendNotifications(safeBackendNotifications));
+    }
+  }, [safeBackendNotifications, dispatch]);
 
   // Animate when new notifications arrive
   useEffect(() => {

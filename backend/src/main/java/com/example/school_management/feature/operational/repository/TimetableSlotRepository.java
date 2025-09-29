@@ -14,7 +14,7 @@ import java.util.List;
 @Repository
 public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, Long>, JpaSpecificationExecutor<TimetableSlot> {
 
-    @Query("SELECT ts FROM TimetableSlot ts WHERE ts.forClass.id = :classId ORDER BY ts.dayOfWeek, ts.period.index")
+    @Query("SELECT ts FROM TimetableSlot ts LEFT JOIN FETCH ts.forClass c LEFT JOIN FETCH c.enrollments WHERE ts.forClass.id = :classId ORDER BY ts.dayOfWeek, ts.period.index")
     List<TimetableSlot> findByClassId(@Param("classId") Long classId);
 
     @Query("SELECT ts FROM TimetableSlot ts WHERE ts.forCourse.id = :courseId ORDER BY ts.dayOfWeek, ts.period.index")

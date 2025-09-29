@@ -240,18 +240,10 @@ const TeacherDashboard = () => {
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
-                    onClick={() => navigate("/teacher/schedule")}
+                    onClick={() => navigate("/teacher/my-timetable")}
                   >
                     <Calendar className="mr-2 h-4 w-4" />
                     My Schedule
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate("/teacher/classes")}
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    My Classes
                   </Button>
                 </CardContent>
               </Card>

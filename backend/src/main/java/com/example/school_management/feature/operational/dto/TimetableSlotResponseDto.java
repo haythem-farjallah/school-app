@@ -11,32 +11,30 @@ public class TimetableSlotResponseDto {
     private DayOfWeek dayOfWeek;
     private String description;
     
-    // Period info (flattened)
     private Long periodId;
     private Integer periodIndex;
     private LocalTime periodStartTime;
     private LocalTime periodEndTime;
     
-    // Class info (flattened)
     private Long forClassId;
     private String forClassName;
     
-    // Course info (flattened)
     private Long forCourseId;
     private String forCourseName;
     private String forCourseCode;
     private String forCourseColor;
     
-    // Teacher info (flattened)
     private Long teacherId;
     private String teacherFirstName;
     private String teacherLastName;
     private String teacherEmail;
     
-    // Room info (flattened)
     private Long roomId;
     private String roomName;
     private Integer roomCapacity;
+    
+    // Student count for the class
+    private Integer studentCount;
     
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

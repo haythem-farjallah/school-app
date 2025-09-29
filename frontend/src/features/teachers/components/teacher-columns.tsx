@@ -135,18 +135,7 @@ export function getTeachersColumns(actions?: {
           </Badge>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "select",
-        label: "Qualifications",
-        options: [
-          { label: "Bachelor's Degree", value: "Bachelor's Degree" },
-          { label: "Master's Degree", value: "Master's Degree" },
-          { label: "PhD", value: "PhD" },
-          { label: "Teaching Certificate", value: "Teaching Certificate" },
-          { label: "Professional Diploma", value: "Professional Diploma" },
-        ],
-      },
+      enableColumnFilter: false,
       size: 200,
     },
     {
@@ -168,25 +157,7 @@ export function getTeachersColumns(actions?: {
           </div>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "multiSelect",
-        label: "Subjects Taught",
-        options: [
-          { label: "Mathematics", value: "Mathematics" },
-          { label: "English", value: "English" },
-          { label: "Science", value: "Science" },
-          { label: "History", value: "History" },
-          { label: "Geography", value: "Geography" },
-          { label: "Physics", value: "Physics" },
-          { label: "Chemistry", value: "Chemistry" },
-          { label: "Biology", value: "Biology" },
-          { label: "Art", value: "Art" },
-          { label: "Music", value: "Music" },
-          { label: "Physical Education", value: "Physical Education" },
-          { label: "Computer Science", value: "Computer Science" },
-        ],
-      },
+      enableColumnFilter: false,
       size: 180,
     },
     {
@@ -208,11 +179,7 @@ export function getTeachersColumns(actions?: {
           </div>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "range",
-        label: "Available Hours",
-      },
+      enableColumnFilter: false,
       size: 140,
     },
     {
@@ -231,11 +198,7 @@ export function getTeachersColumns(actions?: {
           </Badge>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "text",
-        label: "Schedule Preferences",
-      },
+      enableColumnFilter: false,
       size: 150,
     },
     {
@@ -262,16 +225,7 @@ export function getTeachersColumns(actions?: {
           </Badge>
         );
       },
-      enableColumnFilter: true,
-      meta: {
-        variant: "select",
-        label: "Gender",
-        options: [
-          { label: "Male", value: "Male" },
-          { label: "Female", value: "Female" },
-          { label: "Other", value: "Other" },
-        ],
-      },
+      enableColumnFilter: false,
       size: 120,
     },
     {

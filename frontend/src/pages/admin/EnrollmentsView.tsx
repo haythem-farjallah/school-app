@@ -189,13 +189,8 @@ export default function EnrollmentsView() {
                       <div>
                         <p className="font-medium text-gray-900">Academic Progress</p>
                         <p className="text-sm text-gray-600">
-                          {enrollment.gradeCount || 0} grades recorded
+                          Enrollment Status: {enrollment.status}
                         </p>
-                        {enrollment.finalGrad && (
-                          <p className="text-sm font-medium text-blue-600">
-                            Final Grade: {enrollment.finalGrad.toFixed(2)}/20
-                          </p>
-                        )}
                       </div>
                     </div>
                   </div>

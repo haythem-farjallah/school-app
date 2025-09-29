@@ -177,9 +177,33 @@ public class CourseServiceImpl implements CourseService {
         c.setColor(r.color());
         c.setCredit(r.credit());
         c.setWeeklyCapacity(r.weeklyCapacity());
+        
+        // Generate course code from name
+        c.setCode(generateCourseCode(r.name()));
 
         if (r.teacherId() != null)
             c.setTeacher(fetch(teacherRepo, r.teacherId(), "Teacher"));
+    }
+    
+    private String generateCourseCode(String courseName) {
+        // Extract first 3-4 characters from course name and make uppercase
+        String baseCode = courseName.replaceAll("[^a-zA-Z]", "").toUpperCase();
+        
+        // Handle edge cases for very short names or no letters
+        if (baseCode.isEmpty()) {
+            baseCode = "COURSE";
+        } else if (baseCode.length() < 3) {
+            baseCode = baseCode + "X".repeat(3 - baseCode.length());
+        } else if (baseCode.length() > 4) {
+            baseCode = baseCode.substring(0, 4);
+        }
+        
+        // Find next available number for this base code
+        String codePattern = baseCode + "%";
+        long count = courseRepo.countByCodeLike(codePattern);
+        
+        // Format as MATH101, PHYS201, etc.
+        return String.format("%s%03d", baseCode, (count + 1) * 100 + 1);
     }
 
     @Override

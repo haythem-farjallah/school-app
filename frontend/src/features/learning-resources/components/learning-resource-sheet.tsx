@@ -74,23 +74,23 @@ export function AddLearningResourceSheet({ onSuccess }: AddLearningResourceSheet
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200">
           <Plus className="mr-2 h-4 w-4" />
           Add Learning Resource
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-white border-l-4 border-indigo-500 overflow-y-auto max-h-screen">
+      <SheetContent className="w-[400px] sm:w-[540px] bg-white border-l-4 border-blue-500 overflow-y-auto max-h-screen">
         <SheetHeader className="space-y-4 pb-6 border-b border-gray-100">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg">
-              <Library className="h-6 w-6 text-indigo-600" />
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Library className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <SheetTitle className="text-2xl font-bold bg-gradient-to-r from-indigo-900 to-purple-700 bg-clip-text text-transparent">
+              <SheetTitle className="text-2xl font-bold text-slate-800">
                 Add Learning Resource
               </SheetTitle>
-              <SheetDescription className="text-gray-600">
-                Create a new learning resource from URL or upload a file
+              <SheetDescription className="text-slate-600">
+                Create a new learning resource with URL link
               </SheetDescription>
             </div>
           </div>

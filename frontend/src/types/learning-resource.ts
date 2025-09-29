@@ -13,6 +13,8 @@ export interface LearningResource {
   courseIds: number[];
   createdAt: string;
   updatedAt: string;
+  viewCount?: number;
+  downloadCount?: number;
 }
 
 export enum ResourceType {

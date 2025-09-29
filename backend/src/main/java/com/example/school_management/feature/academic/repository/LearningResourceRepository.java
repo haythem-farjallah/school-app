@@ -5,6 +5,7 @@ import com.example.school_management.feature.academic.entity.enums.ResourceType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -42,8 +43,28 @@ public interface LearningResourceRepository extends JpaRepository<LearningResour
     @Query("SELECT lr FROM LearningResource lr JOIN lr.createdBy t WHERE t.id IN :teacherIds ORDER BY lr.createdAt DESC, lr.id DESC")
     List<LearningResource> findByTeacherIds(@Param("teacherIds") Set<Long> teacherIds);
     
-    @Query("SELECT lr FROM LearningResource lr WHERE lr.url LIKE CONCAT('%', :filename, '%')")
+    @Query("SELECT lr FROM LearningResource lr WHERE lr.url LIKE CONCAT('%/', :filename)")
     Optional<LearningResource> findByFilename(@Param("filename") String filename);
+    
+    @Query("SELECT lr FROM LearningResource lr WHERE lr.url = :url")
+    Optional<LearningResource> findByUrl(@Param("url") String url);
+
+    // Atomic increments to avoid read-modify-write races and persistence issues
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE LearningResource lr SET lr.viewCount = COALESCE(lr.viewCount, 0) + 1 WHERE lr.url LIKE CONCAT('%/', :filename)")
+    int incrementViewCountByFilename(@Param("filename") String filename);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE LearningResource lr SET lr.viewCount = COALESCE(lr.viewCount, 0) + 1 WHERE lr.url = :url")
+    int incrementViewCountByUrl(@Param("url") String url);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE LearningResource lr SET lr.downloadCount = COALESCE(lr.downloadCount, 0) + 1 WHERE lr.url LIKE CONCAT('%/', :filename)")
+    int incrementDownloadCountByFilename(@Param("filename") String filename);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE LearningResource lr SET lr.downloadCount = COALESCE(lr.downloadCount, 0) + 1 WHERE lr.url = :url")
+    int incrementDownloadCountByUrl(@Param("url") String url);
     
     @Query("SELECT lr FROM LearningResource lr ORDER BY lr.createdAt DESC, lr.id DESC")
     Page<LearningResource> findAllSorted(Pageable pageable);

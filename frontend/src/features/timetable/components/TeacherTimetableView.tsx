@@ -66,88 +66,26 @@ export function TeacherTimetableView({ teacherId, teacherName }: TeacherTimetabl
       try {
         console.log('🔍 Fetching timetable for teacher:', teacherId);
         
-        // Try different API endpoints that might exist
-        let response;
-        let apiError = null;
-        try {
-          console.log('🌐 Calling API: GET /v1/timetables/teacher/' + teacherId);
-          response = await http.get(`/v1/timetables/teacher/${teacherId}`);
-          console.log('✅ API call successful');
-        } catch (error) {
-          console.error('❌ Primary API call failed:', error);
-          apiError = error;
-          // Fallback: get all timetable slots and filter by teacher
-          console.log('📋 Fallback: fetching all slots and filtering by teacher');
-          try {
-            response = await http.get('/v1/timetables/slots');
-            console.log('✅ Fallback API call successful');
-          } catch (fallbackError) {
-            console.error('❌ Fallback API call also failed:', fallbackError);
-            throw fallbackError;
-          }
-        }
-        
-        console.log('📥 Raw response object:', response);
-        console.log('📥 Response status:', response?.status);
-        console.log('📥 Response headers:', response?.headers);
+        const response = await http.get(`/v1/timetables/teacher/${teacherId}`);
         console.log('📥 Teacher timetable response:', response);
-        console.log('📥 Response data type:', typeof response?.data);
-        console.log('📥 Response data:', response?.data);
-        console.log('📥 Is response.data array?', Array.isArray(response?.data));
-        
-        if (apiError) {
-          console.log('⚠️ Note: Using fallback API due to error:', apiError.message);
-        }
         
         let slots: TimetableSlot[] = [];
         
-        // Handle different response structures
+        // Handle response structure
         if (response?.data) {
-          // For teacher timetable endpoint: ApiSuccessResponse<List<TimetableSlot>>
-          // The data field contains the array directly
           if (Array.isArray(response.data)) {
-            console.log('✅ Using response.data as array (teacher timetable format)');
             slots = response.data;
           } else if (response.data.data && Array.isArray(response.data.data)) {
-            console.log('✅ Using response.data.data (nested ApiSuccessResponse)');
             slots = response.data.data;
-          } else if (response.data.content && Array.isArray(response.data.content)) {
-            console.log('✅ Using response.data.content');
-            slots = response.data.content;
-          } else if (response.data.slots && Array.isArray(response.data.slots)) {
-            console.log('✅ Using response.data.slots');
-            slots = response.data.slots;
-          } else {
-            console.log('❌ Unknown response structure:', response.data);
-            console.log('📊 Response.data keys:', Object.keys(response.data || {}));
           }
-        } else if (Array.isArray(response)) {
-          console.log('✅ Using response as array');
-          slots = response;
-        } else {
-          console.log('❌ No valid data structure found');
-          console.log('📊 Response keys:', Object.keys(response || {}));
         }
         
-        console.log('📋 Total slots before filtering:', slots.length);
-        console.log('📋 Sample slot structure:', slots[0]);
-        
-        // Filter slots for this teacher
-        const teacherSlots = slots.filter((slot: TimetableSlot) => {
-          const hasTeacher = slot.teacher && slot.teacher.id === teacherId;
-          if (hasTeacher) {
-            console.log('✅ Found matching slot:', slot.dayOfWeek, slot.period?.index, slot.forCourse?.name);
-          }
-          return hasTeacher;
-        });
-        
-        console.log('✅ Found teacher slots:', teacherSlots.length);
-        console.log('📋 Teacher slots:', teacherSlots);
-        setTeacherSlots(teacherSlots);
+        console.log('✅ Found teacher slots:', slots.length);
+        setTeacherSlots(slots);
         
       } catch (error) {
         console.error('❌ Error fetching teacher timetable:', error);
-        toast.error('Failed to load teacher schedule');
+        toast.error('Failed to load teacher schedule. Please try again.');
         setTeacherSlots([]);
       } finally {
         setIsLoading(false);

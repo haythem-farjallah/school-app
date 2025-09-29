@@ -131,16 +131,10 @@ export function EnrollmentsTable() {
     const totalEnrollments = enrollments.length;
     const activeEnrollments = enrollments.filter(e => e.status === "ACTIVE").length;
     const completedEnrollments = enrollments.filter(e => e.status === "COMPLETED").length;
-    const averageGrade = enrollments
-      .filter(e => e.finalGrad !== null && e.finalGrad !== undefined)
-      .reduce((sum, e) => sum + (e.finalGrad || 0), 0) / 
-      enrollments.filter(e => e.finalGrad !== null && e.finalGrad !== undefined).length || 0;
-
     return {
       totalEnrollments,
       activeEnrollments,
       completedEnrollments,
-      averageGrade,
     };
   }, [enrollments]);
 
@@ -179,39 +173,16 @@ export function EnrollmentsTable() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Enrollments</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Enrollments</h1>
+          <p className="text-slate-600">
             Manage student enrollments and track academic progress
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleAutoEnrollment} 
-            disabled={autoEnrollLoading}
-            className="bg-yellow-600 hover:bg-yellow-700"
-          >
-            {autoEnrollLoading ? (
-              <>
-                <Clock className="mr-2 h-4 w-4 animate-spin" />
-                Auto-Enrolling...
-              </>
-            ) : (
-              <>
-                <Zap className="mr-2 h-4 w-4" />
-                Auto-Enrollment
-              </>
-            )}
-          </Button>
-          <Button onClick={handleCreateNew} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="mr-2 h-4 w-4" />
-            New Enrollment
-          </Button>
         </div>
       </div>
 
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Enrollments</CardTitle>
@@ -251,50 +222,32 @@ export function EnrollmentsTable() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Grade</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {stats.averageGrade ? `${stats.averageGrade.toFixed(1)}/20` : "N/A"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Overall performance
-              </p>
-            </CardContent>
-          </Card>
         </div>
       )}
 
       <DataTable table={table}>
         <DataTableToolbar table={table}>
-          <div className="ml-auto hidden lg:flex gap-2">
+          <div className="ml-auto flex gap-3">
             <Button
-              variant="outline"
-              size="sm"
               onClick={handleAutoEnrollment}
               disabled={autoEnrollLoading}
-              className="h-8 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
+              className="bg-amber-600 hover:bg-amber-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
             >
               {autoEnrollLoading ? (
                 <>
-                  <Clock className="mr-2 h-3 w-3 animate-spin" />
+                  <Clock className="mr-2 h-4 w-4 animate-spin" />
                   Auto-Enrolling...
                 </>
               ) : (
                 <>
-                  <Zap className="mr-2 h-3 w-3" />
+                  <Zap className="mr-2 h-4 w-4" />
                   Auto-Enrollment
                 </>
               )}
             </Button>
             <Button
-              variant="outline"
-              size="sm"
               onClick={handleCreateNew}
-              className="h-8"
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
             >
               <Plus className="mr-2 h-4 w-4" />
               New Enrollment

@@ -14,14 +14,12 @@ import { useCreateParent } from "@/features/parents/hooks/use-parents";
 const ParentsCreate = () => {
   const navigate = useNavigate();
 
-  console.log("➕ ParentsCreate - Component mounted");
 
   const createParentMutation = useCreateParent();
 
   const handleFormSubmit = async (values: unknown) => {
     const parentValues = values as ParentValues;
     
-    console.log("➕ ParentsCreate - Creating parent with data:", parentValues);
     
     const parentData: CreateParentData = {
       profile: {
@@ -38,7 +36,6 @@ const ParentsCreate = () => {
       childrenEmails: parentValues.children?.map((student: { email: string }) => student.email) || [],
     };
     
-    console.log("➕ ParentsCreate - Transformed data:", parentData);
     await createParentMutation.mutateAsync(parentData);
   };
 

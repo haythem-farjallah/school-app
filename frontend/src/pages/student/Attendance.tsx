@@ -1,14 +1,28 @@
 import React from "react";
-import { useTranslation } from "react-i18next";
+import StudentAttendanceView from "@/components/student/StudentAttendanceView";
 
 const StudentAttendance = () => {
-  const { t } = useTranslation();
-
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t('My Attendance')}</h1>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <p className="text-gray-600">Attendance tracking coming soon...</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                My Attendance
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Track your attendance and view detailed records
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        <StudentAttendanceView />
       </div>
     </div>
   );

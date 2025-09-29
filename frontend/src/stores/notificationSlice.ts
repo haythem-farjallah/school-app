@@ -31,7 +31,10 @@ interface NotificationState {
   unreadCount: number;
 }
 
-const initialState: NotificationState = { list: [], unreadCount: 0 };
+const initialState: NotificationState = { 
+  list: [], 
+  unreadCount: 0 
+};
 
 /* -------------------------------------------------------------------------- */
 /*  Slice                                                                     */
@@ -65,7 +68,7 @@ const notificationSlice = createSlice({
     /** Remove a single notification by id */
     removeNotification: (state, action: PayloadAction<string>) => {
       const notification = state.list.find(n => n.id === action.payload);
-      if (notification && !notification.read) {
+      if (notification && !(notification.read || notification.readAt)) {
         state.unreadCount = Math.max(0, state.unreadCount - 1);
       }
       state.list = state.list.filter((n) => n.id !== action.payload);
@@ -74,7 +77,7 @@ const notificationSlice = createSlice({
     /** Mark a notification as read */
     markAsRead: (state, action: PayloadAction<string>) => {
       const notification = state.list.find(n => n.id === action.payload);
-      if (notification && !notification.read) {
+      if (notification && !(notification.read || notification.readAt)) {
         notification.read = true;
         state.unreadCount = Math.max(0, state.unreadCount - 1);
       }
@@ -91,6 +94,23 @@ const notificationSlice = createSlice({
       state.list = [];
       state.unreadCount = 0;
     },
+
+    /** Set notifications from backend API */
+    setNotifications: (state, action: PayloadAction<Notification[]>) => {
+      state.list = action.payload;
+      state.unreadCount = action.payload.filter(n => !(n.read || n.readAt)).length;
+    },
+
+    /** Add backend notifications to existing list without duplicates */
+    mergeBackendNotifications: (state, action: PayloadAction<Notification[]>) => {
+      const existingIds = state.list.map(n => n.id);
+      const newNotifications = action.payload.filter(n => !existingIds.includes(n.id));
+      
+      if (newNotifications.length > 0) {
+        state.list = [...state.list, ...newNotifications];
+        state.unreadCount = state.list.filter(n => !(n.read || n.readAt)).length;
+      }
+    },
   },
 });
 
@@ -100,6 +120,8 @@ export const {
   markAsRead,
   markAllAsRead,
   clearNotifications,
+  setNotifications,
+  mergeBackendNotifications,
 } = notificationSlice.actions;
 
 export default notificationSlice.reducer;

@@ -14,7 +14,6 @@ export function useStaff(
 ) {
   const { page, size = 10, search, ...filters } = options;
 
-  console.log("🔍 useStaff - Called with options:", { size, search, filters });
 
   // Map frontend column keys to backend filter parameter names
   const apiParams = React.useMemo(() => {
@@ -22,8 +21,6 @@ export function useStaff(
       firstName: "firstNameLike",
       lastName: "lastNameLike",
       email: "emailLike",
-      staffType: "staffType",
-      department: "department",
     };
 
     const params: Record<string, unknown> = {};
@@ -50,13 +47,6 @@ export function useStaff(
     page, // external page number
   );
 
-  console.log("🔍 useStaff - Result:", {
-    data: result.data,
-    isLoading: result.isLoading,
-    error: result.error?.message,
-    totalElements: result.data?.totalItems,
-    totalPages: result.data?.totalPages
-  });
 
   return result;
 }

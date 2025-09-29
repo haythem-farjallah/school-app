@@ -194,10 +194,6 @@ export function TeachersTable() {
       firstName: "firstNameLike",
       lastName: "lastNameLike",
       email: "emailLike",
-      qualifications: "qualificationsLike",
-      subjectsTaught: "subjectsTaughtLike",
-      availableHours: "availableHours",
-      schedulePreferences: "schedulePreferencesLike",
     };
 
     const params: Record<string, unknown> = {};

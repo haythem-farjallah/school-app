@@ -9,6 +9,8 @@ import Shimmer from "@/components/Shimmer/Shimmer";
 import ErrorRouteElement from "@/components/Shared/ErrorRouteElement";
 import { RoleGuard } from "@/components/guards/RoleGuard";
 import { PermissionGuard } from "@/components/guards/PermissionGuard";
+import { AuthenticationGuard } from "@/components/guards/AuthenticationGuard";
+import { RootRedirect } from "@/components/guards/RootRedirect";
 
 /* -------------------------------------------------------------------------- */
 /*  Lazy pages                                                                */
@@ -32,6 +34,7 @@ const TeachersView = lazy(() => import("@/pages/admin/TeachersView"));
 const Parents = lazy(() => import("@/pages/admin/Parents"));
 const ParentCreate = lazy(() => import("@/pages/admin/ParentCreate"));
 const ParentsView = lazy(() => import("@/pages/admin/ParentsView"));
+const ParentEdit = lazy(() => import("@/pages/admin/ParentEdit"));
 const Staff = lazy(() => import("@/pages/admin/Staff"));
 const StaffCreate = lazy(() => import("@/pages/admin/StaffCreate"));
 const StaffsView = lazy(() => import("@/pages/admin/StaffsView"));
@@ -49,7 +52,6 @@ const AdminGrades = lazy(() => import("@/pages/admin/Grades"));
 const Enrollments = lazy(() => import("@/pages/admin/Enrollments"));
 const EnrollmentCreate = lazy(() => import("@/pages/admin/EnrollmentCreate"));
 const EnrollmentsView = lazy(() => import("@/pages/admin/EnrollmentsView"));
-const Schedule = lazy(() => import("@/pages/admin/Schedule"));
 const Announcements = lazy(() => import("@/pages/admin/Announcements"));
 const Settings = lazy(() => import("@/pages/admin/Settings"));
 const Permissions = lazy(() => import("@/pages/admin/Permissions"));
@@ -104,7 +106,7 @@ const StudentEvents = lazy(() => import("@/pages/student/Events"));
 // Student additional pages (temporarily commented out for troubleshooting)
 const StudentCourses = lazy(() => import("@/pages/student/Courses"));
 // const StudentProgress = lazy(() => import("@/pages/student/Progress"));
-// const StudentAttendance = lazy(() => import("@/pages/student/Attendance"));
+const StudentAttendance = lazy(() => import("@/pages/student/Attendance"));
 // const StudentAchievements = lazy(() => import("@/pages/student/Achievements"));
 const StudentMessages = lazy(() => import("@/pages/student/Messages"));
 
@@ -179,7 +181,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: <Layout />,
+    element: <AuthenticationGuard><Layout /></AuthenticationGuard>,
     errorElement: <ErrorRouteElement />,
     children: [
       // Admin Routes
@@ -198,6 +200,7 @@ const router = createBrowserRouter([
           { path: "parents", element: <Suspense fallback={<Shimmer />}><Parents /></Suspense> },
           { path: "parents/create", element: <Suspense fallback={<Shimmer />}><ParentCreate /></Suspense> },
           { path: "parents/view/:id", element: <Suspense fallback={<Shimmer />}><ParentsView /></Suspense> },
+          { path: "parents/edit/:id", element: <Suspense fallback={<Shimmer />}><ParentEdit /></Suspense> },
           { path: "staff", element: <Suspense fallback={<Shimmer />}><Staff /></Suspense> },
           { path: "staff/create", element: <Suspense fallback={<Shimmer />}><StaffCreate /></Suspense> },
           { path: "staff/view/:id", element: <Suspense fallback={<Shimmer />}><StaffsView /></Suspense> },
@@ -216,7 +219,6 @@ const router = createBrowserRouter([
           { path: "enrollments", element: <Suspense fallback={<Shimmer />}><Enrollments /></Suspense> },
           { path: "enrollments/create", element: <Suspense fallback={<Shimmer />}><EnrollmentCreate /></Suspense> },
           { path: "enrollments/view/:id", element: <Suspense fallback={<Shimmer />}><EnrollmentsView /></Suspense> },
-          { path: "schedule", element: <Suspense fallback={<Shimmer />}><Schedule /></Suspense> },
           { path: "announcements", element: <Suspense fallback={<Shimmer />}><Announcements /></Suspense> },
           { path: "settings", element: <Suspense fallback={<Shimmer />}><Settings /></Suspense> },
           { path: "permissions", element: <Suspense fallback={<Shimmer />}><PermissionGuard required="PERMISSIONS_MANAGE"><Permissions /></PermissionGuard></Suspense> },
@@ -272,7 +274,7 @@ const router = createBrowserRouter([
           { path: "assignments", element: <Suspense fallback={<Shimmer />}><StudentAssignments /></Suspense> },
           { path: "grades", element: <Suspense fallback={<Shimmer />}><StudentGrades /></Suspense> },
           // { path: "progress", element: <Suspense fallback={<Shimmer />}><StudentProgress /></Suspense> },
-          // { path: "attendance", element: <Suspense fallback={<Shimmer />}><StudentAttendance /></Suspense> },
+          { path: "attendance", element: <Suspense fallback={<Shimmer />}><StudentAttendance /></Suspense> },
           // { path: "achievements", element: <Suspense fallback={<Shimmer />}><StudentAchievements /></Suspense> },
           { path: "messages", element: <Suspense fallback={<Shimmer />}><StudentMessages /></Suspense> },
           { path: "announcements", element: <Suspense fallback={<Shimmer />}><StudentAnnouncements /></Suspense> },
@@ -341,7 +343,7 @@ const router = createBrowserRouter([
       // Common Routes
       { path: "profile", element: <Suspense fallback={<Shimmer />}><SettingsPage /></Suspense> },
       { path: "learning-space", element: <Suspense fallback={<Shimmer />}><LearningSpace /></Suspense> },
-      { path: "", element: <Suspense fallback={<Shimmer />}><Home /></Suspense> },
+      { path: "", element: <RootRedirect /> },
     ],
   },
 ]);

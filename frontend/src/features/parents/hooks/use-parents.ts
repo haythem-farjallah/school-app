@@ -102,23 +102,18 @@ export function useCreateParent() {
 
 /* ── 4. Update parent ──────────────────────────────────────────────────── */
 export function useUpdateParent() {
-  console.log("✏️ useUpdateParent - Hook initialized");
   const queryClient = useQueryClient();
   
   return useMutationApi<Parent, UpdateParentData & { id: number }>(
     async (parentData) => {
-      console.log("✏️ useUpdateParent - Updating parent:", parentData);
-      
       // Extract the id and create the update payload
       const { id, ...updateData } = parentData;
       
       const response = await http.patch<{ status: string; data: Parent }>(`/admin/parent-management/${id}`, updateData);
-      console.log("✏️ useUpdateParent - Response:", response.data);
       return response.data.data;
     },
     {
       onSuccess: (data, variables) => {
-        console.log("✅ useUpdateParent - Success, invalidating cache");
         // Invalidate the parents list cache to refresh the data
         queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
         // Also invalidate the specific parent query if it exists

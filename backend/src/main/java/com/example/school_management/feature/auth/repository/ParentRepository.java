@@ -5,8 +5,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ParentRepository extends BaseUserRepository<Parent>  {
+    Optional<Parent> findByEmailIgnoreCase(String email);
 
     @Query("""
         SELECT p FROM Parent p 

@@ -1,1 +1,4 @@
 jenkins_home
+.cursor/*
+.vscode/*
+.playwright-mcp/*

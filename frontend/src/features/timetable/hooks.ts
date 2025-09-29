@@ -52,4 +52,24 @@ export function useTimetables() {
       return res; // res is already the array!
     },
   });
+}
+
+export function useClassStudentCount(classId: number) {
+  return useQuery({
+    queryKey: ['class-student-count', classId],
+    queryFn: async () => {
+      try {
+        console.log('🔍 Fetching student count for class', classId);
+        const res = await http.get<{ status: string; data: { content: any[], totalElements: number } }>(`/v1/enrollments/class/${classId}?status=ACTIVE&size=1`);
+        console.log('📥 Student count API response for class', classId, ':', res);
+        return res.data.totalElements || 0;
+      } catch (err: unknown) {
+        console.log('❌ Student count API error for class', classId, ':', err);
+        return 0;
+      }
+    },
+    enabled: !!classId,
+    retry: false,
+    staleTime: 30000, // Cache for 30 seconds
+  });
 } 

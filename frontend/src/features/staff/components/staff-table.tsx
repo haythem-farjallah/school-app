@@ -45,12 +45,10 @@ export function StaffTable() {
   }, [navigate]);
 
   const handleEdit = React.useCallback((staff: Staff) => {
-    console.log("✏️ StaffTable - Editing staff:", staff);
     // Edit logic is now handled by the EditStaffSheet component
   }, []);
 
   const handleDelete = React.useCallback((staff: Staff) => {
-    console.log("🗑️ StaffTable - Deleting staff:", staff);
     setStaffToDelete(staff);
     setDeleteDialogOpen(true);
   }, []);
@@ -58,14 +56,12 @@ export function StaffTable() {
   const confirmDelete = React.useCallback(async () => {
     if (!staffToDelete) return;
     
-    console.log("✅ StaffTable - Confirming delete for:", staffToDelete);
     
     try {
       await deleteMutation.mutateAsync(staffToDelete.id);
       toast.success(`Staff "${staffToDelete.firstName} ${staffToDelete.lastName}" deleted successfully`);
       refetch();
     } catch (error) {
-      console.error("❌ StaffTable - Delete failed:", error);
       toast.error("Failed to delete staff member");
     } finally {
       setDeleteDialogOpen(false);
@@ -74,7 +70,6 @@ export function StaffTable() {
   }, [deleteMutation, staffToDelete]);
 
   const handleCreate = React.useCallback(() => {
-    console.log("➕ StaffTable - Creating new staff");
     navigate("/admin/staff/create");
   }, [navigate]);
 
@@ -143,8 +138,6 @@ export function StaffTable() {
       firstName: "firstNameLike",
       lastName: "lastNameLike",
       email: "emailLike",
-      staffType: "staffType",
-      department: "department",
     };
 
     const params: Record<string, unknown> = {};
@@ -183,7 +176,6 @@ export function StaffTable() {
   });
 
   if (error) {
-    console.error("❌ StaffTable - Error loading staff:", error);
     return (
       <Card className="border-red-200 shadow-lg">
         <CardContent className="pt-6">

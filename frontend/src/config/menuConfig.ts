@@ -5,25 +5,21 @@ import {
   Users,
   ClipboardList,
   Calendar,
-  MessageCircle,
-  Megaphone,
   Settings,
   User2,
   GraduationCap,
   BookMarked,
   FileText,
-  Bell,
   // Add new icons
   Library,
   DoorOpen,
-  BarChart3,
   UserPlus,
   CalendarDays,
   Users2,
   // Enhanced icons for new features
   CheckSquare,
   CalendarCheck,
-  Brain,
+  Award,
   LogOut,
 } from 'lucide-react';
 
@@ -58,7 +54,6 @@ export const menuConfig: Record<string, MenuSection[]> = {
         { icon: BookMarked, label: 'Courses', href: '/admin/courses' },
         { icon: ClipboardList, label: 'Classes', href: '/admin/classes' },
         { icon: Library, label: 'Learning Resources', href: '/admin/learning-resources' },
-        { icon: BarChart3, label: 'Grades', href: '/admin/grades' },
         { icon: UserPlus, label: 'Enrollments', href: '/admin/enrollments' },
       ],
     },
@@ -66,14 +61,8 @@ export const menuConfig: Record<string, MenuSection[]> = {
       title: 'OPERATIONS',
       items: [
         { icon: CalendarDays, label: 'Timetables', href: '/admin/timetable' },
-        { icon: Brain, label: 'Smart Timetable', href: '/admin/smart-timetable' },
         { icon: DoorOpen, label: 'Rooms', href: '/admin/rooms' },
-        { icon: Calendar, label: 'Schedule', href: '/admin/schedule' },
-        { icon: Megaphone, label: 'Announcements', href: '/admin/announcements' },
-        { icon: Megaphone, label: 'Enhanced Announcements', href: '/admin/enhanced-announcements' },
-        { icon: MessageCircle, label: 'Communication Dashboard', href: '/admin/communication-dashboard' },
-        { icon: Settings, label: 'Settings', href: '/admin/settings' },
-        { icon: Settings, label: 'Permissions', href: '/admin/permissions', permission: 'PERMISSIONS_MANAGE' },
+        { icon: Settings, label: 'Settings', href: '/admin/profile' },
         
       ],
     },
@@ -83,11 +72,8 @@ export const menuConfig: Record<string, MenuSection[]> = {
       title: 'MENU',
       items: [
         { icon: Home, label: 'Home', href: '/teacher/dashboard' },
-        { icon: Calendar, label: 'Schedule', href: '/teacher/schedule' },
-        { icon: Users, label: 'My Classes', href: '/teacher/classes' },
-        { icon: BarChart3, label: 'Grades', href: '/teacher/grades' },
+        { icon: Calendar, label: 'My Schedule', href: '/teacher/my-timetable' },
         { icon: CheckSquare, label: 'Attendance', href: '/teacher/attendance' },
-        { icon: Bell, label: 'Announcements', href: '/teacher/announcements' },
       ],
     },
     {
@@ -103,11 +89,8 @@ export const menuConfig: Record<string, MenuSection[]> = {
       title: 'MENU',
       items: [
         { icon: Home, label: 'Home', href: '/student/dashboard' },
-        { icon: Calendar, label: 'Schedule', href: '/student/schedule' },
-        { icon: FileText, label: 'Exams', href: '/student/exams' },
-        { icon: FileText, label: 'Results', href: '/student/results' },
-        { icon: Calendar, label: 'Events', href: '/student/events' },
-        { icon: Bell, label: 'Announcements', href: '/student/announcements' },
+        { icon: CheckSquare, label: 'Attendance', href: '/student/attendance' },
+        { icon: BookMarked, label: 'Learning Space', href: '/learning-space' },
       ],
     },
     {
@@ -123,12 +106,8 @@ export const menuConfig: Record<string, MenuSection[]> = {
       title: 'MENU',
       items: [
         { icon: Home, label: 'Home', href: '/parent/dashboard' },
-        { icon: User2, label: 'Children', href: '/parent/children' },
-        { icon: GraduationCap, label: 'Results', href: '/parent/grades' },
-        { icon: Calendar, label: 'Schedule', href: '/parent/schedule' },
+        { icon: Calendar, label: 'Timetables', href: '/parent/schedule' },
         { icon: CheckSquare, label: 'Attendance', href: '/parent/attendance' },
-        { icon: Bell, label: 'Announcements', href: '/parent/announcements' },
-        { icon: CalendarCheck, label: 'Meetings', href: '/parent/meetings' },
       ],
     },
     {
@@ -155,17 +134,9 @@ export const menuConfig: Record<string, MenuSection[]> = {
         { icon: User2, label: 'Parent Management', href: '/staff/parents' },
         { icon: ClipboardList, label: 'Class Management', href: '/staff/classes' },
         { icon: UserPlus, label: 'Enrollments', href: '/staff/enrollments' },
-        { icon: BarChart3, label: 'Grade Management', href: '/staff/grades' },
         { icon: CheckSquare, label: 'Attendance Management', href: '/staff/attendance' },
         { icon: Calendar, label: 'Schedule Management', href: '/staff/schedule' },
         { icon: DoorOpen, label: 'Room Management', href: '/staff/rooms' },
-
-      ],
-    },
-    {
-      title: 'COMMUNICATION',
-      items: [
-        { icon: Bell, label: 'Announcements', href: '/staff/announcements' },
 
       ],
     },
