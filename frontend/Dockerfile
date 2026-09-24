@@ -1,37 +1,19 @@
-# ==========================
-# 1) Build Stage
-# ==========================
-FROM node:20-slim AS builder
+# syntax=docker/dockerfile:1
 
+# ---- Build ----
+FROM node:20-alpine AS build
 WORKDIR /app
-
-# Copy package files and install dependencies.
-# We use --omit=optional to avoid other optional dependency issues,
-# and then force-install the missing Rollup native module.
 COPY package.json package-lock.json ./
-RUN npm install --omit=optional && npm install @rollup/rollup-linux-x64-gnu
-
-# Copy the rest of the source code.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 COPY . .
-
-# Build the application.
+# The browser calls the API on the same origin; nginx proxies /api and /ws to the backend.
+ENV VITE_API_URL=/api
 RUN npm run build
 
-# ==========================
-# 2) Production Stage
-# ==========================
-FROM nginx:stable
-
-# Remove the default Nginx HTML directory content.
-RUN rm -rf /usr/share/nginx/html/*
-
-# Copy the built files from the build stage.
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Use your custom Nginx configuration.
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Expose port 80.
+# ---- Runtime ----
+FROM nginx:1.28-alpine
+# Backend location for the /api and /ws proxy, resolved when the container starts.
+ENV BACKEND_URL=http://backend:8088
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]

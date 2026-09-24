@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+playwright-report
+test-results
+blob-report
+e2e
+.env
+.env.*
+*.md
+Dockerfile
+.dockerignore

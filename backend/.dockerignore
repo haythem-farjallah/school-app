@@ -1,0 +1,4 @@
+# Only the Maven build inputs are needed in the image build context.
+*
+!pom.xml
+!src/
