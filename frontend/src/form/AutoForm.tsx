@@ -57,7 +57,8 @@ export const AutoForm = <R extends FormRecipe>({
   return (
     <FormProvider {...methods}>
       <FormWrapper
-        onSubmit={methods.handleSubmit((v) => mutation.mutateAsync(v))}
+        // Failures are reported by the mutation/HTTP layer; don't leave the promise unhandled.
+        onSubmit={methods.handleSubmit((v) => mutation.mutateAsync(v).catch(() => undefined))}
         {...(animate && {
           initial: { opacity: 0, y: 12 },
           animate: { opacity: 1, y: 0 },
