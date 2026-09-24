@@ -1,0 +1,35 @@
+# Secret scanning: gitleaks default rules plus a rule for credentials written
+# into configuration files. CI scans the current tree, not old history.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Documentation placeholders, not credentials"
+regexes = [
+  '''YOUR_(JWT_)?TOKEN(_HERE)?''',
+  '''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.+$''',
+]
+
+[[allowlists]]
+description = "Local-only password of the dev/e2e fixture accounts (DevFixtureLoader)"
+regexes = ['''^Fixture-Pass-2024$''']
+
+# The default rules do not recognise values such as
+#   spring.mail.password=abcd efgh ijkl mnop
+#   jwt.secret=...
+#   POSTGRES_PASSWORD: ...
+# Placeholders (${...}) and comments are not matched.
+[[rules]]
+id = "config-credential"
+description = "Credential assigned in application or container configuration"
+regex = '''(?im)^[ \t-]*["']?[\w.-]*(?:password|passwd|secret|token|api[_-]?key|credentials?)["']?[ \t]*[=:][ \t]*["']?([^\s"'$\{#][^\r\n"']{3,})'''
+secretGroup = 1
+path = '''(?i)(\.properties|\.ya?ml|(^|/)\.env[\w.-]*)$'''
+keywords = ["password", "passwd", "secret", "token", "api_key", "api-key", "apikey", "credential"]
+
+  [[rules.allowlists]]
+  description = "Well-known defaults of local-only services and dev/test signing keys"
+  regexes = [
+    '''^(school|postgres|admin|admin123)$''',
+    '''^(local-dev-only|test-only)-jwt-signing-key-''',
+  ]

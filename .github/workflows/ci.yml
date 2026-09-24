@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      # Unit and Testcontainers (PostgreSQL + Redis) integration tests.
+      # Surefire fails the build when no tests run.
+      - name: Compile, test and package
+        run: mvn -B package
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports
+          retention-days: 7
+
+  frontend:
+    name: Frontend unit tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Unit tests (Vitest)
+        run: npm run test:unit
+      - name: Production build
+        run: npm run build
+
+  frontend-quality:
+    # Existing TypeScript/ESLint debt is not blocking yet. This job reports the
+    # counts and fails only if they grow beyond the recorded baseline.
+    name: Frontend quality baseline (audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TS_ERROR_BASELINE: 622
+      ESLINT_ERROR_BASELINE: 484
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: TypeScript (tooling and e2e config, must be clean)
+        run: npx tsc -p tsconfig.node.json --noEmit
+      - name: TypeScript (application, baseline)
+        run: |
+          count=$( (npx tsc -p tsconfig.app.json --noEmit || true) | grep -c 'error TS' || true)
+          echo "TypeScript errors: $count (baseline $TS_ERROR_BASELINE)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$count" -gt "$TS_ERROR_BASELINE" ]; then
+            echo "::error::TypeScript errors increased from $TS_ERROR_BASELINE to $count"
+            exit 1
+          fi
+          if [ "$count" -lt "$TS_ERROR_BASELINE" ]; then
+            echo "::notice::TypeScript errors dropped to $count; lower TS_ERROR_BASELINE"
+          fi
+      - name: ESLint (baseline)
+        run: |
+          npx eslint . --format json --output-file "$RUNNER_TEMP/eslint.json" || true
+          read -r errors warnings < <(node -e '
+            const report = require(process.argv[1]);
+            const sum = (key) => report.reduce((n, file) => n + file[key], 0);
+            console.log(sum("errorCount"), sum("warningCount"));
+          ' "$RUNNER_TEMP/eslint.json")
+          echo "ESLint errors: $errors (baseline $ESLINT_ERROR_BASELINE), warnings: $warnings" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$errors" -gt "$ESLINT_ERROR_BASELINE" ]; then
+            echo "::error::ESLint errors increased from $ESLINT_ERROR_BASELINE to $errors"
+            exit 1
+          fi
+          if [ "$errors" -lt "$ESLINT_ERROR_BASELINE" ]; then
+            echo "::notice::ESLint errors dropped to $errors; lower ESLINT_ERROR_BASELINE"
+          fi
+
+  e2e:
+    name: Playwright smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Start PostgreSQL and Redis
+        run: docker compose -f compose.dev.yml up -d --wait
+      - name: Build backend jar
+        run: mvn -B -f backend/pom.xml package -DskipTests
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      # Playwright starts the backend (dev profile with fixture accounts) and Vite.
+      - name: Run smoke test
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7
+      - name: Stop PostgreSQL and Redis
+        if: always()
+        run: docker compose -f compose.dev.yml down -v
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      # Build only; images are not published.
+      - name: Backend image
+        run: docker build -t school-app-backend:ci backend
+      - name: Frontend image
+        run: docker build -t school-app-frontend:ci frontend
+
+  secret-scan:
+    # Scans the files in the current commit. History before this workflow
+    # contains credentials that have already been revoked.
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: gitleaks
+        run: >
+          docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.28.0
+          dir /repo --config /repo/.gitleaks.toml --redact --no-banner --exit-code 1
