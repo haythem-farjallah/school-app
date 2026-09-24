@@ -32,6 +32,8 @@
 		<maven.compiler.target>17</maven.compiler.target>
 		<lombok.version>1.18.30</lombok.version>
 		<mapstruct.version>1.5.5.Final</mapstruct.version>
+		<!-- Boot 3.4.4 manages 1.20.6, which cannot talk to Docker Engine 29+ (API < 1.40). -->
+		<testcontainers.version>1.21.4</testcontainers.version>
 		<sonar.host.url>http://localhost:9000</sonar.host.url>
 		<sonar.token>${env.SONARQUBE_TOKEN}</sonar.token>
 		<sonar.projectKey>school-app</sonar.projectKey>
@@ -124,13 +126,6 @@
 			<artifactId>commons-csv</artifactId>
 			<version>1.11.0</version>
 		</dependency>
-		<!-- add mockito -->
-		<dependency>
-			<groupId>org.mockito</groupId>
-			<artifactId>mockito-core</artifactId>
-			<version>3.12.4</version>
-			<scope>test</scope>
-		</dependency>
 		<!-- MapStruct -->
 		<dependency>
 			<groupId>org.mapstruct</groupId>
@@ -196,12 +191,6 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- javafaker -->
-		<dependency>
-			<groupId>com.github.javafaker</groupId>
-			<artifactId>javafaker</artifactId>
-			<version>1.0.2</version>
-		</dependency>
 		<!-- Brave tracing disabled to avoid bean conflict with OpenTelemetry -->
 		<!--
 		<dependency>
@@ -238,8 +227,8 @@
 			<version>6.2.1</version>
 		</dependency>
 		<dependency>
-			<groupId>org.testcontainers</groupId>
-			<artifactId>testcontainers</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -309,65 +298,6 @@
 			<artifactId>lettuce-core</artifactId>
 		</dependency>
 	</dependencies>
-	<profiles>
-	<profile>
-		<id>coverage</id>
-		<activation>
-			<activeByDefault>true</activeByDefault>
-		</activation>
-		<build>
-			<plugins>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-surefire-plugin</artifactId>
-					<version>3.0.0-M5</version>
-					<configuration>
-						<includes>
-							<include>**/*Test.java</include>
-						</includes>
-					</configuration>
-				</plugin>
-				<plugin>
-					<groupId>org.jacoco</groupId>
-					<artifactId>jacoco-maven-plugin</artifactId>
-					<version>0.8.12</version>
-					<executions>
-						<execution><goals><goal>prepare-agent</goal></goals></execution>
-						<execution>
-							<id>report</id>
-							<phase>prepare-package</phase>
-							<goals><goal>report</goal></goals>
-							<configuration>
-								<outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
-								<excludes>
-									<exclude>**/feature/auth/dto/**</exclude>
-									<exclude>**/feature/auth/entity/**</exclude>
-									<exclude>**/commons/configs/**</exclude>
-								</excludes>
-							</configuration>
-						</execution>
-					</executions>
-				</plugin>
-<!--				<plugin>-->
-<!--					<groupId>org.owasp</groupId>-->
-<!--					<artifactId>dependency-check-maven</artifactId>-->
-<!--					<version>9.2.0</version>-->
-<!--					<configuration>-->
-<!--						<nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>-->
-<!--						<nvdApiDelay>2000</nvdApiDelay>-->
-<!--					</configuration>-->
-<!--					<executions>-->
-<!--						<execution>-->
-<!--							<id>check</id>-->
-<!--							<phase>verify</phase>-->
-<!--							<goals><goal>check</goal></goals>-->
-<!--						</execution>-->
-<!--					</executions>-->
-<!--				</plugin>-->
-			</plugins>
-		</build>
-	</profile>
-	</profiles>
 
 	<build>
 		<plugins>
@@ -408,6 +338,13 @@
 				</configuration>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<failIfNoTests>true</failIfNoTests>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.sonarsource.scanner.maven</groupId>
 				<artifactId>sonar-maven-plugin</artifactId>
 				<version>4.0.0.4121</version>
@@ -433,17 +370,6 @@
             </plugin>
 		</plugins>
 	</build>
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.testcontainers</groupId>
-				<artifactId>testcontainers-bom</artifactId>
-				<version>1.19.0</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
     <distributionManagement>
         <repository>
             <id>deployment Repository</id>
