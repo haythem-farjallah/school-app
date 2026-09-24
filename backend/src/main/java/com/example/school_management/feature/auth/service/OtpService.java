@@ -37,7 +37,7 @@ public class OtpService {
         user.setOtpExpiry(LocalDateTime.now().plusMinutes(10));
         userRepo.save(user);
 
-        log.info("OTP generated for {} → {}", user.getEmail(), code);
+        log.info("OTP generated for {}", user.getEmail());
 
         emailService.sendTemplateEmail(
                 user.getEmail(),

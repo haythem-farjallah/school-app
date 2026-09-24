@@ -408,40 +408,6 @@
 				</configuration>
 			</plugin>
 			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>properties-maven-plugin</artifactId>
-				<version>1.1.0</version>
-				<executions>
-					<execution>
-						<phase>initialize</phase>
-						<goals>
-							<goal>read-project-properties</goal>
-						</goals>
-						<configuration>
-							<files>
-								<file>env.properties</file>
-							</files>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.flywaydb</groupId>
-				<artifactId>flyway-maven-plugin</artifactId>
-				<version>10.20.1</version>
-				<configuration>
-					<!--suppress UnresolvedMavenProperty -->
-					<url>${db.url}</url>
-					<!--suppress UnresolvedMavenProperty -->
-					<user>${db.user}</user>
-					<!--suppress UnresolvedMavenProperty -->
-					<password>${db.password}</password>
-					<locations>
-						<location>classpath:db/migration</location>
-					</locations>
-				</configuration>
-			</plugin>
-			<plugin>
 				<groupId>org.sonarsource.scanner.maven</groupId>
 				<artifactId>sonar-maven-plugin</artifactId>
 				<version>4.0.0.4121</version>

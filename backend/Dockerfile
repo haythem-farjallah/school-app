@@ -6,7 +6,6 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
-COPY env.properties .
 
 RUN mvn clean package -DskipTests
 
