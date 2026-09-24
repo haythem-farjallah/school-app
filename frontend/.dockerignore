@@ -10,3 +10,6 @@ e2e
 *.md
 Dockerfile
 .dockerignore
+.git
+.gitignore
+*.log

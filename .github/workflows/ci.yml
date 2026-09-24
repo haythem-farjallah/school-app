@@ -30,10 +30,10 @@ jobs:
       # Unit and Testcontainers (PostgreSQL + Redis) integration tests.
       # Surefire fails the build when no tests run.
       - name: Compile, test and package
-        run: mvn -B package
+        run: mvn -B -ntp package
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-test-reports
           path: backend/target/surefire-reports
@@ -61,13 +61,11 @@ jobs:
 
   frontend-quality:
     # Existing TypeScript/ESLint debt is not blocking yet. This job reports the
-    # counts and fails only if they grow beyond the recorded baseline.
+    # counts and fails only if they grow beyond the baseline recorded in
+    # frontend/scripts/quality-baseline.mjs.
     name: Frontend quality baseline (audit)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      TS_ERROR_BASELINE: 622
-      ESLINT_ERROR_BASELINE: 484
     defaults:
       run:
         working-directory: frontend
@@ -81,33 +79,8 @@ jobs:
       - run: npm ci
       - name: TypeScript (tooling and e2e config, must be clean)
         run: npx tsc -p tsconfig.node.json --noEmit
-      - name: TypeScript (application, baseline)
-        run: |
-          count=$( (npx tsc -p tsconfig.app.json --noEmit || true) | grep -c 'error TS' || true)
-          echo "TypeScript errors: $count (baseline $TS_ERROR_BASELINE)" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$count" -gt "$TS_ERROR_BASELINE" ]; then
-            echo "::error::TypeScript errors increased from $TS_ERROR_BASELINE to $count"
-            exit 1
-          fi
-          if [ "$count" -lt "$TS_ERROR_BASELINE" ]; then
-            echo "::notice::TypeScript errors dropped to $count; lower TS_ERROR_BASELINE"
-          fi
-      - name: ESLint (baseline)
-        run: |
-          npx eslint . --format json --output-file "$RUNNER_TEMP/eslint.json" || true
-          read -r errors warnings < <(node -e '
-            const report = require(process.argv[1]);
-            const sum = (key) => report.reduce((n, file) => n + file[key], 0);
-            console.log(sum("errorCount"), sum("warningCount"));
-          ' "$RUNNER_TEMP/eslint.json")
-          echo "ESLint errors: $errors (baseline $ESLINT_ERROR_BASELINE), warnings: $warnings" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$errors" -gt "$ESLINT_ERROR_BASELINE" ]; then
-            echo "::error::ESLint errors increased from $ESLINT_ERROR_BASELINE to $errors"
-            exit 1
-          fi
-          if [ "$errors" -lt "$ESLINT_ERROR_BASELINE" ]; then
-            echo "::notice::ESLint errors dropped to $errors; lower ESLINT_ERROR_BASELINE"
-          fi
+      - name: TypeScript and ESLint against the baseline
+        run: npm run quality
 
   e2e:
     name: Playwright smoke test
@@ -128,20 +101,35 @@ jobs:
       - name: Start PostgreSQL and Redis
         run: docker compose -f compose.dev.yml up -d --wait
       - name: Build backend jar
-        run: mvn -B -f backend/pom.xml package -DskipTests
+        run: mvn -B -ntp -f backend/pom.xml package -Dmaven.test.skip=true
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+      - name: Read Playwright version
+        id: playwright
+        working-directory: frontend
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
         run: npx playwright install --with-deps chromium
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: frontend
+        run: npx playwright install-deps chromium
       # Playwright starts the backend (dev profile with fixture accounts) and Vite.
       - name: Run smoke test
         working-directory: frontend
         run: npm run test:e2e
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report
           path: |
@@ -153,16 +141,25 @@ jobs:
         run: docker compose -f compose.dev.yml down -v
 
   docker:
-    name: Docker image builds
+    name: Docker image (${{ matrix.image }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend]
     steps:
       - uses: actions/checkout@v5
-      # Build only; images are not published.
-      - name: Backend image
-        run: docker build -t school-app-backend:ci backend
-      - name: Frontend image
-        run: docker build -t school-app-frontend:ci frontend
+      - uses: docker/setup-buildx-action@v3
+      # Build only; images are not published. Layers are cached per image.
+      - name: Build ${{ matrix.image }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image }}
+          push: false
+          tags: school-app-${{ matrix.image }}:ci
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
 
   secret-scan:
     # Scans the files in the current commit. History before this workflow
