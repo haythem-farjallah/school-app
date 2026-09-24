@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
@@ -102,7 +103,18 @@ public class GlobalExceptionHandler {
     }
 
     /* ================================================================
-     *  6) Fallback – 500
+     *  6) Method security denial (@PreAuthorize) – 403
+     * ================================================================ */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException ex,
+            WebRequest request) {
+
+        return build(HttpStatus.FORBIDDEN, "ACCESS_DENIED", request);
+    }
+
+    /* ================================================================
+     *  7) Fallback – 500
      * ================================================================ */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneric(
