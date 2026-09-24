@@ -36,7 +36,7 @@
   /* ------------------------------------------------------------------ */
   /*  Project files – let TS pick up everything under these folders     */
   /* ------------------------------------------------------------------ */
-  "include": ["src", "cypress"],   // add more folders if needed
+  "include": ["src"],
 
 
 }
