@@ -5,7 +5,6 @@ import com.example.school_management.feature.auth.repository.*;
 import com.example.school_management.feature.auth.repository.RolePermissionRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -58,7 +57,6 @@ public class CustomUserDetailsService implements UserDetailsService
     }
 
     /* ---------- helper ---------- */
-    @Cacheable(value = "users", key = "#email")
     public BaseUser findBaseUserByEmail(String email) {
 
         return Stream.of(
