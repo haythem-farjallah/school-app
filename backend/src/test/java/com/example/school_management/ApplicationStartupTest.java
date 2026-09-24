@@ -6,10 +6,13 @@ import org.flywaydb.core.api.MigrationInfoService;
 import org.flywaydb.core.api.MigrationState;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.testcontainers.containers.GenericContainer;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -28,6 +31,10 @@ class ApplicationStartupTest {
     @Autowired
     CacheManager cacheManager;
 
+    @Autowired
+    @Qualifier("redisContainer")
+    GenericContainer<?> redisContainer;
+
     @Test
     void flywayAppliesEveryMigrationToAnEmptyDatabase() {
         MigrationInfoService info = flyway.info();
@@ -42,6 +49,15 @@ class ApplicationStartupTest {
                 .max(Comparator.comparing(MigrationInfo::getVersion))
                 .orElseThrow();
         assertThat(info.current().getVersion()).isEqualTo(latest.getVersion());
+    }
+
+    @Test
+    void redisConnectionUsesTheTestcontainer() {
+        assertThat(redisConnectionFactory).isInstanceOf(LettuceConnectionFactory.class);
+        LettuceConnectionFactory lettuce = (LettuceConnectionFactory) redisConnectionFactory;
+
+        assertThat(lettuce.getHostName()).isEqualTo(redisContainer.getHost());
+        assertThat(lettuce.getPort()).isEqualTo(redisContainer.getMappedPort(6379));
     }
 
     @Test

@@ -5,8 +5,6 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -14,8 +12,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -24,42 +20,12 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import java.time.Duration;
 
 /**
- * Redis configuration for caching and rate limiting
+ * Redis serialization and cache configuration. The connection factory is
+ * Spring Boot's auto-configured one (spring.data.redis.* or a service connection).
  */
-@Slf4j
 @Configuration
 @EnableCaching
 public class RedisConfig {
-
-    @Value("${spring.data.redis.host:localhost}")
-    private String redisHost;
-
-    @Value("${spring.data.redis.port:6379}")
-    private int redisPort;
-
-    @Value("${spring.data.redis.password:}")
-    private String redisPassword;
-
-    @Value("${spring.data.redis.database:0}")
-    private int redisDatabase;
-
-    /**
-     * Redis connection factory
-     */
-    @Bean
-    public LettuceConnectionFactory redisConnectionFactory() {
-        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-        config.setHostName(redisHost);
-        config.setPort(redisPort);
-        config.setDatabase(redisDatabase);
-        
-        if (redisPassword != null && !redisPassword.trim().isEmpty()) {
-            config.setPassword(redisPassword);
-        }
-        
-        log.info("Connecting to Redis at {}:{} (database: {})", redisHost, redisPort, redisDatabase);
-        return new LettuceConnectionFactory(config);
-    }
 
     /**
      * Redis template for general operations
