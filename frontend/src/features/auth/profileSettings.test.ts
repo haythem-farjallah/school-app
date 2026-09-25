@@ -18,6 +18,8 @@ const profile: UserProfile = {
   lastName: "Teacher",
   email: "teacher@fixtures.school.test",
   role: "TEACHER",
+  telephone: null,
+  address: null,
   profileTheme: "light",
   profileLanguage: "en",
   permissions: [],
@@ -59,11 +61,15 @@ describe("profile and settings API", () => {
     server.use(
       http.patch(apiUrl("/me/profile"), async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json(profile);
+        return HttpResponse.json({ ...profile, telephone: "+1 555 0100", address: "1 Test Road" });
       }),
     );
 
-    await expect(updateUserProfile({ telephone: "+1 555 0100", address: "1 Test Road" })).resolves.toEqual(profile);
+    await expect(updateUserProfile({ telephone: "+1 555 0100", address: "1 Test Road" })).resolves.toEqual({
+      ...profile,
+      telephone: "+1 555 0100",
+      address: "1 Test Road",
+    });
     expect(body).toEqual({ telephone: "+1 555 0100", address: "1 Test Road" });
   });
 

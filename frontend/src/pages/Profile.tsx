@@ -22,6 +22,8 @@ import {
   Shield,
 
   Mail,
+  Phone,
+  MapPin,
 } from "lucide-react";
 
 // Form definitions
@@ -242,6 +244,20 @@ const SettingsPage = () => {
                       </div>
                       <p className="text-lg font-semibold text-slate-900">{user?.email}</p>
                     </div>
+                    <div className={`p-4 ${roleClasses.gradient} rounded-xl border ${roleClasses.primaryBorder}/50`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Phone className="h-4 w-4 text-slate-600" />
+                        <p className="text-sm font-medium text-slate-600">Phone Number</p>
+                      </div>
+                      <p className="text-lg font-semibold text-slate-900">{userProfile?.telephone || "Not provided"}</p>
+                    </div>
+                    <div className={`p-4 ${roleClasses.gradient} rounded-xl border ${roleClasses.primaryBorder}/50`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="h-4 w-4 text-slate-600" />
+                        <p className="text-sm font-medium text-slate-600">Address</p>
+                      </div>
+                      <p className="text-lg font-semibold text-slate-900">{userProfile?.address || "Not provided"}</p>
+                    </div>
                   </div>
 
                   {/* Notice */}
@@ -259,11 +275,16 @@ const SettingsPage = () => {
                   {/* Update Form - Only for non-students */}
                   {!isStudent && (
                     <div className="pt-4 border-t border-slate-200">
+                      {/* AutoForm reads defaultValues once; remount it when the saved contact details change. */}
                       <AutoForm
+                        key={`${userProfile?.telephone ?? ""}|${userProfile?.address ?? ""}`}
                         recipe={personalInfoRecipe}
                         loading={updateProfileMut.isPending}
                         submitText="Update Contact Info"
-                        defaultValues={userProfile}
+                        defaultValues={{
+                          telephone: userProfile?.telephone ?? "",
+                          address: userProfile?.address ?? "",
+                        }}
                       />
                     </div>
                   )}

@@ -8,13 +8,15 @@ export interface ProfileSettings {
   darkMode: boolean;
 }
 
-/** GET/PATCH /api/me/profile response (UserDto) */
+/** GET/PATCH /api/me/profile response (UserProfileDto) */
 export interface UserProfile {
   id: number;
   firstName: string;
   lastName: string;
   email: string;
   role: string;
+  telephone: string | null;
+  address: string | null;
   profileTheme: string | null;
   profileLanguage: string | null;
   permissions: string[];

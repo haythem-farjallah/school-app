@@ -61,14 +61,16 @@ export type PersonalInfoValues = z.infer<typeof personalInfoSchema>;
 export const personalInfoFields: BaseField[] = [
   {
     name: "telephone",
-    type: "tel",
+    type: "text",
     label: "Phone Number",
     placeholder: "Enter your phone number (optional)",
+    props: { inputMode: "tel", autoComplete: "tel" },
   },
   {
     name: "address",
-    type: "textarea",
+    type: "text",
     label: "Address",
     placeholder: "Enter your address (optional)",
+    props: { autoComplete: "street-address" },
   },
 ];

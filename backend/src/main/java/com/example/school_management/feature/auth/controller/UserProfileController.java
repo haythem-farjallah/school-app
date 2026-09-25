@@ -1,6 +1,6 @@
 package com.example.school_management.feature.auth.controller;
 
-import com.example.school_management.feature.auth.dto.UserDto;
+import com.example.school_management.feature.auth.dto.UserProfileDto;
 import com.example.school_management.feature.auth.dto.UserProfileUpdateRequest;
 import com.example.school_management.feature.auth.service.UserProfileService;
 import jakarta.validation.Valid;
@@ -18,14 +18,14 @@ public class UserProfileController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public UserDto getMyProfile() {
+    public UserProfileDto getMyProfile() {
         return service.getCurrentUserProfile();
     }
 
     @PatchMapping
     @PreAuthorize("isAuthenticated()")
     @ResponseStatus(HttpStatus.OK)
-    public UserDto updateMyProfile(
+    public UserProfileDto updateMyProfile(
             @Valid @RequestBody UserProfileUpdateRequest request) {
         return service.updateCurrentUserProfile(request);
     }
