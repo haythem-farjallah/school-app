@@ -1,5 +1,6 @@
 package com.example.school_management.feature.operational.service.impl;
 
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.dto.TimetableExportRequest;
 import com.example.school_management.feature.operational.service.TimetableExportService;
 import com.example.school_management.feature.operational.entity.Timetable;
@@ -49,7 +50,7 @@ public class TimetableExportServiceImpl implements TimetableExportService {
         log.debug("Generating preview for timetable {} in format {}", timetableId, format);
         
         Timetable timetable = timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new RuntimeException("Timetable not found: " + timetableId));
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found: " + timetableId));
         
         List<TimetableSlot> slots = timetableSlotRepository.findByTimetableId(timetableId);
         
@@ -106,9 +107,9 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     @Override
     public byte[] exportTimetablePdf(Long timetableId, TimetableExportRequest request) {
         log.debug("Exporting timetable {} as PDF", timetableId);
-        
+        Timetable timetable = getTimetable(timetableId);
+
         try {
-            Timetable timetable = getTimetable(timetableId);
             List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
             
             // For now, return a simple PDF content as bytes
@@ -125,9 +126,9 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     @Override
     public byte[] exportTimetableExcel(Long timetableId, TimetableExportRequest request) {
         log.debug("Exporting timetable {} as Excel", timetableId);
-        
+        Timetable timetable = getTimetable(timetableId);
+
         try {
-            Timetable timetable = getTimetable(timetableId);
             List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
             
             // For now, return a simple Excel-like CSV content
@@ -144,9 +145,9 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     @Override
     public byte[] exportTimetableCsv(Long timetableId, TimetableExportRequest request) {
         log.debug("Exporting timetable {} as CSV", timetableId);
-        
+        Timetable timetable = getTimetable(timetableId);
+
         try {
-            Timetable timetable = getTimetable(timetableId);
             List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
             
             return generateCsvContent(timetable, slots, request).getBytes(request.getEncoding());
@@ -161,7 +162,7 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     
     private Timetable getTimetable(Long timetableId) {
         return timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new RuntimeException("Timetable not found: " + timetableId));
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found: " + timetableId));
     }
     
     private List<TimetableSlot> getFilteredSlots(Long timetableId, TimetableExportRequest request) {

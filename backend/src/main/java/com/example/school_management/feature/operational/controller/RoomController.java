@@ -2,6 +2,7 @@ package com.example.school_management.feature.operational.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.dto.RoomDto;
 import com.example.school_management.feature.operational.entity.Room;
 import com.example.school_management.feature.operational.entity.enums.RoomType;
@@ -50,7 +51,7 @@ public class RoomController {
     public ResponseEntity<ApiSuccessResponse<Room>> get(@PathVariable Long id) {
         log.debug("Getting room: {}", id);
         Room room = roomRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Room not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + id));
         return ResponseEntity.ok(new ApiSuccessResponse<>("Room retrieved successfully", room));
     }
 
@@ -61,7 +62,7 @@ public class RoomController {
         log.debug("Updating room: {}", id);
         
         Room room = roomRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Room not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + id));
         
         room.setName(roomDto.getName());
         room.setCapacity(roomDto.getCapacity());
@@ -78,7 +79,7 @@ public class RoomController {
         log.debug("Deleting room: {}", id);
         
         if (!roomRepository.existsById(id)) {
-            throw new RuntimeException("Room not found with id: " + id);
+            throw new ResourceNotFoundException("Room not found with id: " + id);
         }
         
         roomRepository.deleteById(id);

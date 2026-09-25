@@ -1,6 +1,7 @@
 package com.example.school_management.feature.operational.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.service.TimetableExportService;
 import com.example.school_management.feature.operational.dto.TimetableExportRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,6 +49,8 @@ public class TimetableExportController {
                     .contentLength(exportData.length)
                     .body(resource);
                     
+        } catch (ResourceNotFoundException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to export timetable {}: {}", timetableId, e.getMessage(), e);
             throw new RuntimeException("Export failed: " + e.getMessage());

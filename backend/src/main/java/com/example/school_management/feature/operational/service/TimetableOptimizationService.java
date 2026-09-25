@@ -1,5 +1,6 @@
 package com.example.school_management.feature.operational.service;
 
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.auth.entity.Teacher;
@@ -50,7 +51,7 @@ public class TimetableOptimizationService {
         log.info("Starting timetable optimization for timetable ID: {}", timetableId);
         
         Timetable timetable = timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new RuntimeException("Timetable not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found"));
 
         // Create the problem
         TimetableSolution problem = createProblem(timetable);
@@ -145,7 +146,7 @@ public class TimetableOptimizationService {
 
     public TimetableSolution getCurrentSolution(Long timetableId) {
         Timetable timetable = timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new RuntimeException("Timetable not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found"));
 
         return createProblem(timetable);
     }

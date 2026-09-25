@@ -2,6 +2,7 @@ package com.example.school_management.feature.operational.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.dto.CreateTimetableRequest;
 import com.example.school_management.feature.operational.dto.TimetableDto;
 // import com.example.school_management.feature.operational.dto.UpdateTimetableRequest;
@@ -135,7 +136,7 @@ public class TimetableController {
         
         // Get the timetable and find the associated classes
         Timetable timetable = timetableRepository.findById(timetableId)
-            .orElseThrow(() -> new RuntimeException("Timetable not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Timetable not found"));
         
         if (timetable.getClasses() != null && !timetable.getClasses().isEmpty()) {
             // Optimize for the first class (in practice, you might want to optimize all classes)

@@ -5,6 +5,8 @@ import com.example.school_management.dev.DevFixtureLoader;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -15,6 +17,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -22,8 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Timetable requests that name a record which does not exist answer 404
- * through the real filter chain.
+ * Timetable, room and export requests that name a record which does not exist
+ * answer 404 through the real filter chain.
  */
 @IntegrationTest
 class TimetableNotFoundIntegrationTest {
@@ -60,6 +63,40 @@ class TimetableNotFoundIntegrationTest {
         String uri = "/api/v1/timetables/class/" + MISSING_ID + "/optimize";
         expectNotFound(mockMvc.perform(post(uri).header(HttpHeaders.AUTHORIZATION, adminBearer())),
                 "Class not found with id: " + MISSING_ID, uri);
+    }
+
+    @Test
+    void optimizingAMissingTimetableIs404() throws Exception {
+        String uri = "/api/v1/timetables/" + MISSING_ID + "/optimize";
+        expectNotFound(mockMvc.perform(post(uri).header(HttpHeaders.AUTHORIZATION, adminBearer())),
+                "Timetable not found", uri);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PDF", "EXCEL", "CSV"})
+    void exportingAMissingTimetableIs404(String format) throws Exception {
+        String uri = "/api/v1/timetables/" + MISSING_ID + "/export";
+        expectNotFound(mockMvc.perform(post(uri)
+                        .header(HttpHeaders.AUTHORIZATION, adminBearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("format", format)))),
+                "Timetable not found: " + MISSING_ID, uri);
+    }
+
+    @Test
+    void previewingTheExportOfAMissingTimetableIs404() throws Exception {
+        String uri = "/api/v1/timetables/" + MISSING_ID + "/export/preview";
+        expectNotFound(mockMvc.perform(get(uri).param("format", "PDF").header(HttpHeaders.AUTHORIZATION, adminBearer())),
+                "Timetable not found: " + MISSING_ID, uri);
+    }
+
+    @Test
+    void missingRoomIs404() throws Exception {
+        String uri = "/api/v1/rooms/" + MISSING_ID;
+        expectNotFound(mockMvc.perform(get(uri).header(HttpHeaders.AUTHORIZATION, adminBearer())),
+                "Room not found with id: " + MISSING_ID, uri);
+        expectNotFound(mockMvc.perform(delete(uri).header(HttpHeaders.AUTHORIZATION, adminBearer())),
+                "Room not found with id: " + MISSING_ID, uri);
     }
 
     private void expectNotFound(ResultActions result, String detail, String instance) throws Exception {
