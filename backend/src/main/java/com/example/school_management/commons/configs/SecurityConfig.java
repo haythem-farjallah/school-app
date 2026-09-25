@@ -103,7 +103,7 @@ public class SecurityConfig {
         """);
   }
   @Bean
-  public Jackson2ObjectMapperBuilderCustomizer addDefaultFieldFilter() {
+  public static Jackson2ObjectMapperBuilderCustomizer addDefaultFieldFilter() {
     // Serialize *everything* when no MappingJacksonValue supplies a filter:
     var provider = new SimpleFilterProvider()
             .setDefaultFilter(SimpleBeanPropertyFilter.serializeAll())
