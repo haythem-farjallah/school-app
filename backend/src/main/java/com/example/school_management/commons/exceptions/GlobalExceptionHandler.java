@@ -1,21 +1,26 @@
 package com.example.school_management.commons.exceptions;
 
-import com.example.school_management.commons.dtos.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.context.request.WebRequest;
 
-import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.stream.Collectors;
 
+/**
+ * Turns exceptions thrown by controllers into RFC 9457 problem details
+ * (type, title, status, detail, instance).
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -24,125 +29,113 @@ public class GlobalExceptionHandler {
      *  1) Validation errors  -> 400
      * ================================================================ */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiErrorResponse> handleValidation(
+    public ResponseEntity<ProblemDetail> handleValidation(
             MethodArgumentNotValidException ex,
-            WebRequest request) {
+            HttpServletRequest request) {
 
         String errorMsg = ex.getBindingResult().getFieldErrors().stream()
                 .map(f -> f.getField() + ": " + f.getDefaultMessage())
                 .collect(Collectors.joining("; "));
 
-        return build(HttpStatus.BAD_REQUEST, errorMsg, request);
+        return problem(HttpStatus.BAD_REQUEST, errorMsg, request);
     }
 
     /* ================================================================
      *  2) Custom ResourceNotFound  -> 404
      * ================================================================ */
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleNotFound(
+    public ResponseEntity<ProblemDetail> handleNotFound(
             ResourceNotFoundException ex,
-            WebRequest request) {
+            HttpServletRequest request) {
 
         log.warn("Resource not found: {}", ex.getMessage());
-        return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+        return problem(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
     /* 2‑b) Custom Conflict -> 409
      * ------------------------------ */
     @ExceptionHandler(ConflictException.class)
-    public ResponseEntity<ApiErrorResponse> handleConflict(
+    public ResponseEntity<ProblemDetail> handleConflict(
             ConflictException ex,
-            WebRequest request) {
+            HttpServletRequest request) {
 
         log.warn("Conflict: {}", ex.getMessage());
-        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+        return problem(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
     /* ================================================================
      *  3) Malformed JSON  -> 400
      * ================================================================ */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiErrorResponse> handleBadJson(
+    public ResponseEntity<ProblemDetail> handleBadJson(
             HttpMessageNotReadableException ex,
-            WebRequest request) {
+            HttpServletRequest request) {
 
         log.warn("Malformed JSON request: {}", ex.getMessage());
-        return build(HttpStatus.BAD_REQUEST, "Malformed JSON request", request);
+        return problem(HttpStatus.BAD_REQUEST, "Malformed JSON request", request);
     }
 
     /* ================================================================
      *  4) DB constraint violations (duplicate email, …) -> 409
      * ================================================================ */
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiErrorResponse> handleIntegrity(
+    public ResponseEntity<ProblemDetail> handleIntegrity(
             DataIntegrityViolationException ex,
-            WebRequest request) {
+            HttpServletRequest request) {
 
         String detail = ex.getMostSpecificCause().getMessage();
         log.warn("Data integrity violation: {}", detail);
 
         /* Unique e-mail constraint ----------------------------------- */
         if (detail != null && detail.contains("users_email_key")) {
-            return build(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", request);
+            return problem(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", request);
         }
 
         /* Other constraint errors ------------------------------------ */
-        return build(HttpStatus.CONFLICT, "DATA_INTEGRITY_VIOLATION", request);
+        return problem(HttpStatus.CONFLICT, "DATA_INTEGRITY_VIOLATION", request);
     }
 
     /* ================================================================
-     *  5) Propagated ResponseStatusException – keep status & message
+     *  5) Propagated ResponseStatusException – keep status & reason
      * ================================================================ */
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ApiErrorResponse> handleStatus(
+    public ResponseEntity<ProblemDetail> handleStatus(
             ResponseStatusException ex,
-            WebRequest request) {
-        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+            HttpServletRequest request) {
 
-        return build(status, ex.getReason(), request);
+        return problem(ex.getStatusCode(), ex.getReason(), request);
     }
 
     /* ================================================================
      *  6) Method security denial (@PreAuthorize) – 403
      * ================================================================ */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+    public ResponseEntity<ProblemDetail> handleAccessDenied(
             AccessDeniedException ex,
-            WebRequest request) {
+            HttpServletRequest request) {
 
-        return build(HttpStatus.FORBIDDEN, "ACCESS_DENIED", request);
+        return problem(HttpStatus.FORBIDDEN, "ACCESS_DENIED", request);
     }
 
     /* ================================================================
      *  7) Fallback – 500
      * ================================================================ */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleGeneric(
+    public ResponseEntity<ProblemDetail> handleGeneric(
             Exception ex,
-            WebRequest request) {
+            HttpServletRequest request) {
 
         log.error("Unhandled exception caught: ", ex);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR,
-                "UNEXPECTED_ERROR",
-                request);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "UNEXPECTED_ERROR", request);
     }
 
-    /* ================================================================
-     *  Helper builder
-     * ================================================================ */
-    private ResponseEntity<ApiErrorResponse> build(
-            HttpStatus status,
-            String message,
-            WebRequest request) {
+    private ResponseEntity<ProblemDetail> problem(
+            HttpStatusCode status,
+            String detail,
+            HttpServletRequest request) {
 
-        ApiErrorResponse body = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(status.name())
-                .statusCode(status.value())
-                .message(message)
-                .path(request.getDescription(false))   // e.g. "uri=/api/…"
-                .build();
-
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
+        body.setInstance(URI.create(request.getRequestURI()));
         return ResponseEntity.status(status).body(body);
     }
 }
