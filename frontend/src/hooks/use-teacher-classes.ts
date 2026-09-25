@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/lib/http';
+import { getApiErrorMessage } from '@/lib/api-error';
 import toast from 'react-hot-toast';
 
 // Types for teacher classes and grade management
@@ -239,8 +240,8 @@ export function useBulkGradeEntry() {
         queryKey: ['teacher-class-stats'] 
       });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Failed to save grades';
+    onError: (error) => {
+      const message = getApiErrorMessage(error, 'Failed to save grades');
       toast.error(message);
     },
   });

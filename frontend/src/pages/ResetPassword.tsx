@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   Card,
   CardHeader,
@@ -79,9 +80,7 @@ export default function ResetPasswordPage() {
           {resetPasswordMut.isError && (
             <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
               <p className="text-sm text-destructive">
-                {resetPasswordMut.error?.response?.data?.message || 
-                 resetPasswordMut.error?.message || 
-                 "Failed to reset password. Please check your verification code and try again."}
+                {getApiErrorMessage(resetPasswordMut.error, "Failed to reset password. Please check your verification code and try again.")}
               </p>
             </div>
           )}

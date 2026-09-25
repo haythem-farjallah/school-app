@@ -14,6 +14,7 @@ import {
 import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
 import { useMutationApi } from "@/hooks/useMutationApi"
+import { getApiErrorMessage } from "@/lib/api-error"
 import { http } from "@/lib/http"
 import type { Teacher, CreateTeacherData, UpdateTeacherData } from "@/types/teacher"
 import { teacherSchema, teacherFields, teacherUpdateSchema, teacherUpdateFields, type TeacherValues, type TeacherUpdateValues } from "../teacherForm.definition"
@@ -38,10 +39,7 @@ export function AddTeacherSheet({ onSuccess }: AddTeacherSheetProps) {
         onSuccess?.()
       },
       onError: (error: unknown) => {
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to add teacher"
+        const message = getApiErrorMessage(error, "Failed to add teacher")
         toast.error(message)
       },
     }
@@ -193,8 +191,7 @@ export function EditTeacherSheet({ teacher, trigger, onSuccess }: EditTeacherShe
 
   const handleError = React.useCallback(() => {
     console.error("❌ EditTeacherSheet - Update failed:", editTeacherMutation.error)
-    const error = editTeacherMutation.error as { response?: { data?: { message?: string } } };
-    const message = error?.response?.data?.message || "Failed to update teacher"
+    const message = getApiErrorMessage(editTeacherMutation.error, "Failed to update teacher")
     toast.error(message)
     // Reset the mutation state to prevent infinite loops
     editTeacherMutation.reset()

@@ -12,6 +12,7 @@ import {
   Wifi,
   WifiOff
 } from 'lucide-react';
+import { getApiErrorMessage } from '../../../lib/api-error';
 import { http } from '../../../lib/http';
 
 export function BackendStatusChecker() {
@@ -52,7 +53,7 @@ export function BackendStatusChecker() {
         databaseStatus = 'online';
         errorMessage = 'Endpoint not found (but backend is running)';
       } else {
-        errorMessage = error?.response?.data?.message || error?.message || 'Connection failed';
+        errorMessage = getApiErrorMessage(error, 'Connection failed');
       }
       
       setStatus({

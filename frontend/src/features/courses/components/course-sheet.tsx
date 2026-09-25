@@ -14,6 +14,7 @@ import {
 import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
 import { useMutationApi } from "@/hooks/useMutationApi"
+import { getApiErrorMessage } from "@/lib/api-error"
 import { http } from "@/lib/http"
 import type { Course } from "@/types/course"
 import { courseSchema, courseFields, type CourseValues } from "../courseForm.definition"
@@ -37,10 +38,7 @@ export function AddCourseSheet({ onSuccess }: AddCourseSheetProps) {
         onSuccess?.()
       },
       onError: (error: unknown) => {
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to add course"
+        const message = getApiErrorMessage(error, "Failed to add course")
         toast.error(message)
       },
     }
@@ -128,10 +126,7 @@ export function EditCourseSheet({ course, trigger, onSuccess }: EditCourseSheetP
         onSuccess?.()
       },
       onError: (error: unknown) => {
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to update course"
+        const message = getApiErrorMessage(error, "Failed to update course")
         toast.error(message)
       },
     }

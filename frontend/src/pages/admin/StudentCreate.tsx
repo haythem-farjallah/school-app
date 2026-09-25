@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
 import { useMutationApi } from "@/hooks/useMutationApi";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { http } from "@/lib/http";
 import type { Student, CreateStudentData } from "@/types/student";
 import { studentSchema, studentFields, type StudentValues } from "@/features/students/studentForm.definition";
@@ -32,10 +33,7 @@ const StudentsCreate = () => {
       },
       onError: (error: unknown) => {
         console.error("❌ StudentsCreate - Failed to create student:", error);
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to create student";
+        const message = getApiErrorMessage(error, "Failed to create student");
         toast.error(message);
       },
     }

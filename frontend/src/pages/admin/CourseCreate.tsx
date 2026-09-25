@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
 import { useMutationApi } from "@/hooks/useMutationApi";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { http } from "@/lib/http";
 import type { Course } from "@/types/course";
 import { courseSchema, courseFields, type CourseValues } from "@/features/courses/courseForm.definition";
@@ -26,10 +27,7 @@ const CoursesCreate = () => {
         navigate("/admin/courses");
       },
       onError: (error: unknown) => {
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to create course";
+        const message = getApiErrorMessage(error, "Failed to create course");
         toast.error(message);
       },
     }

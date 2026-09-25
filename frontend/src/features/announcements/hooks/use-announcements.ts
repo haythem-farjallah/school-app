@@ -1,16 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { http } from '../../../lib/http';
+import { getApiErrorMessage } from '../../../lib/api-error';
 import { Announcement, CreateAnnouncementRequest, AnnouncementFilters } from '../../../types/announcement';
 import { PageDto } from '../../../types/level';
 import toast from 'react-hot-toast';
-
-interface ApiError {
-  response?: {
-    data?: {
-      message?: string;
-    };
-  };
-}
 
 // Get announcements with filters
 export function useAnnouncements(filters: AnnouncementFilters = {}) {
@@ -60,7 +53,7 @@ export function useCreateAnnouncement() {
       toast.success('Announcement created successfully!');
     },
     onError: (error: unknown) => {
-      toast.error((error as ApiError)?.response?.data?.message || 'Failed to create announcement');
+      toast.error(getApiErrorMessage(error, 'Failed to create announcement'));
     },
   });
 }
@@ -79,7 +72,7 @@ export function useUpdateAnnouncement() {
       toast.success('Announcement updated successfully!');
     },
     onError: (error: unknown) => {
-      toast.error((error as ApiError)?.response?.data?.message || 'Failed to update announcement');
+      toast.error(getApiErrorMessage(error, 'Failed to update announcement'));
     },
   });
 }
@@ -97,7 +90,7 @@ export function useDeleteAnnouncement() {
       toast.success('Announcement deleted successfully!');
     },
     onError: (error: unknown) => {
-      toast.error((error as ApiError)?.response?.data?.message || 'Failed to delete announcement');
+      toast.error(getApiErrorMessage(error, 'Failed to delete announcement'));
     },
   });
 }

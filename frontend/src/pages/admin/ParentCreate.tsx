@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
+import { getApiErrorMessage } from "@/lib/api-error";
 import type { CreateParentData } from "@/types/parent";
 import { parentSchema, parentFields, type ParentValues } from "@/features/parents/parentForm.definition";
 import { useCreateParent } from "@/features/parents/hooks/use-parents";
@@ -59,8 +60,7 @@ const ParentsCreate = () => {
   React.useEffect(() => {
     if (createParentMutation.isError) {
       console.error("❌ ParentsCreate - Failed to create parent:", createParentMutation.error);
-      const error = createParentMutation.error as { response?: { data?: { message?: string } } };
-      const message = error?.response?.data?.message || "Failed to create parent";
+      const message = getApiErrorMessage(createParentMutation.error, "Failed to create parent");
       toast.error(message);
     }
   }, [createParentMutation.isError, createParentMutation.error]);

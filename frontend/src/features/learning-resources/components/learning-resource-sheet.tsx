@@ -15,6 +15,7 @@ import {
 import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
 import { useMutationApi } from "@/hooks/useMutationApi"
+import { getApiErrorMessage } from "@/lib/api-error"
 import { http } from "@/lib/http"
 import type { LearningResource, CreateLearningResourceRequest } from "@/types/learning-resource"
 import { ResourceType } from "@/types/learning-resource"
@@ -44,10 +45,7 @@ export function AddLearningResourceSheet({ onSuccess }: AddLearningResourceSheet
         onSuccess?.()
       },
       onError: (error: unknown) => {
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to create learning resource"
+        const message = getApiErrorMessage(error, "Failed to create learning resource")
         toast.error(message)
       },
     }
@@ -141,10 +139,7 @@ export function EditLearningResourceSheet({ resource, trigger, onSuccess }: Edit
         onSuccess?.()
       },
       onError: (error: unknown) => {
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to update learning resource"
+        const message = getApiErrorMessage(error, "Failed to update learning resource")
         toast.error(message)
       },
     }

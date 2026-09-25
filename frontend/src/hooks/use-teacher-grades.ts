@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/lib/http';
+import { getApiErrorMessage } from '@/lib/api-error';
 import toast from 'react-hot-toast';
 
 // Enhanced grade management types
@@ -85,8 +86,8 @@ export function useCreateEnhancedGrade() {
         queryKey: ['grades'] 
       });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Failed to save grade';
+    onError: (error) => {
+      const message = getApiErrorMessage(error, 'Failed to save grade');
       toast.error(message);
     },
   });
@@ -115,8 +116,8 @@ export function useCreateBulkEnhancedGrades() {
         queryKey: ['grades'] 
       });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Failed to save grades';
+    onError: (error) => {
+      const message = getApiErrorMessage(error, 'Failed to save grades');
       toast.error(message);
     },
   });
@@ -175,8 +176,8 @@ export function useUpdateGrade() {
         queryKey: ['grades'] 
       });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Failed to update grade';
+    onError: (error) => {
+      const message = getApiErrorMessage(error, 'Failed to update grade');
       toast.error(message);
     },
   });
@@ -207,8 +208,8 @@ export function useDeleteGrade() {
         queryKey: ['grades'] 
       });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Failed to delete grade';
+    onError: (error) => {
+      const message = getApiErrorMessage(error, 'Failed to delete grade');
       toast.error(message);
     },
   });

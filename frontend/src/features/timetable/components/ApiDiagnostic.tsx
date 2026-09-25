@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
@@ -14,6 +15,7 @@ import {
   BookOpen,
   MapPin
 } from 'lucide-react';
+import { getApiErrorMessage } from '../../../lib/api-error';
 import { http } from '../../../lib/http';
 
 interface ApiDiagnosticProps {
@@ -72,8 +74,8 @@ export function ApiDiagnostic({ classId }: ApiDiagnosticProps) {
       return {
         ...test,
         status: 'error',
-        error: (error as any)?.response?.data?.message || (error as any)?.message || 'Unknown error',
-        response: (error as any)?.response?.data
+        error: getApiErrorMessage(error, 'Unknown error'),
+        response: axios.isAxiosError(error) ? error.response?.data : undefined
       };
     }
   };

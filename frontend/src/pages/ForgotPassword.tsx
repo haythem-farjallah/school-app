@@ -1,5 +1,6 @@
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   Card,
   CardHeader,
@@ -55,9 +56,7 @@ export default function ForgotPasswordPage() {
           {forgotPasswordMut.isError && (
             <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
               <p className="text-sm text-destructive">
-                {forgotPasswordMut.error?.response?.data?.message || 
-                 forgotPasswordMut.error?.message || 
-                 "Failed to send verification code. Please try again."}
+                {getApiErrorMessage(forgotPasswordMut.error, "Failed to send verification code. Please try again.")}
               </p>
             </div>
           )}

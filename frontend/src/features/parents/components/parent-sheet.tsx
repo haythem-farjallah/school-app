@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet"
 import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
+import { getApiErrorMessage } from "@/lib/api-error"
 import { useUpdateParent } from "../hooks/use-parents"
 import type { Parent, UpdateParentData } from "@/types/parent"
 import { parentUpdateSchema, parentUpdateFields, type ParentUpdateValues } from "../parentForm.definition"
@@ -84,8 +85,7 @@ export function EditParentSheet({ parent, trigger, onSuccess }: EditParentSheetP
 
   const handleError = React.useCallback(() => {
     console.error("❌ EditParentSheet - Update failed:", editParentMutation.error)
-    const error = editParentMutation.error as { response?: { data?: { message?: string } } };
-    const message = error?.response?.data?.message || "Failed to update parent"
+    const message = getApiErrorMessage(editParentMutation.error, "Failed to update parent")
     toast.error(message)
     // Reset the mutation state to prevent infinite loops
     editParentMutation.reset()

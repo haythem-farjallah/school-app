@@ -13,6 +13,7 @@ import { Users, BookOpen, TrendingUp, Plus, Zap, Clock } from "lucide-react";
 
 import { useEnrollments } from "../hooks/use-enrollments";
 import { getEnrollmentColumns } from "./enrollment-columns";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { http } from "@/lib/http";
 // import { useToast } from "@/hooks/use-toast"; // Using react-hot-toast instead
 
@@ -116,8 +117,7 @@ export function EnrollmentsTable() {
       refetch();
     } catch (error: unknown) {
       console.error('Auto-enrollment error:', error);
-      const errorMessage = error instanceof Error ? error.message : 
-        (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to auto-enroll students";
+      const errorMessage = getApiErrorMessage(error, "Failed to auto-enroll students");
       toast.error(errorMessage);
     } finally {
       setAutoEnrollLoading(false);

@@ -6,6 +6,7 @@ import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 
 import { http } from '@/lib/http';
+import { getApiErrorMessage } from '@/lib/api-error';
 import type {
   Submission,
   SubmissionListResponse,
@@ -326,8 +327,8 @@ export function useSubmitAssignment() {
       
       toast.success('Assignment submitted successfully!');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to submit assignment');
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Failed to submit assignment'));
     },
   });
 }
@@ -360,8 +361,8 @@ export function useUpdateSubmission() {
       
       toast.success('Submission updated successfully!');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to update submission');
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Failed to update submission'));
     },
   });
 }
@@ -394,8 +395,8 @@ export function useGradeSubmission() {
       
       toast.success('Submission graded successfully!');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to grade submission');
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Failed to grade submission'));
     },
   });
 }
@@ -435,8 +436,8 @@ export function useAddFeedback() {
       
       toast.success('Feedback added successfully!');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to add feedback');
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Failed to add feedback'));
     },
   });
 }
@@ -462,8 +463,8 @@ export function useBulkGrading() {
       
       toast.success(operationMessages[operation.operation] || 'Bulk operation completed successfully!');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Bulk operation failed');
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Bulk operation failed'));
     },
   });
 }
@@ -474,8 +475,8 @@ export function useBulkGrading() {
 export function useUploadFile() {
   return useMutation({
     mutationFn: submissionApi.uploadFile,
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to upload file');
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Failed to upload file'));
     },
   });
 }

@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
+import axios from 'axios';
 import { DndContext, closestCenter, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useDroppable, useDraggable, DragOverlay } from '@dnd-kit/core';
 
 import { useDispatch } from 'react-redux';
 import { addNotification } from '../../stores/notificationSlice';
+import { getApiErrorMessage } from '../../lib/api-error';
 import { http } from '../../lib/http';
 import { useTimetable, usePeriods } from './hooks';
 import { useTeachers } from '../teachers/hooks/use-teachers';
@@ -571,20 +573,14 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({ classId }) => {
     } catch (error: unknown) {
       console.error('Error saving timetable:', error);
       
-      let errorMessage = 'Error saving timetable. Please try again.';
-      
-      if (error instanceof Error && 'response' in error) {
-        const axiosError = error as { response?: { status?: number; data?: { message?: string } } };
-        console.error('API Response:', axiosError.response?.data);
-        console.error('Status Code:', axiosError.response?.status);
-        
-        if (axiosError.response?.status === 409) {
-          errorMessage = 'Conflict detected: This may be due to a teacher or room being assigned to multiple classes at the same time. Please check for conflicts and try again.';
-        } else if (axiosError.response?.status === 500) {
-          errorMessage = 'Server error occurred while saving the timetable. This may be due to invalid data format or missing required fields. Please check the console for details.';
-        } else if (axiosError.response?.data?.message) {
-          errorMessage = axiosError.response.data.message;
-        }
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      let errorMessage: string;
+      if (status === 409) {
+        errorMessage = 'Conflict detected: This may be due to a teacher or room being assigned to multiple classes at the same time. Please check for conflicts and try again.';
+      } else if (status === 500) {
+        errorMessage = 'Server error occurred while saving the timetable. This may be due to invalid data format or missing required fields. Please check the console for details.';
+      } else {
+        errorMessage = getApiErrorMessage(error, 'Error saving timetable. Please try again.');
       }
       
       dispatch(addNotification({ 

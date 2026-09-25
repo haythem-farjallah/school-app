@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/lib/http';
+import { getApiErrorMessage } from '@/lib/api-error';
 import type {
   TimetableOptimizationRequest,
   TimetableOptimizationResult,
@@ -25,8 +26,8 @@ export function useOptimizeTimetable() {
       queryClient.invalidateQueries({ queryKey: ['timetable-slots'] });
       queryClient.invalidateQueries({ queryKey: ['timetable-analytics'] });
     },
-    onError: (error: any) => {
-      toast.error(`Optimization failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Optimization failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -50,8 +51,8 @@ export function useReoptimizeTimetable() {
       queryClient.invalidateQueries({ queryKey: ['timetable-slots'] });
       queryClient.invalidateQueries({ queryKey: ['timetable-analytics'] });
     },
-    onError: (error: any) => {
-      toast.error(`Re-optimization failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Re-optimization failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -71,8 +72,8 @@ export function useGenerateScenarios() {
     onSuccess: (data) => {
       toast.success(`Generated ${data.alternativeScenarios?.length || 0} optimization scenarios`);
     },
-    onError: (error: any) => {
-      toast.error(`Scenario generation failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Scenario generation failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -115,8 +116,8 @@ export function useBalanceTeacherWorkloads() {
       queryClient.invalidateQueries({ queryKey: ['teacher-workloads'] });
       queryClient.invalidateQueries({ queryKey: ['timetable-analytics'] });
     },
-    onError: (error: any) => {
-      toast.error(`Workload balancing failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Workload balancing failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -155,8 +156,8 @@ export function useResolveConflicts() {
       queryClient.invalidateQueries({ queryKey: ['timetable-conflicts'] });
       queryClient.invalidateQueries({ queryKey: ['timetable-slots'] });
     },
-    onError: (error: any) => {
-      toast.error(`Conflict resolution failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Conflict resolution failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -177,8 +178,8 @@ export function useOptimizeRoomUsage() {
       queryClient.invalidateQueries({ queryKey: ['timetable-slots'] });
       queryClient.invalidateQueries({ queryKey: ['timetable-analytics'] });
     },
-    onError: (error: any) => {
-      toast.error(`Room optimization failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Room optimization failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -207,8 +208,8 @@ export function useValidateScheduleChange() {
       const response = await http.post(`/smart-timetable/${timetableId}/validate-change?${params}`);
       return response.data.data;
     },
-    onError: (error: any) => {
-      toast.error(`Validation failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Validation failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -243,8 +244,8 @@ export function useApplyScheduleChange() {
       queryClient.invalidateQueries({ queryKey: ['timetable-conflicts'] });
       queryClient.invalidateQueries({ queryKey: ['timetable-analytics'] });
     },
-    onError: (error: any) => {
-      toast.error(`Schedule change failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Schedule change failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -333,8 +334,8 @@ export function useBulkSlotOperations() {
       queryClient.invalidateQueries({ queryKey: ['timetable-slots'] });
       queryClient.invalidateQueries({ queryKey: ['timetable-conflicts'] });
     },
-    onError: (error: any) => {
-      toast.error(`Bulk operation failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Bulk operation failed: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -364,8 +365,8 @@ export function useUpdateTeacherPreferences() {
       toast.success('Teacher preferences updated successfully!');
       queryClient.invalidateQueries({ queryKey: ['teacher-workloads'] });
     },
-    onError: (error: any) => {
-      toast.error(`Failed to update preferences: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Failed to update preferences: ${getApiErrorMessage(error)}`);
     }
   });
 }
@@ -405,8 +406,8 @@ export function useExportTimetable() {
     onSuccess: (data, variables) => {
       toast.success(`Timetable exported as ${variables.format} successfully!`);
     },
-    onError: (error: any) => {
-      toast.error(`Export failed: ${error.response?.data?.message || error.message}`);
+    onError: (error) => {
+      toast.error(`Export failed: ${getApiErrorMessage(error)}`);
     }
   });
 }

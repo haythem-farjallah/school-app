@@ -48,6 +48,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { usePaginated } from "@/hooks/usePaginated";
 import { useMutationApi } from "@/hooks/useMutationApi";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { http } from "@/lib/http";
 
 // Types
@@ -232,8 +233,8 @@ function TeacherResourceUpload() {
       setSelectedFile(null);
       setSelectedClasses([]);
       navigate("/learning-space");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to upload resource");
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Failed to upload resource"));
     }
   };
 

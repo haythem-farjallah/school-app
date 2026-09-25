@@ -14,6 +14,7 @@ import {
 import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
 import { useMutationApi } from "@/hooks/useMutationApi"
+import { getApiErrorMessage } from "@/lib/api-error"
 import { http } from "@/lib/http"
 import type { Staff, CreateStaffRequest } from "@/types/staff"
 import { staffSchema, staffFields, type StaffValues } from "../staffForm.definition"
@@ -41,10 +42,7 @@ export function AddStaffSheet({ onSuccess }: AddStaffSheetProps) {
       },
       onError: (error: unknown) => {
         console.error("❌ AddStaffSheet - Failed to create staff:", error);
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to add staff member"
+        const message = getApiErrorMessage(error, "Failed to add staff member")
         toast.error(message)
       },
     }
@@ -148,10 +146,7 @@ export function EditStaffSheet({ staff, trigger, onSuccess }: EditStaffSheetProp
       },
       onError: (error: unknown) => {
         console.error("❌ EditStaffSheet - Failed to update staff:", error);
-        const message = error && typeof error === 'object' && 'response' in error && 
-          error.response && typeof error.response === 'object' && 'data' in error.response &&
-          error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data
-          ? String(error.response.data.message) : "Failed to update staff member"
+        const message = getApiErrorMessage(error, "Failed to update staff member")
         toast.error(message)
       },
     }
