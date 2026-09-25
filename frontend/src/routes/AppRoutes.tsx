@@ -9,6 +9,7 @@ import Shimmer from "@/components/Shimmer/Shimmer";
 import ErrorRouteElement from "@/components/Shared/ErrorRouteElement";
 import { RoleGuard } from "@/components/guards/RoleGuard";
 import { PermissionGuard } from "@/components/guards/PermissionGuard";
+import { RequireAuth } from "@/components/guards/RequireAuth";
 
 /* -------------------------------------------------------------------------- */
 /*  Lazy pages                                                                */
@@ -179,7 +180,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: <Layout />,
+    element: <RequireAuth><Layout /></RequireAuth>,
     errorElement: <ErrorRouteElement />,
     children: [
       // Admin Routes

@@ -103,4 +103,24 @@ describe("LoginPage", () => {
     expect(store.getState().auth.user).toBeNull();
     expect(localStorage.getItem("accessToken")).toBeNull();
   });
+
+  it("stays on the login page and drops a leftover session when credentials are refused", async () => {
+    localStorage.setItem("accessToken", "expired-access-token");
+    localStorage.setItem("refreshToken", "expired-refresh-token");
+    server.use(
+      http.post(apiUrl("/auth/login"), () =>
+        HttpResponse.json({ status: "UNAUTHORIZED", message: "Invalid credentials" }, { status: 401 }),
+      ),
+      // The backend has no refresh endpoint.
+      http.post(apiUrl("/auth/refresh-token"), () => new HttpResponse(null, { status: 404 })),
+    );
+    renderLoginPage();
+
+    await submitCredentials("admin@fixtures.school.test", "wrong-pass");
+
+    expect(await screen.findByRole("button", { name: "Sign In" })).toBeEnabled();
+    expect(screen.queryByText("Home page")).not.toBeInTheDocument();
+    expect(localStorage.getItem("accessToken")).toBeNull();
+    expect(localStorage.getItem("refreshToken")).toBeNull();
+  });
 });

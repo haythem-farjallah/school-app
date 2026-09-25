@@ -5,6 +5,7 @@ import axios, {
   } from "axios";
   import { API_URL } from "./env";
   import { token } from "./token";
+  import { terminateSession } from "./session";
   import { notifyError } from "./notify";
   import { getErrorMessage } from "../utils/helpers";
   interface RetryableRequest extends InternalAxiosRequestConfig {
@@ -60,7 +61,7 @@ http.interceptors.response.use(
   
           return http(original);   // replay the request that failed
         } catch {
-          token.clear();           // refresh failed → force logout
+          terminateSession();      // refresh failed → force logout
         }
       }
   

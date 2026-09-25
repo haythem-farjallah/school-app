@@ -1,5 +1,6 @@
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { API_URL } from "./env";
+import { terminateSession } from "./session";
 import { token } from "./token";
 
 /**
@@ -16,10 +17,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// There is no token refresh endpoint: a 401 means the session is no longer valid.
+// There is no token refresh endpoint: a 401 on a request sent with the current
+// access token means that session is over. Requests sent without a token (login)
+// and 401s that arrive after the session already ended leave the session alone,
+// so concurrent 401s end it once.
 api.interceptors.response.use(undefined, (error) => {
-  if (axios.isAxiosError(error) && error.response?.status === 401) {
-    token.clear();
+  if (axios.isAxiosError(error) && error.response?.status === 401 && sentWithCurrentToken(error.config)) {
+    terminateSession();
   }
   return Promise.reject(error);
 });
+
+function sentWithCurrentToken(config: InternalAxiosRequestConfig | undefined) {
+  const accessToken = token.access;
+  return accessToken !== null && config?.headers.Authorization === `Bearer ${accessToken}`;
+}

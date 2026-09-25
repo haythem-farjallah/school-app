@@ -35,3 +35,27 @@ test("admin logs in, reaches the admin dashboard and stays signed in after reloa
   expect(response.status()).toBe(200);
   expect(response.request().headers()["authorization"]).toMatch(/^Bearer /);
 });
+
+test("a session the backend no longer accepts ends on the login page", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email Address").fill(admin.email);
+  await page.getByLabel("Password").fill(admin.password);
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  // Simulate an expired/revoked token: the app still holds the user, the backend rejects the token.
+  await page.evaluate(() => localStorage.setItem("accessToken", "revoked-token"));
+  await page.reload();
+  const profileResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/api/me/profile") && response.request().method() === "GET",
+  );
+  await page.goto("/admin/profile");
+
+  expect((await profileResponse).status()).toBe(401);
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
+  expect(await page.evaluate(() => [localStorage.getItem("accessToken"), localStorage.getItem("refreshToken")])).toEqual([
+    null,
+    null,
+  ]);
+});
