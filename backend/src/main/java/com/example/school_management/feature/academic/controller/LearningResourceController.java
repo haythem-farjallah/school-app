@@ -22,11 +22,13 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -77,12 +79,12 @@ public class LearningResourceController {
         
         // Validate file
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("File cannot be empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File cannot be empty");
         }
         
         // Parse JSON arrays
-        Set<Long> classIds = parseJsonToLongSet(classIdsJson);
-        Set<Long> courseIds = parseJsonToLongSet(courseIdsJson);
+        Set<Long> classIds = parseJsonToLongSet(classIdsJson, "classIds");
+        Set<Long> courseIds = parseJsonToLongSet(courseIdsJson, "courseIds");
         
         // Create request object - Constructor order: title, description, url, type, thumbnailUrl, duration, teacherIds, classIds, courseIds
         // Note: isPublic has default value so not in constructor, teacherIds will be set by service
@@ -330,15 +332,16 @@ public class LearningResourceController {
     }
 
     // Helper methods
-    private Set<Long> parseJsonToLongSet(String json) {
+
+    /** A blank field means no ids; anything else must be a JSON array of ids. */
+    private Set<Long> parseJsonToLongSet(String json, String field) {
         if (json == null || json.trim().isEmpty()) {
             return Collections.emptySet();
         }
         try {
             return objectMapper.readValue(json, new TypeReference<Set<Long>>() {});
         } catch (IOException e) {
-            log.warn("Failed to parse JSON array to Long set: {}", json, e);
-            return Collections.emptySet();
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + ": must be a JSON array of ids");
         }
     }
 

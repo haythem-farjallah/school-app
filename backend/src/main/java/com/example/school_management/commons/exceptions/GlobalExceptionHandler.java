@@ -1,5 +1,6 @@
 package com.example.school_management.commons.exceptions;
 
+import com.example.school_management.commons.security.FileSecurityException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -125,6 +126,18 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         return problem(HttpStatus.BAD_REQUEST, "Invalid value for parameter '" + ex.getName() + "'", request);
+    }
+
+    /* 3-e) Upload rejected by file-security validation -> 400
+     *      (extension, MIME type, size, content). The messages name the
+     *      rule that failed and contain no server paths.
+     * ------------------------------------------------ */
+    @ExceptionHandler(FileSecurityException.class)
+    public ResponseEntity<ProblemDetail> handleRejectedUpload(
+            FileSecurityException ex,
+            HttpServletRequest request) {
+
+        return problem(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
     /* ================================================================

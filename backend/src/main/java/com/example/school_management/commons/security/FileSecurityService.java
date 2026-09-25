@@ -117,9 +117,6 @@ public class FileSecurityService {
         } catch (FileSecurityException e) {
             log.warn("File validation failed for {}: {}", file.getOriginalFilename(), e.getMessage());
             return FileValidationResult.failure(e.getMessage());
-        } catch (Exception e) {
-            log.error("Unexpected error during file validation: {}", e.getMessage(), e);
-            return FileValidationResult.failure("File validation failed");
         }
     }
 
