@@ -59,7 +59,6 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/api/auth/**", "/actuator/**").permitAll()
-                    .requestMatchers("/api/v1/debug/**").permitAll() // Allow debug endpoints (NO AUTH)
                     .requestMatchers("/ws/**", "/ws-native/**").permitAll() // Allow WebSocket endpoints
                     .requestMatchers(
                             "/swagger-ui.html",

@@ -37,7 +37,7 @@ The timetable optimization feature has been fixed and improved to work properly.
 ### 2. **Using the API Directly**
 ```bash
 # Test optimization for a specific class
-curl -X POST "http://localhost:8080/api/v1/timetables/test/class/1/optimize" \
+curl -X POST "http://localhost:8080/api/v1/timetables/class/1/optimize" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json"
 ```
@@ -81,7 +81,7 @@ Make sure you have:
 1. **Check the logs**: Look for detailed logging in the backend console
 2. **Verify data**: Ensure the class has courses and teachers
 3. **Check permissions**: Make sure you're logged in as an admin
-4. **Test API directly**: Use the test endpoint to get detailed feedback
+4. **Test API directly**: Call the optimization endpoint and check the response status
 
 ### Common Issues:
 
@@ -93,7 +93,6 @@ Make sure you have:
 ## API Endpoints
 
 - `POST /api/v1/timetables/class/{classId}/optimize` - Standard optimization
-- `POST /api/v1/timetables/test/class/{classId}/optimize` - Test optimization with detailed response
 - `GET /api/v1/timetables/class/{classId}` - Get timetable for a class
 
 ## Logging

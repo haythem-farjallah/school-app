@@ -42,6 +42,14 @@ class JwtAuthenticationEntryPointIntegrationTest {
     }
 
     @Test
+    void formerPublicDebugPathRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/debug/teacher/1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.instance").value("/api/v1/debug/teacher/1"));
+    }
+
+    @Test
     void malformedTokenGetsProblemDetail() throws Exception {
         String body = expectUnauthorizedProblem(mockMvc.perform(get(PROTECTED_URI)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt")));

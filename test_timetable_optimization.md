@@ -47,24 +47,7 @@ Check that the following data exists in the database:
 - If no rooms exist: Should show "No rooms available" error
 - If class doesn't exist: Should show "Class not found" error
 
-### 4. Debug Endpoint Test
-The system includes a debug endpoint that can be tested directly:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/timetables/debug/class/1/test-optimization \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json"
-```
-
-This endpoint will:
-- Check if class exists
-- Check if teachers exist
-- Check if periods exist
-- Check if rooms exist
-- Attempt optimization
-- Return detailed status information
-
-### 5. Manual Save Test
+### 4. Manual Save Test
 After auto-generation:
 1. Drag teachers between slots
 2. Click "Save Timetable" button
