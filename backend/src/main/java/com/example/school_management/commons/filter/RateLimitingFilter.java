@@ -1,6 +1,7 @@
 package com.example.school_management.commons.filter;
 
 import com.example.school_management.commons.configs.RateLimitingConfig;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.Filter;
@@ -8,12 +9,15 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,10 +26,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class RateLimitingFilter implements Filter {
     
     // In-memory storage for rate limiting buckets
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+
+    private final ObjectMapper objectMapper;
 
     @Override
     public void doFilter(jakarta.servlet.ServletRequest request, jakarta.servlet.ServletResponse response, 
@@ -56,18 +63,19 @@ public class RateLimitingFilter implements Filter {
             // Rate limit exceeded
             log.warn("Rate limit exceeded for IP: {} on endpoint: {} {}", clientIp, method, requestURI);
             
+            long retryAfterSeconds = probe.getNanosToWaitForRefill() / 1_000_000_000;
+
+            // Runs before any controller, so GlobalExceptionHandler never sees this rejection.
+            ProblemDetail body = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Please try again later.");
+            body.setInstance(URI.create(requestURI));
+            body.setProperty("retryAfter", retryAfterSeconds);
+
             httpResponse.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            httpResponse.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            httpResponse.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
             httpResponse.setHeader("X-Rate-Limit-Remaining", "0");
-            httpResponse.setHeader("X-Rate-Limit-Reset", String.valueOf(probe.getNanosToWaitForRefill() / 1_000_000_000));
-            
-            // Simple JSON response without ObjectMapper to avoid circular dependency
-            String errorResponse = String.format(
-                "{\"error\":\"Rate limit exceeded\",\"message\":\"Too many requests. Please try again later.\",\"retryAfter\":%d}",
-                probe.getNanosToWaitForRefill() / 1_000_000_000
-            );
-            
-            httpResponse.getWriter().write(errorResponse);
+            httpResponse.setHeader("X-Rate-Limit-Reset", String.valueOf(retryAfterSeconds));
+            objectMapper.writeValue(httpResponse.getOutputStream(), body);
         }
     }
 
