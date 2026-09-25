@@ -8,7 +8,8 @@ import com.example.school_management.feature.academic.dto.UpdateLearningResource
 import com.example.school_management.feature.academic.entity.enums.ResourceType;
 import com.example.school_management.feature.academic.service.LearningResourceService;
 import com.example.school_management.feature.academic.service.impl.LearningResourceServiceImpl;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 @Slf4j
@@ -333,16 +335,36 @@ public class LearningResourceController {
 
     // Helper methods
 
-    /** A blank field means no ids; anything else must be a JSON array of ids. */
+    /**
+     * A missing or blank field means no ids. Anything else must be a JSON array
+     * of integer ids: null, non-arrays, null or non-integer elements (such as
+     * "1" or 1.5) and trailing content are rejected rather than coerced.
+     */
     private Set<Long> parseJsonToLongSet(String json, String field) {
         if (json == null || json.trim().isEmpty()) {
             return Collections.emptySet();
         }
+        JsonNode node;
         try {
-            return objectMapper.readValue(json, new TypeReference<Set<Long>>() {});
+            node = objectMapper.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(json);
         } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + ": must be a JSON array of ids");
+            throw invalidIds(field);
         }
+        if (!node.isArray()) {
+            throw invalidIds(field);
+        }
+        Set<Long> ids = new HashSet<>();
+        for (JsonNode element : node) {
+            if (!element.isIntegralNumber() || !element.canConvertToLong()) {
+                throw invalidIds(field);
+            }
+            ids.add(element.longValue());
+        }
+        return ids;
+    }
+
+    private static ResponseStatusException invalidIds(String field) {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, field + ": must be a JSON array of ids");
     }
 
     private String determineContentType(String filename) {

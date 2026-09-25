@@ -6,6 +6,8 @@ import com.example.school_management.feature.academic.repository.LearningResourc
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -63,18 +65,41 @@ class LearningResourceUploadIntegrationTest {
                 "courseIds: must be a JSON array of ids");
     }
 
+    /** JSON null, null elements and values Jackson would coerce into a Long are not ids. */
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "[1,null]", "[\"1\"]", "[1.5]", "[1] trailing", "7"})
+    void classIdsThatAreNotAnArrayOfIntegersAre400(String classIds) throws Exception {
+        expectRejected(upload(pdf()).param("classIds", classIds),
+                "classIds: must be a JSON array of ids");
+    }
+
+    @Test
+    void courseIdsWithANullIdIs400() throws Exception {
+        expectRejected(upload(pdf()).param("courseIds", "[1,null]"),
+                "courseIds: must be a JSON array of ids");
+    }
+
+    /** A valid id array passes parsing; the request then stops at file validation, so nothing is written. */
+    @Test
+    void validIdArraysReachFileValidation() throws Exception {
+        expectRejected(upload(notAPdf()).param("classIds", "[1, 2]").param("courseIds", "[3]"),
+                "File validation failed: File claims to be PDF but content doesn't match");
+    }
+
     /** Blank and empty id lists are accepted, so this request reaches file validation. */
     @Test
     void fileRejectedBySecurityValidationIs400() throws Exception {
-        MockMultipartFile notAPdf = new MockMultipartFile("file", "notes.pdf", "application/pdf",
-                "plain text pretending to be a PDF".getBytes(StandardCharsets.US_ASCII));
-
-        expectRejected(upload(notAPdf).param("classIds", " ").param("courseIds", "[]"),
+        expectRejected(upload(notAPdf()).param("classIds", " ").param("courseIds", "[]"),
                 "File validation failed: File claims to be PDF but content doesn't match");
     }
 
     private MockMultipartFile pdf() {
         return new MockMultipartFile("file", "notes.pdf", "application/pdf", PDF);
+    }
+
+    private MockMultipartFile notAPdf() {
+        return new MockMultipartFile("file", "notes.pdf", "application/pdf",
+                "plain text pretending to be a PDF".getBytes(StandardCharsets.US_ASCII));
     }
 
     private MockHttpServletRequestBuilder upload(MockMultipartFile file) throws Exception {
