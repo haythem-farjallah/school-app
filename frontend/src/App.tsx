@@ -2,7 +2,7 @@ import {Suspense} from "react";
 import {ErrorBoundary} from "react-error-boundary";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Toaster } from "react-hot-toast";
-import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Provider } from "react-redux";
 import { FallbackErrorBoundary } from "./components/Shared/FallbackErrorBoundary";
 import { store } from "./stores/store";
@@ -13,8 +13,8 @@ import { HelmetProvider } from "react-helmet-async";
 import { AppRoutes } from "./routes/AppRoutes";
 import { NuqsAdapter } from "nuqs/adapters/react-router";
 import { WebSocketBridge } from "./components/Realtime/WebSocketBridge";
+import { queryClient } from "./lib/query-client";
 
-const queryClient =new QueryClient();
 function App() {
 
   return (

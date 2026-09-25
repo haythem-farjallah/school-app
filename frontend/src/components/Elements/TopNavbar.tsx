@@ -20,9 +20,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { useDispatch } from 'react-redux'
-import { logout, resetAuth } from '@/stores/authSlice'
-import { performLogout } from '@/lib/auth'
+import { terminateSession } from '@/lib/session'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useAuth } from '@/hooks/useAuth'
 import { menuConfig } from '@/config/menuConfig'
@@ -38,7 +36,6 @@ interface SearchItem {
 export const TopNavbar = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const dispatch = useDispatch()
   const userRole = useUserRole()
   const { user } = useAuth()
   const roleClasses = getRoleClasses(userRole)
@@ -102,13 +99,6 @@ export const TopNavbar = () => {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
-
-  const handleLogout = () => {
-    performLogout()
-    dispatch(logout())
-    dispatch(resetAuth())
-    navigate('/login')
-  }
 
   const handleSearchItemClick = (href: string) => {
     navigate(href)
@@ -230,7 +220,7 @@ export const TopNavbar = () => {
                       <span>Profile Settings</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      onClick={handleLogout} 
+                      onClick={terminateSession} 
                       className="cursor-pointer text-red-600 font-semibold hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-red-600 transition-all duration-200 rounded-xl px-4 py-3 flex items-center"
                     >
                       <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center mr-3">

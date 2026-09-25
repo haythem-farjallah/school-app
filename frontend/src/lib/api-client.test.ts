@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 import { AxiosError } from "axios";
 import { api } from "./api-client";
 import { token } from "./token";
+import { queryClient } from "./query-client";
 import { store } from "@/stores/store";
 import { loginSuccess, resetAuth } from "@/stores/authSlice";
 import { apiUrl, server } from "@/test/server";
@@ -35,6 +36,7 @@ describe("api client session handling", () => {
 
   it("ends the session when an authenticated request returns 401 and still rejects the request", async () => {
     server.use(http.get(apiUrl("/me/profile"), () => new HttpResponse(null, { status: 401 })));
+    queryClient.setQueryData(["userProfile"], user);
 
     const error = await api.get("/me/profile").catch((e) => e);
 
@@ -43,6 +45,7 @@ describe("api client session handling", () => {
     expect(token.access).toBeNull();
     expect(token.refresh).toBeNull();
     expect(store.getState().auth).toEqual({ user: null, accessToken: null, refreshToken: null });
+    expect(queryClient.getQueryData(["userProfile"])).toBeUndefined();
   });
 
   it("ends the session once when concurrent requests all return 401", async () => {

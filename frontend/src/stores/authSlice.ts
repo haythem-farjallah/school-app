@@ -44,15 +44,6 @@ const authSlice = createSlice({
       token.refresh = refreshToken;
       token.user = user;
     },
-    logout(state) {
-      // Clear all state
-      state.user = null;
-      state.accessToken = null;
-      state.refreshToken = null;
-      
-      // Clear all tokens and localStorage
-      token.clear();
-    },
     // Add action to completely reset auth state
     resetAuth: () => ({
       user: null,
@@ -62,5 +53,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { loginSuccess, logout, resetAuth } = authSlice.actions;
+export const { loginSuccess, resetAuth } = authSlice.actions;
 export default authSlice.reducer;

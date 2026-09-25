@@ -34,7 +34,7 @@ export const store = configureStore({
   devTools: import.meta.env.DEV,
 });
 
-// A session ended by the HTTP layer (401) also clears the in-memory auth state.
+// Ending the session (logout or a rejected access token) also clears the in-memory auth state.
 setSessionEndedHandler(() => store.dispatch(resetAuth()));
 
 /* -------------------------------------------------------------------------- */

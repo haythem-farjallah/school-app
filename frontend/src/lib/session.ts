@@ -1,3 +1,4 @@
+import { queryClient } from "./query-client";
 import { token } from "./token";
 
 let sessionEndedHandler: (() => void) | undefined;
@@ -10,8 +11,13 @@ export function setSessionEndedHandler(handler: () => void) {
   sessionEndedHandler = handler;
 }
 
-/** Ends the current session: clears the stored tokens and the in-memory auth state. */
+/**
+ * Ends the current session, on logout or when the API rejects the access token:
+ * clears the stored tokens, the in-memory auth state and the cached server data
+ * of the account. RequireAuth then moves the user to the login page.
+ */
 export function terminateSession() {
   token.clear();
   sessionEndedHandler?.();
+  queryClient.clear();
 }
