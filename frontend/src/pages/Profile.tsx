@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -22,8 +22,6 @@ import {
   Shield,
 
   Mail,
-  Phone,
-  MapPin,
 } from "lucide-react";
 
 // Form definitions
@@ -55,8 +53,8 @@ const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState("contact");
 
   // Data fetching
-  const { data: profileSettings, isLoading: settingsLoading } = useProfileSettings();
-  const { data: userProfile, isLoading: profileLoading } = useUserProfile();
+  const { data: profileSettings, isLoading: settingsLoading, isError: settingsError } = useProfileSettings();
+  const { data: userProfile, isLoading: profileLoading, isError: profileError } = useUserProfile();
 
   // Mutations
   const updateSettingsMut = useUpdateProfileSettings();
@@ -106,6 +104,14 @@ const SettingsPage = () => {
     );
   }
 
+  if (profileError || settingsError) {
+    return (
+      <div role="alert" className="flex items-center justify-center min-h-[400px] text-destructive">
+        Your profile could not be loaded. Please try again later.
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className={`container mx-auto py-8 px-4 max-w-4xl`}>
@@ -116,7 +122,6 @@ const SettingsPage = () => {
               <div className="flex items-center gap-6 mb-6">
                 <div className="relative">
                   <Avatar className={`h-24 w-24 ring-4 ${roleClasses.primaryLight.replace('bg-','ring-')} shadow-lg`}>
-                    <AvatarImage src={userProfile?.image} />
                     <AvatarFallback className={`text-xl ${roleClasses.primaryBg} text-white`}>
                       {user?.firstName?.[0]}{user?.lastName?.[0]}
                     </AvatarFallback>
@@ -238,30 +243,6 @@ const SettingsPage = () => {
                       <p className="text-lg font-semibold text-slate-900">{user?.email}</p>
                     </div>
                   </div>
-
-                  {/* Additional Contact Info (Read-only for all) */}
-                  {userProfile && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {userProfile.telephone && (
-                        <div className={`p-4 ${roleClasses.gradient} rounded-xl border ${roleClasses.primaryBorder}/50`}>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Phone className="h-4 w-4 text-slate-600" />
-                            <p className="text-sm font-medium text-slate-600">Phone Number</p>
-                          </div>
-                          <p className="text-lg font-semibold text-slate-900">{userProfile.telephone}</p>
-                        </div>
-                      )}
-                      {userProfile.address && (
-                        <div className={`p-4 ${roleClasses.gradient} rounded-xl border ${roleClasses.primaryBorder}/50`}>
-                          <div className="flex items-center gap-2 mb-2">
-                            <MapPin className="h-4 w-4 text-slate-600" />
-                            <p className="text-sm font-medium text-slate-600">Address</p>
-                          </div>
-                          <p className="text-lg font-semibold text-slate-900">{userProfile.address}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   {/* Notice */}
                   <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl">

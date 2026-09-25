@@ -4,8 +4,6 @@ import {
   updateProfileSettings, 
   getCurrentUserProfile, 
   updateUserProfile,
-  ProfileSettingsDto,
-  UserProfileDto 
 } from "@/features/auth/profileSettings";
 import toast from "react-hot-toast";
 

@@ -1,63 +1,47 @@
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 
-export interface ProfileSettingsDto {
+/** GET/PATCH /api/me/settings (ProfileSettingsDto) */
+export interface ProfileSettings {
   language: string;
   theme: string;
   notificationsEnabled: boolean;
   darkMode: boolean;
 }
 
-export interface UserProfileDto {
+/** GET/PATCH /api/me/profile response (UserDto) */
+export interface UserProfile {
   id: number;
   firstName: string;
   lastName: string;
   email: string;
-  telephone?: string;
-  birthday?: string;
-  gender?: string;
-  address?: string;
   role: string;
-  image?: string;
+  profileTheme: string | null;
+  profileLanguage: string | null;
+  permissions: string[];
 }
 
-export const DEFAULT_PROFILE_SETTINGS: ProfileSettingsDto = {
-  language: "en",
-  theme: "light",
-  notificationsEnabled: true,
-  darkMode: false,
-};
+/** PATCH /api/me/profile request (UserProfileUpdateRequest) */
+export interface UserProfileUpdate {
+  telephone?: string;
+  address?: string;
+}
 
-export const EMPTY_USER_PROFILE: UserProfileDto = {
-  id: 0,
-  firstName: "",
-  lastName: "",
-  email: "",
-  role: "USER",
-  telephone: "",
-  address: "",
-};
+export async function getProfileSettings(): Promise<ProfileSettings> {
+  const response = await api.get<ProfileSettings>("/me/settings");
+  return response.data;
+}
 
-/* API calls for profile settings */
-export const getProfileSettings = async () => {
-  try {
-    const r = await http.get<ProfileSettingsDto>("/me/settings");
-    return r.data ?? DEFAULT_PROFILE_SETTINGS;
-  } catch (e) {
-    return DEFAULT_PROFILE_SETTINGS;
-  }
-};
+export async function updateProfileSettings(settings: Partial<ProfileSettings>): Promise<ProfileSettings> {
+  const response = await api.patch<ProfileSettings>("/me/settings", settings);
+  return response.data;
+}
 
-export const updateProfileSettings = (settings: Partial<ProfileSettingsDto>) =>
-  http.patch<ProfileSettingsDto>("/me/settings", settings).then((r) => r.data);
+export async function getCurrentUserProfile(): Promise<UserProfile> {
+  const response = await api.get<UserProfile>("/me/profile");
+  return response.data;
+}
 
-export const getCurrentUserProfile = async () => {
-  try {
-    const r = await http.get<UserProfileDto>("/me/profile");
-    return r.data ?? EMPTY_USER_PROFILE;
-  } catch (e) {
-    return EMPTY_USER_PROFILE;
-  }
-};
-
-export const updateUserProfile = (profile: Partial<UserProfileDto>) =>
-  http.patch<UserProfileDto>("/me/profile", profile).then((r) => r.data);
+export async function updateUserProfile(profile: UserProfileUpdate): Promise<UserProfile> {
+  const response = await api.patch<UserProfile>("/me/profile", profile);
+  return response.data;
+}
