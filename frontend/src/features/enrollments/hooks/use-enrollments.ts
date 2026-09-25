@@ -67,7 +67,6 @@ export function useEnrollments(
     LIST_KEY,
     size,
     queryParams,
-    false,
     page, // external page number
   );
 
@@ -109,7 +108,6 @@ export function useStudentEnrollments(studentId?: number, options?: { page?: num
     ["enrollments", "student", studentId?.toString()],
     size,
     queryParams,
-    false,
     page,
   );
 }
@@ -128,7 +126,6 @@ export function useClassEnrollments(classId?: number, options?: { page?: number;
     ["enrollments", "class", classId?.toString()],
     size,
     queryParams,
-    false,
     page,
   );
 }

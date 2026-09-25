@@ -47,7 +47,6 @@ export function useRooms(
     LIST_KEY,
     size,
     searchFilters,
-    false,
     page, // external page number
   );
 

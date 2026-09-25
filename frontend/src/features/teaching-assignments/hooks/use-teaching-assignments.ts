@@ -54,7 +54,6 @@ export function useTeachingAssignments(
     LIST_KEY,
     size,
     searchFilters,
-    false,
     page, // external page number
   );
 
@@ -248,7 +247,6 @@ export function useTeachingAssignmentsByTeacher(
     [LIST_KEY, "teacher", teacherId],
     size,
     {},
-    false,
     page
   );
 }
@@ -265,7 +263,6 @@ export function useTeachingAssignmentsByCourse(
     [LIST_KEY, "course", courseId],
     size,
     {},
-    false,
     page
   );
 }
@@ -282,7 +279,6 @@ export function useTeachingAssignmentsByClass(
     [LIST_KEY, "class", classId],
     size,
     {},
-    false,
     page
   );
 }

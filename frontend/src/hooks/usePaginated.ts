@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { http } from "../lib/http";
+import { api } from "@/lib/api-client";
 import { useQueryApi } from "./useQueryApi";
-import type { AxiosRequestConfig } from "axios";
-import { PageDto, ApiResponse } from "@/types/level";
+import type { ApiResponse, PageDto } from "@/types/level";
 
 export interface Page<T> {
   data: T[];
@@ -11,12 +10,16 @@ export interface Page<T> {
   totalItems: number;
 }
 
+/**
+ * Pages through a list endpoint that answers ApiResponse<PageDto<T>>.
+ * Failures are exposed as the query's error / isError; the calling UI decides
+ * how to present them.
+ */
 export function usePaginated<T>(
   endpoint: string,
   queryKey: unknown,
   limit = 10,
   params: Record<string, unknown> = {},
-  skipAuth = false,
   externalPage?: number, // Add external page parameter
 ) {
   const [internalPage, setInternalPage] = useState(0);
@@ -25,34 +28,22 @@ export function usePaginated<T>(
   const currentPage = externalPage !== undefined ? externalPage : internalPage;
 
   /* ------------- fetcher ------------------------------------------------ */
-  const  fetchPage = async(p: number): Promise<Page<T>>  => {
-    console.log("🌐 usePaginated - Fetching page:", p, "for endpoint:", endpoint);
-    const cfg: AxiosRequestConfig & { skipAuth?: boolean } = {
+  const fetchPage = async (p: number): Promise<Page<T>> => {
+    const response = await api.get<ApiResponse<PageDto<T>>>(endpoint, {
       params: { page: p, size: limit, ...params },
-    };
-    if (skipAuth) cfg.skipAuth = true;
+    });
+    const dto = response.data.data;
 
-   return http
-      .get<ApiResponse<PageDto<T>>>(endpoint, cfg)
-      .then((response) => {
-        console.log("✅ usePaginated - API response received for page:", p);
-        
-        // The http interceptor unwraps the axios response at runtime
-        // TypeScript sees AxiosResponse but runtime gets ApiResponse due to interceptor
-        const apiResponse = response as unknown as ApiResponse<PageDto<T>>;
-        const dto: PageDto<T> = apiResponse.data;
-        
-        return {
-          data: dto.content,
-          page: dto.page,
-          totalPages: Math.ceil(dto.totalElements / dto.size),
-          totalItems: dto.totalElements,
-        };
-      });
+    return {
+      data: dto.content,
+      page: dto.page,
+      totalPages: Math.ceil(dto.totalElements / dto.size),
+      totalItems: dto.totalElements,
+    };
   };
 
   /* ------------- react‑query ------------------------------------------- */
-  const queryKeyArray = [queryKey, currentPage, limit, params, skipAuth];
+  const queryKeyArray = [queryKey, currentPage, limit, params];
 
   const query = useQueryApi<Page<T>>(
     queryKeyArray, // Use currentPage in query key

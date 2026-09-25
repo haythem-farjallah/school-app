@@ -61,7 +61,6 @@ export function useGenericUserOperations<T>(config: UserOperationsConfig) {
       config.listQueryKey,
       size,
       searchFilters,
-      false,
       page, // external page number
     );
 

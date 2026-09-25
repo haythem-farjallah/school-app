@@ -47,7 +47,6 @@ export function useStudents(
     LIST_KEY,
     size,
     searchFilters,
-    false,
     page, // external page number
   );
 

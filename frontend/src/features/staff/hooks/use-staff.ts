@@ -46,7 +46,6 @@ export function useStaff(
     LIST_KEY,
     size,
     searchFilters,
-    false,
     page, // external page number
   );
 

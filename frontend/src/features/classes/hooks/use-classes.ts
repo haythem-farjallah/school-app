@@ -72,7 +72,6 @@ export function useClasses(
     LIST_KEY,
     size,
     queryParams,
-    false,
     page, // external page number
   );
 

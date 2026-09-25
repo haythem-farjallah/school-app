@@ -46,7 +46,6 @@ export function useParents(
     LIST_KEY,
     size,
     searchFilters,
-    false,
     page, // external page number
   );
 

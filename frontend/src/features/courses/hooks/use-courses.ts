@@ -43,7 +43,6 @@ export function useCourses(
     LIST_KEY,
     size,
     searchFilters,
-    false,
     page, // external page number
   );
 
