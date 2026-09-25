@@ -6,6 +6,7 @@ import {
   updateUserProfile,
 } from "@/features/auth/profileSettings";
 import toast from "react-hot-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 // Hook for profile settings
 export const useProfileSettings = () => {
@@ -24,8 +25,8 @@ export const useUpdateProfileSettings = () => {
       queryClient.setQueryData(["profileSettings"], data);
       toast.success("Settings updated successfully!");
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to update settings");
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to update settings"));
     },
   });
 };
@@ -48,8 +49,8 @@ export const useUpdateUserProfile = () => {
       // Also update the auth store if needed
       toast.success("Profile updated successfully!");
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to update profile");
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Failed to update profile"));
     },
   });
 };

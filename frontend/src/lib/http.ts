@@ -7,7 +7,7 @@ import axios, {
   import { token } from "./token";
   import { terminateSession } from "./session";
   import { notifyError } from "./notify";
-  import { getErrorMessage } from "../utils/helpers";
+  import { getApiErrorMessage } from "./api-error";
   interface RetryableRequest extends InternalAxiosRequestConfig {
     _retry?: boolean;
     skipAuth?: boolean;
@@ -65,7 +65,7 @@ http.interceptors.response.use(
         }
       }
   
-      notifyError(getErrorMessage(err));
+      notifyError(getApiErrorMessage(err));
       return Promise.reject(err);
     },
   );
