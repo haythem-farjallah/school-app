@@ -1,4 +1,4 @@
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { LoginValues } from "@/features/auth/loginForm.definition";
 
 /* server payload shape */
@@ -16,6 +16,13 @@ export interface LoginResponse {
   passwordChangeRequired: boolean;
 }
 
-/* plain axios call – no hooks here */
-export const loginUser = (values: LoginValues) =>
-  http.post<LoginResponse>("/auth/login", values).then((r) => r.data);
+/** POST /api/auth/login response body (ApiSuccessResponse<LoginResponse>) */
+interface LoginEnvelope {
+  status: string;
+  data: LoginResponse;
+}
+
+export async function loginUser(values: LoginValues): Promise<LoginResponse> {
+  const response = await api.post<LoginEnvelope>("/auth/login", values);
+  return response.data.data;
+}

@@ -9,6 +9,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import LoginPage from "./Login";
 import authReducer from "@/stores/authSlice";
 import { apiUrl, server } from "@/test/server";
+import { store as appStore } from "@/stores/store";
 
 function renderLoginPage() {
   const store = configureStore({ reducer: { auth: authReducer } });
@@ -42,6 +43,20 @@ function loginSuccess(passwordChangeRequired: boolean) {
       },
     }),
   );
+}
+
+function refusedCredentials() {
+  return http.post(apiUrl("/auth/login"), () =>
+    HttpResponse.json(
+      { type: "about:blank", title: "Unauthorized", status: 401, detail: "Invalid credentials", instance: "/api/auth/login" },
+      { status: 401 },
+    ),
+  );
+}
+
+/** Error notifications are shown from the application store. */
+function errorMessages() {
+  return appStore.getState().notification.list.filter((n) => n.type === "error").map((n) => n.message);
 }
 
 async function submitCredentials(email: string, password: string) {
@@ -88,12 +103,9 @@ describe("LoginPage", () => {
     expect(called).toBe(false);
   });
 
-  it("stays on the login page without a session when credentials are refused", async () => {
-    server.use(
-      http.post(apiUrl("/auth/login"), () =>
-        HttpResponse.json({ status: "UNAUTHORIZED", message: "Invalid credentials" }, { status: 401 }),
-      ),
-    );
+  it("stays on the login page without a session and shows the reason when credentials are refused", async () => {
+    server.use(refusedCredentials());
+    const errorsBefore = errorMessages().length;
     const store = renderLoginPage();
 
     await submitCredentials("admin@fixtures.school.test", "wrong-pass");
@@ -102,17 +114,20 @@ describe("LoginPage", () => {
     expect(screen.queryByText("Home page")).not.toBeInTheDocument();
     expect(store.getState().auth.user).toBeNull();
     expect(localStorage.getItem("accessToken")).toBeNull();
+    expect(errorMessages().slice(errorsBefore)).toEqual(["Invalid credentials"]);
   });
 
   it("stays on the login page and drops a leftover session when credentials are refused", async () => {
     localStorage.setItem("accessToken", "expired-access-token");
     localStorage.setItem("refreshToken", "expired-refresh-token");
+    let refreshCalls = 0;
     server.use(
-      http.post(apiUrl("/auth/login"), () =>
-        HttpResponse.json({ status: "UNAUTHORIZED", message: "Invalid credentials" }, { status: 401 }),
-      ),
-      // The backend has no refresh endpoint.
-      http.post(apiUrl("/auth/refresh-token"), () => new HttpResponse(null, { status: 404 })),
+      refusedCredentials(),
+      // The backend has no refresh endpoint; the client must not try one.
+      http.post(apiUrl("/auth/refresh-token"), () => {
+        refreshCalls++;
+        return new HttpResponse(null, { status: 404 });
+      }),
     );
     renderLoginPage();
 
@@ -122,5 +137,6 @@ describe("LoginPage", () => {
     expect(screen.queryByText("Home page")).not.toBeInTheDocument();
     expect(localStorage.getItem("accessToken")).toBeNull();
     expect(localStorage.getItem("refreshToken")).toBeNull();
+    expect(refreshCalls).toBe(0);
   });
 });
