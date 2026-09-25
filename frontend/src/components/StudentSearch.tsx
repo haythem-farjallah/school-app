@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { Student } from "@/types/parent";
+import type { ApiResponse, PageDto } from "@/types/level";
 
 interface StudentSearchProps {
   selectedStudents: Student[];
@@ -42,7 +43,7 @@ export function StudentSearch({
     queryFn: async () => {
       if (!searchQuery.trim()) return { content: [] };
       
-      const response = await http.get(`/v1/students/search`, {
+      const response = await api.get<ApiResponse<PageDto<Student>>>(`/v1/students/search`, {
         params: {
           q: searchQuery,
           page: 0,
