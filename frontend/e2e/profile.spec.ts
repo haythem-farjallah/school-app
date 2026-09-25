@@ -26,8 +26,15 @@ test("teacher updates contact details and they persist after reload", async ({ p
   expect(patched.status()).toBe(200);
   expect(await patched.json()).toMatchObject({ email: teacher.email, telephone, address });
 
+  // Saving the form refetches the profile before the reload; that response belongs to the old
+  // document and the reload discards its body. Only accept the GET made by the reloaded document.
+  let reloaded = false;
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) reloaded = true;
+  });
   const profileResponse = page.waitForResponse(
-    (response) => response.url().endsWith("/api/me/profile") && response.request().method() === "GET",
+    (response) =>
+      reloaded && response.url().endsWith("/api/me/profile") && response.request().method() === "GET",
   );
   await page.reload();
   expect(await (await profileResponse).json()).toMatchObject({ telephone, address });
