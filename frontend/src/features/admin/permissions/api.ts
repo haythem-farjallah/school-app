@@ -1,20 +1,32 @@
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 
 export type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "STAFF";
 
+interface PermissionResponse<T> {
+  status: string;
+  data: T;
+}
+
 export const listAllPermissions = () =>
-  http.get<{ status: string; data: string[] }>("/admin/permissions").then((res) => res.data);
+  api.get<PermissionResponse<string[]>>("/admin/permissions").then((response) => response.data.data);
 
 export const getRoleDefaults = (role: Role) =>
-  http.get<{ status: string; data: string[] }>(`/admin/permissions/roles/${role}`).then((res) => res.data);
+  api
+    .get<PermissionResponse<string[]>>(`/admin/permissions/roles/${role}`)
+    .then((response) => response.data.data);
 
 export const updateRoleDefaults = (role: Role, codes: string[]) =>
-  http.put<{ status: string; data: null }>(`/admin/permissions/roles/${role}`, { codes }).then((res) => res);
+  api
+    .put<PermissionResponse<null>>(`/admin/permissions/roles/${role}`, { codes })
+    .then((response) => response.data);
 
 export const getUserPermissions = (userId: number) =>
-  http.get<{ status: string; data: string[] }>(`/admin/permissions/users/${userId}`).then((res) => res.data);
+  api
+    .get<PermissionResponse<string[]>>(`/admin/permissions/users/${userId}`)
+    .then((response) => response.data.data);
 
 export const updateUserPermissions = (userId: number, codes: string[]) =>
-  http.put<{ status: string; data: null }>(`/admin/permissions/users/${userId}`, { codes }).then((res) => res);
-
+  api
+    .put<PermissionResponse<null>>(`/admin/permissions/users/${userId}`, { codes })
+    .then((response) => response.data);
 
