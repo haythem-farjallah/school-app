@@ -226,13 +226,8 @@ public class ClassController {
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "50") int size) {
         log.debug("Getting classes for current teacher");
-        try {
-            var dto = new PageDto<>(service.getCurrentTeacherClasses(PageRequest.of(page, size)));
-            return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
-        } catch (Exception e) {
-            log.error("Error getting current teacher classes: {}", e.getMessage(), e);
-            return ResponseEntity.ok(new ApiSuccessResponse<>("success", new PageDto<>(Page.empty())));
-        }
+        var dto = new PageDto<>(service.getCurrentTeacherClasses(PageRequest.of(page, size)));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
 
     @Operation(summary = "Get classes a student is enrolled in")

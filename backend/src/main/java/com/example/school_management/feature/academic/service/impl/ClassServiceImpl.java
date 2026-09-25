@@ -329,23 +329,17 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public Page<ClassDto> getCurrentTeacherClasses(Pageable pageable) {
         log.debug("Getting classes for current teacher");
-        
-        try {
-            // Get current teacher from security context
-            UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            String email = userDetails.getUsername();
-            log.debug("Current teacher email: {}", email);
-            
-            Teacher teacher = teacherRepo.findByEmail(email)
-                    .orElseThrow(() -> new ResourceNotFoundException("Current user is not a teacher: " + email));
-            
-            log.debug("Found teacher with ID: {}", teacher.getId());
-            return getClassesByTeacherId(teacher.getId(), pageable);
-        } catch (Exception e) {
-            log.error("Error getting current teacher classes: {}", e.getMessage(), e);
-            // Return empty page instead of throwing exception
-            return new PageImpl<>(List.of(), pageable, 0);
-        }
+
+        // Get current teacher from security context
+        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String email = userDetails.getUsername();
+        log.debug("Current teacher email: {}", email);
+
+        Teacher teacher = teacherRepo.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Current user is not a teacher: " + email));
+
+        log.debug("Found teacher with ID: {}", teacher.getId());
+        return getClassesByTeacherId(teacher.getId(), pageable);
     }
 
     /**
