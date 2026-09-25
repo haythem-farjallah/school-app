@@ -14,7 +14,7 @@ import com.example.school_management.feature.operational.mapper.OperationalMappe
 import com.example.school_management.feature.operational.repository.*;
 import com.example.school_management.feature.operational.service.TimetableService;
 import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
-import jakarta.persistence.EntityNotFoundException;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -81,7 +81,7 @@ public class TimetableServiceImpl implements TimetableService {
         log.debug("Updating timetable ID: {}", id);
         
         Timetable timetable = timetableRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Timetable not found with id: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Timetable not found with id: " + id));
         
         if (request.getName() != null) {
             timetable.setName(request.getName());
@@ -126,7 +126,7 @@ public class TimetableServiceImpl implements TimetableService {
         log.debug("Deleting timetable ID: {}", id);
         
         if (!timetableRepository.existsById(id)) {
-            throw new EntityNotFoundException("Timetable not found with id: " + id);
+            throw new ResourceNotFoundException("Timetable not found with id: " + id);
         }
         
         timetableRepository.deleteById(id);
@@ -138,7 +138,7 @@ public class TimetableServiceImpl implements TimetableService {
         log.debug("Getting timetable ID: {}", id);
         
         Timetable timetable = timetableRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Timetable not found with id: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Timetable not found with id: " + id));
         
         return mapper.toTimetableDto(timetable);
     }
@@ -198,7 +198,7 @@ public class TimetableServiceImpl implements TimetableService {
         log.debug("Updating timetable slot ID: {}", slotId);
         
         TimetableSlot slot = timetableSlotRepository.findById(slotId)
-            .orElseThrow(() -> new EntityNotFoundException("Timetable slot not found with id: " + slotId));
+            .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found with id: " + slotId));
         
         slot.setDayOfWeek(updatedSlot.getDayOfWeek());
         slot.setPeriod(updatedSlot.getPeriod());
@@ -223,7 +223,7 @@ public class TimetableServiceImpl implements TimetableService {
         log.debug("Deleting timetable slot ID: {}", slotId);
         
         if (!timetableSlotRepository.existsById(slotId)) {
-            throw new EntityNotFoundException("Timetable slot not found with id: " + slotId);
+            throw new ResourceNotFoundException("Timetable slot not found with id: " + slotId);
         }
         
         timetableSlotRepository.deleteById(slotId);
@@ -236,7 +236,7 @@ public class TimetableServiceImpl implements TimetableService {
         
         // Get the class entity first
         var classEntity = classRepository.findById(classId)
-            .orElseThrow(() -> new EntityNotFoundException("Class not found with id: " + classId));
+            .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
         log.info("Found class: {} with name: {}", classId, classEntity.getName());
         
         // Find or create a timetable for this class
@@ -285,25 +285,25 @@ public class TimetableServiceImpl implements TimetableService {
                 // Ensure all references are properly set
                 if (slot.getPeriod() != null && slot.getPeriod().getId() != null) {
                     var period = periodRepository.findById(slot.getPeriod().getId())
-                        .orElseThrow(() -> new EntityNotFoundException("Period not found: " + slot.getPeriod().getId()));
+                        .orElseThrow(() -> new ResourceNotFoundException("Period not found: " + slot.getPeriod().getId()));
                     slot.setPeriod(period);
                 }
                 
                 if (slot.getTeacher() != null && slot.getTeacher().getId() != null) {
                     var teacher = teacherRepository.findById(slot.getTeacher().getId())
-                        .orElseThrow(() -> new EntityNotFoundException("Teacher not found: " + slot.getTeacher().getId()));
+                        .orElseThrow(() -> new ResourceNotFoundException("Teacher not found: " + slot.getTeacher().getId()));
                     slot.setTeacher(teacher);
                 }
                 
                 if (slot.getForCourse() != null && slot.getForCourse().getId() != null) {
                     var course = courseRepository.findById(slot.getForCourse().getId())
-                        .orElseThrow(() -> new EntityNotFoundException("Course not found: " + slot.getForCourse().getId()));
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + slot.getForCourse().getId()));
                     slot.setForCourse(course);
                 }
                 
                 if (slot.getRoom() != null && slot.getRoom().getId() != null) {
                     var room = roomRepository.findById(slot.getRoom().getId())
-                        .orElseThrow(() -> new EntityNotFoundException("Room not found: " + slot.getRoom().getId()));
+                        .orElseThrow(() -> new ResourceNotFoundException("Room not found: " + slot.getRoom().getId()));
                     slot.setRoom(room);
                 }
             }
@@ -330,14 +330,14 @@ public class TimetableServiceImpl implements TimetableService {
     @Override
     @Transactional
     public void optimizeTimetableForClass(Long classId) {
+        log.info("Starting optimization for class ID: {}", classId);
+
+        // Get the class entity first; a missing class is a 404, not an optimization failure
+        var classEntity = classRepository.findById(classId)
+            .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
+        log.info("Found class: {} with name: {}", classId, classEntity.getName());
+
         try {
-            log.info("Starting optimization for class ID: {}", classId);
-            
-            // Get the class entity first
-            var classEntity = classRepository.findById(classId)
-                .orElseThrow(() -> new EntityNotFoundException("Class not found with id: " + classId));
-            log.info("Found class: {} with name: {}", classId, classEntity.getName());
-            
             // Find or create a timetable for this class
             List<Timetable> timetables = timetableRepository.findByClassId(classId);
             Timetable timetable;
@@ -395,7 +395,7 @@ public class TimetableServiceImpl implements TimetableService {
             var teachers = teacherRepository.findAll();
             var rooms = roomRepository.findAll();
             var classEntity = classRepository.findById(classId)
-                .orElseThrow(() -> new EntityNotFoundException("Class not found with id: " + classId));
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
             
             if (teachers.isEmpty() || periods.isEmpty() || rooms.isEmpty()) {
                 log.warn("Missing required data for optimization");

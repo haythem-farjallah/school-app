@@ -7,7 +7,7 @@ import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.PermissionRepository;
 import com.example.school_management.feature.auth.repository.RolePermissionRepo;
 import com.example.school_management.feature.auth.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,7 +49,7 @@ public class PermissionService {
     /* ---------- per-user overrides ---------- */
     public Set<String> getUserPerms(long userId) {
         BaseUser u = userRepo.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("user"));
+                .orElseThrow(() -> new ResourceNotFoundException("User id " + userId + " not found"));
         return u.getPermissions().stream()
                 .map(Permission::getCode)
                 .collect(Collectors.toSet());
@@ -57,7 +57,7 @@ public class PermissionService {
 
     public void replaceUserPerms(long userId, Set<String> codes) {
         BaseUser u = userRepo.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("user"));
+                .orElseThrow(() -> new ResourceNotFoundException("User id " + userId + " not found"));
         Set<Permission> perms = permRepo.findByCodeIn(codes);
         if (perms.size() != codes.size()) {
             throw new IllegalArgumentException("Unknown permission code(s)");

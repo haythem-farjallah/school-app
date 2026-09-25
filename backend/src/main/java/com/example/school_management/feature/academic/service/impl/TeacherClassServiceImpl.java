@@ -12,7 +12,7 @@ import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.entity.Grade;
 import com.example.school_management.feature.operational.repository.GradeRepository;
-import jakarta.persistence.EntityNotFoundException;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -101,7 +101,7 @@ public class TeacherClassServiceImpl implements TeacherClassService {
     
     private Teacher findTeacherByEmail(String email) {
         return teacherRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("Teacher not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with email: " + email));
     }
     
     private List<TeacherClassDto> buildTeacherClassDtos(Teacher teacher, String search) {

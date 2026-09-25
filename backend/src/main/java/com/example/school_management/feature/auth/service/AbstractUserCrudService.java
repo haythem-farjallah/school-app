@@ -10,7 +10,7 @@ import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
-import jakarta.persistence.EntityNotFoundException;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -106,7 +106,7 @@ public abstract class AbstractUserCrudService<
 
     public E find(long id) {
         return repo.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User id " + id + " not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User id " + id + " not found"));
     }
 
     /* ------------------------------------------------------------------ *

@@ -14,7 +14,7 @@ import com.example.school_management.feature.operational.repository.PeriodReposi
 import com.example.school_management.feature.operational.repository.RoomRepository;
 import com.example.school_management.feature.operational.repository.TimetableSlotRepository;
 import com.example.school_management.feature.operational.service.TimetableSlotService;
-import jakarta.persistence.EntityNotFoundException;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,34 +43,34 @@ public class TimetableSlotServiceImpl implements TimetableSlotService {
         
         // Set period
         Period period = periodRepository.findById(request.getPeriodId())
-            .orElseThrow(() -> new EntityNotFoundException("Period not found with id: " + request.getPeriodId()));
+            .orElseThrow(() -> new ResourceNotFoundException("Period not found with id: " + request.getPeriodId()));
         slot.setPeriod(period);
         
         // Set class if provided
         if (request.getForClassId() != null) {
             ClassEntity classEntity = classRepository.findById(request.getForClassId())
-                .orElseThrow(() -> new EntityNotFoundException("Class not found with id: " + request.getForClassId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + request.getForClassId()));
             slot.setForClass(classEntity);
         }
         
         // Set course if provided
         if (request.getForCourseId() != null) {
             Course course = courseRepository.findById(request.getForCourseId())
-                .orElseThrow(() -> new EntityNotFoundException("Course not found with id: " + request.getForCourseId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getForCourseId()));
             slot.setForCourse(course);
         }
         
         // Set teacher if provided
         if (request.getTeacherId() != null) {
             Teacher teacher = teacherRepository.findById(request.getTeacherId())
-                .orElseThrow(() -> new EntityNotFoundException("Teacher not found with id: " + request.getTeacherId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + request.getTeacherId()));
             slot.setTeacher(teacher);
         }
         
         // Set room if provided
         if (request.getRoomId() != null) {
             Room room = roomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new EntityNotFoundException("Room not found with id: " + request.getRoomId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + request.getRoomId()));
             slot.setRoom(room);
         }
         
@@ -82,20 +82,20 @@ public class TimetableSlotServiceImpl implements TimetableSlotService {
         log.debug("Updating timetable slot {} with request: {}", slotId, request);
         
         TimetableSlot slot = timetableSlotRepository.findById(slotId)
-            .orElseThrow(() -> new EntityNotFoundException("Timetable slot not found with id: " + slotId));
+            .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found with id: " + slotId));
         
         slot.setDayOfWeek(request.getDayOfWeek());
         slot.setDescription(request.getDescription());
         
         // Update period
         Period period = periodRepository.findById(request.getPeriodId())
-            .orElseThrow(() -> new EntityNotFoundException("Period not found with id: " + request.getPeriodId()));
+            .orElseThrow(() -> new ResourceNotFoundException("Period not found with id: " + request.getPeriodId()));
         slot.setPeriod(period);
         
         // Update class if provided
         if (request.getForClassId() != null) {
             ClassEntity classEntity = classRepository.findById(request.getForClassId())
-                .orElseThrow(() -> new EntityNotFoundException("Class not found with id: " + request.getForClassId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + request.getForClassId()));
             slot.setForClass(classEntity);
         } else {
             slot.setForClass(null);
@@ -104,7 +104,7 @@ public class TimetableSlotServiceImpl implements TimetableSlotService {
         // Update course if provided
         if (request.getForCourseId() != null) {
             Course course = courseRepository.findById(request.getForCourseId())
-                .orElseThrow(() -> new EntityNotFoundException("Course not found with id: " + request.getForCourseId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getForCourseId()));
             slot.setForCourse(course);
         } else {
             slot.setForCourse(null);
@@ -113,7 +113,7 @@ public class TimetableSlotServiceImpl implements TimetableSlotService {
         // Update teacher if provided
         if (request.getTeacherId() != null) {
             Teacher teacher = teacherRepository.findById(request.getTeacherId())
-                .orElseThrow(() -> new EntityNotFoundException("Teacher not found with id: " + request.getTeacherId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + request.getTeacherId()));
             slot.setTeacher(teacher);
         } else {
             slot.setTeacher(null);
@@ -122,7 +122,7 @@ public class TimetableSlotServiceImpl implements TimetableSlotService {
         // Update room if provided
         if (request.getRoomId() != null) {
             Room room = roomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new EntityNotFoundException("Room not found with id: " + request.getRoomId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + request.getRoomId()));
             slot.setRoom(room);
         } else {
             slot.setRoom(null);
@@ -136,7 +136,7 @@ public class TimetableSlotServiceImpl implements TimetableSlotService {
         log.debug("Deleting timetable slot: {}", slotId);
         
         if (!timetableSlotRepository.existsById(slotId)) {
-            throw new EntityNotFoundException("Timetable slot not found with id: " + slotId);
+            throw new ResourceNotFoundException("Timetable slot not found with id: " + slotId);
         }
         
         timetableSlotRepository.deleteById(slotId);
@@ -145,6 +145,6 @@ public class TimetableSlotServiceImpl implements TimetableSlotService {
     @Override
     public TimetableSlot getSlot(Long slotId) {
         return timetableSlotRepository.findById(slotId)
-            .orElseThrow(() -> new EntityNotFoundException("Timetable slot not found with id: " + slotId));
+            .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found with id: " + slotId));
     }
 }
