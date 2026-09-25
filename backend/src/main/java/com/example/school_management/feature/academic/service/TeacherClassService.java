@@ -23,9 +23,4 @@ public interface TeacherClassService {
      * Get teacher's class statistics
      */
     TeacherClassStatsDto getTeacherClassStats(String teacherEmail);
-    
-    /**
-     * Get debug information for teacher
-     */
-    Object getDebugInfo(String teacherEmail);
 }

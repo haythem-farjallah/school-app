@@ -19,7 +19,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/teacher/classes")
@@ -89,27 +88,6 @@ public class TeacherClassController {
         var stats = teacherClassService.getTeacherClassStats(authentication.getName());
         
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", stats));
-    }
-    
-    @Operation(summary = "Debug teacher information")
-    @GetMapping("/debug")
-    public ResponseEntity<ApiSuccessResponse<Object>> debugTeacherInfo(
-            Authentication authentication) {
-        
-        log.info("🔍 GET /api/v1/teacher/classes/debug - teacher: {}", authentication.getName());
-        
-        try {
-            var debugInfo = teacherClassService.getDebugInfo(authentication.getName());
-            log.info("🔍 Debug info for teacher {}: {}", authentication.getName(), debugInfo);
-            return ResponseEntity.ok(new ApiSuccessResponse<>("success", debugInfo));
-        } catch (Exception e) {
-            log.error("❌ Debug error for teacher {}: {}", authentication.getName(), e.getMessage(), e);
-            return ResponseEntity.ok(new ApiSuccessResponse<>("error", Map.of(
-                "error", e.getMessage(),
-                "teacherEmail", authentication.getName(),
-                "stackTrace", e.getStackTrace()
-            )));
-        }
     }
     
     public record TeacherClassStatsDto(
