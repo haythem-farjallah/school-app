@@ -19,6 +19,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { usePermissions, useUserRole } from '@/hooks/useUserRole'
 import { menuConfig } from '@/config/menuConfig'
 import { getRoleClasses } from '@/lib/theme'
+import { terminateSession } from '@/lib/session'
 
 export const AppSidebar = () => {
   const { t } = useTranslation()
@@ -59,7 +60,7 @@ export const AppSidebar = () => {
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {section.items.map((item, itemIndex) => {
-                      const isActive = location.pathname === item.href;
+                      const isActive = 'href' in item && location.pathname === item.href;
                       return (
                         <SidebarMenuItem key={itemIndex}>
                           <SidebarMenuButton 
@@ -68,7 +69,7 @@ export const AppSidebar = () => {
                             isActive={isActive}
                           >
                             <button
-                              onClick={() => navigate(item.href)}
+                              onClick={'href' in item ? () => navigate(item.href) : terminateSession}
                               className={`flex w-full items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
                                 isActive 
                                   ? `${roleClasses.gradient} border-l-4 ${roleClasses.primaryBorder.replace('border-','border-l-')} shadow-md` 

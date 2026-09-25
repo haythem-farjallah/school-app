@@ -1,6 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { SimpleStudentLayout } from '@/components/Dashboard/SimpleStudentLayout';
+import { terminateSession } from '@/lib/session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Award, Calendar, FileText } from 'lucide-react';
@@ -124,7 +125,7 @@ const StudentResults = () => {
         onNotificationClick={handleNotificationClick}
         onProfileClick={() => navigate("/student/profile")}
         onSettingsClick={() => navigate("/student/settings")}
-        onLogout={() => navigate("/login")}
+        onLogout={terminateSession}
       >
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left Column - Results List */}

@@ -53,6 +53,8 @@ export const TopNavbar = () => {
     
     menuSections.forEach(section => {
       section.items.forEach(item => {
+        // Search navigates to pages; actions such as logout are not listed.
+        if (!('href' in item)) return
         items.push({
           title: t(item.label),
           description: t(section.title),

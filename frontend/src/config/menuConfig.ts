@@ -27,12 +27,12 @@ import {
   LogOut,
 } from 'lucide-react';
 
+/** A menu entry either navigates to `href` or performs an action (only logout today). */
 export type MenuItem = {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  href: string;
   permission?: string;
-};
+} & ({ href: string } | { action: 'logout' });
 
 export type MenuSection = {
   title: string;
@@ -94,7 +94,7 @@ export const menuConfig: Record<string, MenuSection[]> = {
       title: 'OTHER',
       items: [
         { icon: User, label: 'Settings', href: '/teacher/profile' },
-        { icon: LogOut, label: 'Logout', href: '/logout' },
+        { icon: LogOut, label: 'Logout', action: 'logout' },
       ],
     },
   ],
@@ -114,7 +114,7 @@ export const menuConfig: Record<string, MenuSection[]> = {
       title: 'OTHER',
       items: [
         { icon: User, label: 'Settings', href: '/student/profile' },
-        { icon: LogOut, label: 'Logout', href: '/logout' },
+        { icon: LogOut, label: 'Logout', action: 'logout' },
       ],
     },
   ],
@@ -135,7 +135,7 @@ export const menuConfig: Record<string, MenuSection[]> = {
       title: 'OTHER',
       items: [
         { icon: User, label: 'Settings', href: '/parent/profile' },
-        { icon: LogOut, label: 'Logout', href: '/logout' },
+        { icon: LogOut, label: 'Logout', action: 'logout' },
       ],
     },
   ],

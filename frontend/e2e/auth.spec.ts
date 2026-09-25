@@ -80,3 +80,22 @@ test("admin signs out and protected pages require a new login", async ({ page })
   await page.goto("/admin/dashboard");
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test("student logs out from the sidebar and protected pages require a new login", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email Address").fill("student@fixtures.school.test");
+  await page.getByLabel("Password").fill("Fixture-Pass-2024");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/student/exams");
+
+  await page.getByRole("button", { name: "Logout", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/login$/);
+  expect(await page.evaluate(() => [localStorage.getItem("accessToken"), localStorage.getItem("refreshToken")])).toEqual([
+    null,
+    null,
+  ]);
+  await page.goto("/student/dashboard");
+  await expect(page).toHaveURL(/\/login$/);
+});

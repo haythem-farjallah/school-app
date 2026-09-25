@@ -14,6 +14,7 @@ import {
 
 // Simple Dashboard Components
 import { SimpleStudentLayout } from "@/components/Dashboard/SimpleStudentLayout";
+import { terminateSession } from "@/lib/session";
 import WeeklySchedule from "@/components/Calendar/WeeklySchedule";
 import MiniCalendar from "@/components/Calendar/MiniCalendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,7 +145,7 @@ const StudentDashboard = () => {
       onNotificationClick={handleNotificationClick}
       onProfileClick={() => navigate("/student/profile")}
       onSettingsClick={() => navigate("/student/settings")}
-      onLogout={() => navigate("/login")}
+      onLogout={terminateSession}
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Weekly Schedule */}
