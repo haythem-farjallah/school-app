@@ -9,10 +9,18 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.HttpMediaTypeException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
 import java.util.stream.Collectors;
@@ -73,6 +81,49 @@ public class GlobalExceptionHandler {
 
         log.warn("Malformed JSON request: {}", ex.getMessage());
         return problem(HttpStatus.BAD_REQUEST, "Malformed JSON request", request);
+    }
+
+    /* ================================================================
+     *  3-b) Request errors raised by Spring MVC itself -> 4xx
+     *       Each exception carries its own status, detail and headers
+     *       (e.g. Allow for 405). These are client errors, not logged.
+     * ================================================================ */
+    @ExceptionHandler({
+            HttpRequestMethodNotSupportedException.class,     // 405
+            HttpMediaTypeException.class,                     // 406, 415
+            MissingServletRequestParameterException.class,    // 400
+            MissingServletRequestPartException.class,         // 400
+            MaxUploadSizeExceededException.class              // 413
+    })
+    public ResponseEntity<ProblemDetail> handleFrameworkRequestError(
+            Exception ex,
+            HttpServletRequest request) {
+
+        ErrorResponse error = (ErrorResponse) ex;
+        ProblemDetail body = error.getBody();
+        body.setInstance(URI.create(request.getRequestURI()));
+        return ResponseEntity.status(error.getStatusCode()).headers(error.getHeaders()).body(body);
+    }
+
+    /* 3-c) No controller mapped to the path -> 404
+     * ------------------------------------------------ */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ProblemDetail> handleNoEndpoint(
+            NoResourceFoundException ex,
+            HttpServletRequest request) {
+
+        return problem(HttpStatus.NOT_FOUND, "No endpoint matches this request", request);
+    }
+
+    /* 3-d) Path variable / request parameter of the wrong type -> 400
+     *      The rejected value is not echoed back.
+     * ------------------------------------------------ */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request) {
+
+        return problem(HttpStatus.BAD_REQUEST, "Invalid value for parameter '" + ex.getName() + "'", request);
     }
 
     /* ================================================================
