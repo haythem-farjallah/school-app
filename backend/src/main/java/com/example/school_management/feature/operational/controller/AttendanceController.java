@@ -7,10 +7,6 @@ import com.example.school_management.feature.operational.dto.AttendanceStatistic
 import com.example.school_management.feature.operational.dto.TeacherAttendanceClassView;
 import com.example.school_management.feature.operational.entity.enums.UserType;
 import com.example.school_management.feature.operational.service.AttendanceService;
-import com.example.school_management.feature.academic.entity.TeachingAssignment;
-import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
-import com.example.school_management.feature.operational.entity.TimetableSlot;
-import com.example.school_management.feature.operational.repository.TimetableSlotRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -26,10 +22,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -39,8 +33,6 @@ import java.util.stream.Collectors;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
-    private final TeachingAssignmentRepository teachingAssignmentRepository;
-    private final TimetableSlotRepository timetableSlotRepository;
 
     @PostMapping
     @Operation(summary = "Record attendance for a single user")
@@ -227,43 +219,6 @@ public class AttendanceController {
         
         List<AttendanceDto> schedule = attendanceService.getTeacherTodayScheduleWithAttendance(teacherId, targetDate);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", schedule));
-    }
-
-    @GetMapping("/debug/teacher/{teacherId}/assignments")
-    @Operation(summary = "Debug endpoint to check teacher assignments")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
-    public ResponseEntity<ApiSuccessResponse<Object>> debugTeacherAssignments(@PathVariable Long teacherId) {
-        log.debug("Debug: Checking assignments for teacher {}", teacherId);
-        
-        // Get teaching assignments
-        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacherId);
-        log.debug("Debug: Found {} teaching assignments for teacher {}", assignments.size(), teacherId);
-        
-        // Get timetable slots
-        List<TimetableSlot> slots = timetableSlotRepository.findByTeacherId(teacherId);
-        log.debug("Debug: Found {} timetable slots for teacher {}", slots.size(), teacherId);
-        
-        Map<String, Object> debugInfo = new HashMap<>();
-        debugInfo.put("teacherId", teacherId);
-        debugInfo.put("teachingAssignmentsCount", assignments.size());
-        debugInfo.put("timetableSlotsCount", slots.size());
-        debugInfo.put("assignments", assignments.stream().map(ta -> Map.of(
-            "id", ta.getId(),
-            "classId", ta.getClazz().getId(),
-            "className", ta.getClazz().getName(),
-            "courseId", ta.getCourse().getId(),
-            "courseName", ta.getCourse().getName()
-        )).collect(Collectors.toList()));
-        debugInfo.put("slots", slots.stream().map(ts -> Map.of(
-            "id", ts.getId(),
-            "dayOfWeek", ts.getDayOfWeek(),
-            "startTime", ts.getPeriod() != null ? ts.getPeriod().getStartTime() : null,
-            "endTime", ts.getPeriod() != null ? ts.getPeriod().getEndTime() : null,
-            "classId", ts.getForClass() != null ? ts.getForClass().getId() : null,
-            "className", ts.getForClass() != null ? ts.getForClass().getName() : null
-        )).collect(Collectors.toList()));
-        
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", debugInfo));
     }
 
     @GetMapping("/teacher/{teacherId}/absent-students")

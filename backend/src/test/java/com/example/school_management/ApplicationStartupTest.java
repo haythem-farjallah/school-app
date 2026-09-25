@@ -12,10 +12,12 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.testcontainers.containers.GenericContainer;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,6 +36,10 @@ class ApplicationStartupTest {
     @Autowired
     @Qualifier("redisContainer")
     GenericContainer<?> redisContainer;
+
+    @Autowired
+    @Qualifier("requestMappingHandlerMapping")
+    RequestMappingHandlerMapping handlerMapping;
 
     @Test
     void flywayAppliesEveryMigrationToAnEmptyDatabase() {
@@ -66,5 +72,14 @@ class ApplicationStartupTest {
             assertThat(connection.ping()).isEqualTo("PONG");
         }
         assertThat(cacheManager).isInstanceOf(RedisCacheManager.class);
+    }
+
+    @Test
+    void noDebugEndpointsAreMapped() {
+        List<String> patterns = handlerMapping.getHandlerMethods().keySet().stream()
+                .flatMap(mapping -> mapping.getPatternValues().stream())
+                .toList();
+
+        assertThat(patterns).isNotEmpty().noneMatch(pattern -> pattern.contains("/debug"));
     }
 }
