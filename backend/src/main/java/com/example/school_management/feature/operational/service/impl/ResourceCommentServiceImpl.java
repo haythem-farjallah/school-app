@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -72,7 +73,7 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
         BaseUser currentUser = getCurrentUser();
         if (!comment.getCommentedBy().getId().equals(currentUser.getId()) && 
             !currentUser.getRole().name().equals("ADMIN")) {
-            throw new RuntimeException("You can only delete your own comments");
+            throw new AccessDeniedException("You can only delete your own comments");
         }
         
         repository.deleteById(id);

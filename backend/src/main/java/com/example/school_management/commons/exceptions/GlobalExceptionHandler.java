@@ -9,6 +9,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.HttpMediaTypeException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -158,14 +159,18 @@ public class GlobalExceptionHandler {
     }
 
     /* ================================================================
-     *  6) Method security denial (@PreAuthorize) – 403
+     *  6) Access denied – 403
+     *     @PreAuthorize denials carry Spring's generic message and keep
+     *     ACCESS_DENIED; ownership checks in services throw
+     *     AccessDeniedException with a reason meant for the user.
      * ================================================================ */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> handleAccessDenied(
             AccessDeniedException ex,
             HttpServletRequest request) {
 
-        return problem(HttpStatus.FORBIDDEN, "ACCESS_DENIED", request);
+        String detail = ex instanceof AuthorizationDeniedException ? "ACCESS_DENIED" : ex.getMessage();
+        return problem(HttpStatus.FORBIDDEN, detail, request);
     }
 
     /* ================================================================

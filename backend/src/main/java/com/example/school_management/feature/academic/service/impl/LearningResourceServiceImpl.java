@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import org.springframework.security.core.userdetails.UserDetails;
@@ -234,7 +235,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         // Check if current teacher is the creator
         Teacher currentTeacher = getCurrentTeacher();
         if (!resource.getCreatedBy().contains(currentTeacher)) {
-            throw new RuntimeException("You can only update resources you created");
+            throw new AccessDeniedException("You can only update resources you created");
         }
         
         if (request.getTitle() != null) resource.setTitle(request.getTitle());
@@ -283,7 +284,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         // Check if current teacher is the creator
         Teacher currentTeacher = getCurrentTeacher();
         if (!resource.getCreatedBy().contains(currentTeacher)) {
-            throw new RuntimeException("You can only delete resources you created");
+            throw new AccessDeniedException("You can only delete resources you created");
         }
         
         // Delete associated file if it exists
