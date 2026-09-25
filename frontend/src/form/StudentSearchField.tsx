@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { Student } from "@/types/parent";
+import type { ApiResponse, PageDto } from "@/types/level";
 import type { BaseField } from "./types";
 
 interface StudentSearchFieldProps {
@@ -34,60 +35,23 @@ export function StudentSearchField({ field }: StudentSearchFieldProps) {
   // Get the current value from the form
   const selectedStudents = watch(field.name) || [];
 
-  // Check if there are any students in the database
-  React.useEffect(() => {
-    const checkStudents = async () => {
-      try {
-        const response = await http.get(`/v1/students`, {
-          params: { page: 0, size: 1 }
-        });
-        console.log("🔍 StudentSearchField - Total students check:", response);
-      } catch (error) {
-        console.error("🔍 StudentSearchField - Error checking students:", error);
-      }
-    };
-    
-    checkStudents();
-  }, []);
-
   // Fetch students based on search query
   const { data: searchResults, isLoading, error } = useQuery({
     queryKey: ["students", "search", searchQuery],
     queryFn: async () => {
       if (!searchQuery.trim() || searchQuery.trim().length < 2) {
-        return { content: [] };
+        return { content: [], page: 0, size: 10, totalElements: 0 };
       }
-      
-      console.log("🔍 StudentSearchField - Searching for:", searchQuery);
-      
-      try {
-        const response = await http.get(`/v1/students/search`, {
-          params: {
-            q: searchQuery,
-            page: 0,
-            size: 10
-          }
-        });
-        
-        console.log("🔍 StudentSearchField - Raw response:", response);
-        
-        // Handle different possible response structures
-        let students = [];
-        if (response.data && Array.isArray(response.data)) {
-          students = response.data;
-        } else if (response.data && response.data.content && Array.isArray(response.data.content)) {
-          students = response.data.content;
-        } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
-          students = response.data.data;
+
+      const response = await api.get<ApiResponse<PageDto<Student>>>(`/v1/students/search`, {
+        params: {
+          q: searchQuery,
+          page: 0,
+          size: 10
         }
-        
-        console.log("🔍 StudentSearchField - Extracted students:", students);
-        
-        return { content: students };
-      } catch (error) {
-        console.error("🔍 StudentSearchField - Search error:", error);
-        throw error;
-      }
+      });
+
+      return response.data.data;
     },
     enabled: searchQuery.trim().length >= 2,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -228,4 +192,4 @@ export function StudentSearchField({ field }: StudentSearchFieldProps) {
       )}
     </div>
   );
-} 
+}
