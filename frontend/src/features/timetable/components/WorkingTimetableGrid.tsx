@@ -328,19 +328,12 @@ export function WorkingTimetableGrid({ classId }: WorkingTimetableGridProps) {
 
     setIsLoading(true);
     try {
-      await http.post(`/v1/timetables/debug/class/${classId}/optimize`);
+      await http.post(`/v1/timetables/class/${classId}/optimize`);
       toast.success('Timetable generated successfully');
       await refetchTimetable();
     } catch (error) {
       console.error('Error generating timetable:', error);
-      try {
-        await http.post(`/v1/timetables/class/${classId}/optimize`);
-        toast.success('Timetable generated successfully');
-        await refetchTimetable();
-      } catch (altError) {
-        console.error('Alternative endpoint also failed:', altError);
-        toast.error('Failed to generate timetable. Please check if the optimization service is running.');
-      }
+      toast.error('Failed to generate timetable. Please check if the optimization service is running.');
     } finally {
       setIsLoading(false);
     }

@@ -630,8 +630,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({ classId }) => {
       console.log('Starting auto-generation for class:', selectedClassId);
       
       // Call the optimization endpoint
-      const response = await http.post(`/v1/timetables/debug/class/${selectedClassId}/optimize`);
-      console.log('Debug optimization response:', response);
+      await http.post(`/v1/timetables/class/${selectedClassId}/optimize`);
       
       // Wait a bit for the backend to complete the optimization
       await new Promise(resolve => setTimeout(resolve, 1000));

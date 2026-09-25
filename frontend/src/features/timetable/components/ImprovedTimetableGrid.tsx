@@ -741,7 +741,7 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
 
     setIsLoading(true);
     try {
-      await http.post(`/v1/timetables/debug/class/${classId}/optimize`);
+      await http.post(`/v1/timetables/class/${classId}/optimize`);
       toast.success('Timetable generated successfully');
       await refetchTimetable();
     } catch (error) {
