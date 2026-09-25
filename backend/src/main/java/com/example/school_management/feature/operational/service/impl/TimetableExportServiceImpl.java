@@ -9,8 +9,10 @@ import com.example.school_management.feature.operational.repository.TimetableRep
 import com.example.school_management.feature.operational.repository.TimetableSlotRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -26,6 +28,9 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class TimetableExportServiceImpl implements TimetableExportService {
     
+    /** Same rule as the @Pattern on TimetableExportRequest.format. */
+    private static final Set<String> SUPPORTED_FORMATS = Set.of("PDF", "EXCEL", "CSV");
+
     private final TimetableRepository timetableRepository;
     private final TimetableSlotRepository timetableSlotRepository;
     
@@ -41,14 +46,17 @@ public class TimetableExportServiceImpl implements TimetableExportService {
             case "CSV":
                 return exportTimetableCsv(timetableId, request);
             default:
-                throw new IllegalArgumentException("Unsupported export format: " + request.getFormat());
+                throw unsupportedFormat();
         }
     }
     
     @Override
     public Object previewExport(Long timetableId, String format) {
         log.debug("Generating preview for timetable {} in format {}", timetableId, format);
-        
+        if (!SUPPORTED_FORMATS.contains(format)) {
+            throw unsupportedFormat();
+        }
+
         Timetable timetable = timetableRepository.findById(timetableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Timetable not found: " + timetableId));
         
@@ -159,6 +167,10 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     }
     
     // ===== HELPER METHODS =====
+
+    private static ResponseStatusException unsupportedFormat() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "format: Format must be PDF, EXCEL, or CSV");
+    }
     
     private Timetable getTimetable(Long timetableId) {
         return timetableRepository.findById(timetableId)

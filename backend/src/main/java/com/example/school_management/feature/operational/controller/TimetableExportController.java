@@ -1,7 +1,6 @@
 package com.example.school_management.feature.operational.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
-import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.service.TimetableExportService;
 import com.example.school_management.feature.operational.dto.TimetableExportRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,27 +33,19 @@ public class TimetableExportController {
             @Valid @RequestBody TimetableExportRequest request) {
         
         log.debug("Exporting timetable {} in format {}", timetableId, request.getFormat());
-        
-        try {
-            byte[] exportData = exportService.exportTimetable(timetableId, request);
-            
-            String filename = generateFilename(timetableId, request.getFormat());
-            String contentType = getContentType(request.getFormat());
-            
-            ByteArrayResource resource = new ByteArrayResource(exportData);
-            
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .contentLength(exportData.length)
-                    .body(resource);
-                    
-        } catch (ResourceNotFoundException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Failed to export timetable {}: {}", timetableId, e.getMessage(), e);
-            throw new RuntimeException("Export failed: " + e.getMessage());
-        }
+
+        byte[] exportData = exportService.exportTimetable(timetableId, request);
+
+        String filename = generateFilename(timetableId, request.getFormat());
+        String contentType = getContentType(request.getFormat());
+
+        ByteArrayResource resource = new ByteArrayResource(exportData);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .contentLength(exportData.length)
+                .body(resource);
     }
     
     @GetMapping("/{timetableId}/export/preview")
