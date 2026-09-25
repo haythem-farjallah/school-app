@@ -44,14 +44,18 @@ test("a session the backend no longer accepts ends on the login page", async ({ 
   await expect(page).toHaveURL(/\/$/);
 
   // Simulate an expired/revoked token: the app still holds the user, the backend rejects the token.
-  await page.evaluate(() => localStorage.setItem("accessToken", "revoked-token"));
-  await page.reload();
-  const profileResponse = page.waitForResponse(
-    (response) => response.url().endsWith("/api/me/profile") && response.request().method() === "GET",
+  // The protected page load sends several requests at once and whichever is rejected first ends the
+  // session, so wait for the first API response to a request that carried the revoked token.
+  const rejected = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/") && response.request().headers()["authorization"] === "Bearer revoked-token",
   );
+  await page.evaluate(() => localStorage.setItem("accessToken", "revoked-token"));
   await page.goto("/admin/profile");
 
-  expect((await profileResponse).status()).toBe(401);
+  const response = await rejected;
+  expect(response.status()).toBe(401);
+  expect(response.headers()["content-type"]).toContain("application/problem+json");
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
   expect(await page.evaluate(() => [localStorage.getItem("accessToken"), localStorage.getItem("refreshToken")])).toEqual([
