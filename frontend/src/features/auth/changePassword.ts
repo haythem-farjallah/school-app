@@ -1,4 +1,4 @@
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 
 export interface ChangePasswordRequest {
   email: string;
@@ -8,4 +8,4 @@ export interface ChangePasswordRequest {
 
 /* API call for changing password */
 export const changePassword = (values: ChangePasswordRequest) =>
-  http.post<void>("/auth/change-password", values).then((r) => r.data);
+  api.post<void>("/auth/change-password", values).then(() => undefined);
