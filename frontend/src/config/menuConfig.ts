@@ -39,6 +39,14 @@ export type MenuSection = {
   items: MenuItem[];
 };
 
+/** The role's menu, without items that need a permission the user does not have. */
+export function getMenuSections(role: string | undefined, permissions: string[]): MenuSection[] {
+  return (menuConfig[role ?? ''] ?? []).map((section) => ({
+    ...section,
+    items: section.items.filter((item) => !item.permission || permissions.includes(item.permission)),
+  }));
+}
+
 export const menuConfig: Record<string, MenuSection[]> = {
   ADMIN: [
     {
