@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
-import { useMutationApi } from "@/hooks/useMutationApi";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { http } from "@/lib/http";
-import type { Student, CreateStudentData } from "@/types/student";
+import type { CreateStudentData } from "@/types/student";
+import { useCreateStudent } from "@/features/students/hooks/use-students";
 import { studentSchema, studentFields, type StudentValues } from "@/features/students/studentForm.definition";
 
 const StudentsCreate = () => {
@@ -18,26 +17,7 @@ const StudentsCreate = () => {
 
   console.log("➕ StudentsCreate - Component mounted");
 
-  const createStudentMutation = useMutationApi<Student, CreateStudentData>(
-    async (data) => {
-      console.log("➕ StudentsCreate - Creating student with data:", data);
-      const response = await http.post<{ status: string; data: Student }>("/v1/students", data);
-      console.log("➕ StudentsCreate - Response:", response.data);
-      return response.data.data;
-    },
-    {
-      onSuccess: () => {
-        console.log("✅ StudentsCreate - Student created successfully");
-        toast.success("Student created successfully!");
-        navigate("/admin/students");
-      },
-      onError: (error: unknown) => {
-        console.error("❌ StudentsCreate - Failed to create student:", error);
-        const message = getApiErrorMessage(error, "Failed to create student");
-        toast.error(message);
-      },
-    }
-  );
+  const createStudentMutation = useCreateStudent();
 
   const createStudentRecipe: FormRecipe = {
     schema: studentSchema,
@@ -59,7 +39,18 @@ const StudentsCreate = () => {
         enrollmentYear: formValues.enrollmentYear || new Date().getFullYear(),
       };
       console.log("➕ StudentsCreate - Transformed student data:", studentData);
-      await createStudentMutation.mutateAsync(studentData);
+      await createStudentMutation.mutateAsync(studentData, {
+        onSuccess: () => {
+          console.log("✅ StudentsCreate - Student created successfully");
+          toast.success("Student created successfully!");
+          navigate("/admin/students");
+        },
+        onError: (error: unknown) => {
+          console.error("❌ StudentsCreate - Failed to create student:", error);
+          const message = getApiErrorMessage(error, "Failed to create student");
+          toast.error(message);
+        },
+      });
     },
   };
 

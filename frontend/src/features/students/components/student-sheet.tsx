@@ -13,12 +13,10 @@ import {
 } from "@/components/ui/sheet"
 import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
-import { useMutationApi } from "@/hooks/useMutationApi"
 import { getApiErrorMessage } from "@/lib/api-error"
-import { http } from "@/lib/http"
 import type { Student, CreateStudentData } from "@/types/student"
 import { studentSchema, studentFields, type StudentValues } from "../studentForm.definition"
-import { useUpdateStudent } from "../hooks/use-students"
+import { useCreateStudent, useUpdateStudent } from "../hooks/use-students"
 
 interface AddStudentSheetProps {
   onSuccess?: () => void
@@ -27,27 +25,7 @@ interface AddStudentSheetProps {
 export function AddStudentSheet({ onSuccess }: AddStudentSheetProps) {
   const [open, setOpen] = React.useState(false)
 
-  const addStudentMutation = useMutationApi<Student, CreateStudentData>(
-    async (data) => {
-      console.log("➕ AddStudentSheet - Creating student:", data);
-      const response = await http.post<{ status: string; data: Student }>("/v1/students", data)
-      console.log("➕ AddStudentSheet - Response:", response.data);
-      return response.data.data
-    },
-    {
-      onSuccess: (data) => {
-        console.log("✅ AddStudentSheet - Student created successfully:", data);
-        toast.success("Student added successfully!")
-        setOpen(false)
-        onSuccess?.()
-      },
-      onError: (error: unknown) => {
-        console.error("❌ AddStudentSheet - Failed to create student:", error);
-        const message = getApiErrorMessage(error, "Failed to add student")
-        toast.error(message)
-      },
-    }
-  )
+  const addStudentMutation = useCreateStudent()
 
   const addStudentRecipe: FormRecipe = {
     schema: studentSchema,
@@ -69,7 +47,18 @@ export function AddStudentSheet({ onSuccess }: AddStudentSheetProps) {
         enrollmentYear: formValues.enrollmentYear || new Date().getFullYear(),
       };
       console.log("➕ AddStudentSheet - Transformed student data:", studentData);
-      await addStudentMutation.mutateAsync(studentData);
+      await addStudentMutation.mutateAsync(studentData, {
+        onSuccess: () => {
+          toast.success("Student added successfully!")
+          setOpen(false)
+          onSuccess?.()
+        },
+        onError: (error: unknown) => {
+          console.error("❌ AddStudentSheet - Failed to create student:", error);
+          const message = getApiErrorMessage(error, "Failed to add student")
+          toast.error(message)
+        },
+      });
     },
   }
 
