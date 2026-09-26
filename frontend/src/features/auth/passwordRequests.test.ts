@@ -12,8 +12,12 @@ describe("password requests", () => {
 
   it("changes a password through the api client and resolves an empty response as undefined", async () => {
     const post = vi.spyOn(api, "post");
+    let body: unknown;
     server.use(
-      http.post(apiUrl("/auth/change-password"), () => new HttpResponse(null, { status: 200 })),
+      http.post(apiUrl("/auth/change-password"), async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 200 });
+      }),
     );
 
     const result = await changePassword({
@@ -24,24 +28,34 @@ describe("password requests", () => {
 
     expect(result).toBeUndefined();
     expect(post).toHaveBeenCalledOnce();
+    expect(body).toEqual({ email: "student@school.test", oldPassword: "old-password", newPassword: "new-password" });
   });
 
-  it("requests a password reset through the api client and returns the empty backend body", async () => {
+  it("requests a password reset through the api client and resolves an empty response as undefined", async () => {
     const post = vi.spyOn(api, "post");
+    let body: unknown;
     server.use(
-      http.post(apiUrl("/auth/forgot-password"), () => new HttpResponse(null, { status: 200 })),
+      http.post(apiUrl("/auth/forgot-password"), async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 200 });
+      }),
     );
 
     const result = await forgotPassword({ email: "student@school.test" });
 
-    expect(result).toBe("");
+    expect(result).toBeUndefined();
     expect(post).toHaveBeenCalledOnce();
+    expect(body).toEqual({ email: "student@school.test" });
   });
 
-  it("resets a password through the api client and returns the empty backend body", async () => {
+  it("resets a password through the api client and resolves an empty response as undefined", async () => {
     const post = vi.spyOn(api, "post");
+    let body: unknown;
     server.use(
-      http.post(apiUrl("/auth/reset-password"), () => new HttpResponse(null, { status: 200 })),
+      http.post(apiUrl("/auth/reset-password"), async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 200 });
+      }),
     );
 
     const result = await resetPassword({
@@ -50,7 +64,8 @@ describe("password requests", () => {
       newPassword: "new-password",
     });
 
-    expect(result).toBe("");
+    expect(result).toBeUndefined();
     expect(post).toHaveBeenCalledOnce();
+    expect(body).toEqual({ email: "student@school.test", otp: "123456", newPassword: "new-password" });
   });
 });
