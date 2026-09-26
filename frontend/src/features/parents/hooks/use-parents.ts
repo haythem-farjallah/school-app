@@ -1,7 +1,8 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { Parent, CreateParentData, UpdateParentData } from "@/types/parent";
+import type { ApiResponse } from "@/types/level";
 import { useQueryApi } from "@/hooks/useQueryApi";
 import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
@@ -67,11 +68,8 @@ export function useParent(id?: number) {
   const result = useQueryApi<Parent>(
     ["parent", id],
     async () => {
-      const response = await http.get<{ status: string; data: Parent }>(`/admin/parent-management/${id}`);
-      console.log("👤 useParent - Raw API response:", response);
-      // The HTTP interceptor unwraps the axios response, so response is the API response body
-      // Extract the actual parent data from the wrapped response
-      return (response as unknown as { status: string; data: Parent }).data;
+      const response = await api.get<ApiResponse<Parent>>(`/admin/parent-management/${id}`);
+      return response.data.data;
     },
     { enabled: !!id },
   );
@@ -92,9 +90,8 @@ export function useCreateParent() {
   return useMutationApi<Parent, CreateParentData>(
     async (parentData) => {
       console.log("➕ useCreateParent - Creating parent:", parentData);
-      const response = await http.post<{ status: string; data: Parent }>("/admin/parent-management", parentData);
-      console.log("➕ useCreateParent - Response:", response.data);
-      return (response as unknown as { status: string; data: Parent }).data;
+      const response = await api.post<ApiResponse<Parent>>("/admin/parent-management", parentData);
+      return response.data.data;
     }
   );
 }
@@ -111,8 +108,7 @@ export function useUpdateParent() {
       // Extract the id and create the update payload
       const { id, ...updateData } = parentData;
       
-      const response = await http.patch<{ status: string; data: Parent }>(`/admin/parent-management/${id}`, updateData);
-      console.log("✏️ useUpdateParent - Response:", response.data);
+      const response = await api.patch<ApiResponse<Parent>>(`/admin/parent-management/${id}`, updateData);
       return response.data.data;
     },
     {
@@ -136,7 +132,7 @@ export function useDeleteParent() {
   return useMutationApi<void, number>(
     async (parentId) => {
       console.log("🗑️ useDeleteParent - Deleting parent:", parentId);
-      await http.delete(`/admin/parent-management/${parentId}`);
+      await api.delete(`/admin/parent-management/${parentId}`);
       console.log("🗑️ useDeleteParent - Parent deleted successfully");
     }
   );
