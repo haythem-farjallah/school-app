@@ -1,7 +1,8 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { Course } from "@/types/course";
+import type { ApiResponse } from "@/types/level";
 import React from "react";
 
 const LIST_KEY = "courses";
@@ -60,8 +61,8 @@ export function useCourses(
 export function useCreateCourse() {
   return useMutationApi<Course, Omit<Course, "id">>(
     async (courseData) => {
-      const response = await http.post<Course>("/v1/courses", courseData);
-      return response.data;
+      const response = await api.post<ApiResponse<Course>>("/v1/courses", courseData);
+      return response.data.data;
     }
   );
 }
@@ -69,8 +70,8 @@ export function useCreateCourse() {
 export function useUpdateCourse() {
   return useMutationApi<Course, Course>(
     async (courseData) => {
-      const response = await http.put<Course>(`/v1/courses/${courseData.id}`, courseData);
-      return response.data;
+      const response = await api.put<ApiResponse<Course>>(`/v1/courses/${courseData.id}`, courseData);
+      return response.data.data;
     }
   );
 }
@@ -78,7 +79,7 @@ export function useUpdateCourse() {
 export function useDeleteCourse() {
   return useMutationApi<void, number>(
     async (courseId) => {
-      await http.delete(`/v1/courses/${courseId}`);
+      await api.delete(`/v1/courses/${courseId}`);
     }
   );
 } 
