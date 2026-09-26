@@ -1,7 +1,8 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { Staff, CreateStaffRequest, UpdateStaffRequest } from "@/types/staff";
+import type { ApiResponse } from "@/types/level";
 import { useQueryApi } from "@/hooks/useQueryApi";
 import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
@@ -67,9 +68,8 @@ export function useStaffById(id?: number) {
   const result = useQueryApi<Staff>(
     ["staff", id],
     async () => {
-      const response = await http.get<{ status: string; data: Staff }>(`/admin/staff/${id}`);
-      console.log("👤 useStaffById - Raw API response:", response);
-      return (response as unknown as { status: string; data: Staff }).data;
+      const response = await api.get<ApiResponse<Staff>>(`/admin/staff/${id}`);
+      return response.data.data;
     },
     { enabled: !!id },
   );
@@ -90,8 +90,7 @@ export function useCreateStaff() {
   return useMutationApi<Staff, CreateStaffRequest>(
     async (staffData) => {
       console.log("➕ useCreateStaff - Creating staff:", staffData);
-      const response = await http.post<{ status: string; data: Staff }>("/admin/staff", staffData);
-      console.log("➕ useCreateStaff - Response:", response.data);
+      const response = await api.post<ApiResponse<Staff>>("/admin/staff", staffData);
       return response.data.data;
     }
   );
@@ -105,8 +104,7 @@ export function useUpdateStaff() {
   return useMutationApi<Staff, { id: number; data: UpdateStaffRequest }>(
     async ({ id, data }) => {
       console.log("✏️ useUpdateStaff - Updating staff:", { id, data });
-      const response = await http.patch<{ status: string; data: Staff }>(`/admin/staff/${id}`, data);
-      console.log("✏️ useUpdateStaff - Response:", response.data);
+      const response = await api.patch<ApiResponse<Staff>>(`/admin/staff/${id}`, data);
       return response.data.data;
     },
     {
@@ -130,7 +128,7 @@ export function useDeleteStaff() {
   return useMutationApi<void, number>(
     async (staffId) => {
       console.log("🗑️ useDeleteStaff - Deleting staff:", staffId);
-      await http.delete(`/admin/staff/${staffId}`);
+      await api.delete(`/admin/staff/${staffId}`);
       console.log("🗑️ useDeleteStaff - Staff deleted successfully");
     }
   );

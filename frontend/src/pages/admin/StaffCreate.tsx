@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { useCreateStaff } from "@/features/staff/hooks/use-staff";
 import { staffSchema, staffFields, type StaffValues } from "@/features/staff/staffForm.definition";
 import type { CreateStaffRequest } from "@/types/staff";
@@ -41,7 +42,11 @@ export default function StaffsCreate() {
         department: formValues.department,
       };
       console.log("➕ StaffsCreate - Transformed staff data:", staffData);
-      await createStaffMutation.mutateAsync(staffData);
+      await createStaffMutation.mutateAsync(staffData, {
+        onError: (error: unknown) => {
+          toast.error(getApiErrorMessage(error, "Failed to create staff member"));
+        },
+      });
       toast.success("Staff member created successfully!");
       navigate("/admin/staff");
     },
