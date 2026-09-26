@@ -11,10 +11,11 @@ import { ErrorState } from "./ErrorState";
 import { LoadingState } from "./LoadingState";
 import { UnavailableState } from "./UnavailableState";
 import { createTestI18n } from "@/test/i18n";
+import type { SupportedLocale } from "@/services/i18n";
 
 const rawKey = /\b(common|shell|navigation|roles)\.[a-zA-Z]/;
 
-function renderIn(lng: "en" | "fr", ui: ReactNode) {
+function renderIn(lng: SupportedLocale, ui: ReactNode) {
   return render(<I18nextProvider i18n={createTestI18n(lng)}>{ui}</I18nextProvider>);
 }
 
@@ -103,6 +104,26 @@ describe("page states", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Une erreur est survenue");
     expect(screen.getByRole("button", { name: "Réessayer" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Pas encore disponible" })).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(rawKey);
+  });
+  it.each([
+    ["zh-TW", "載入中…", "目前沒有內容", "重試", "尚未開放"],
+    ["ar", "جارٍ التحميل…", "لا يوجد شيء بعد", "إعادة المحاولة", "غير متاح بعد"],
+  ] as const)("shows %s default copy with no raw translation keys", (lng, loading, empty, retry, unavailable) => {
+    const { container } = renderIn(
+      lng,
+      <>
+        <LoadingState />
+        <EmptyState />
+        <ErrorState onRetry={() => {}} />
+        <UnavailableState />
+      </>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(loading);
+    expect(screen.getByText(empty)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: retry })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: unavailable })).toBeInTheDocument();
     expect(container.textContent).not.toMatch(rawKey);
   });
 });

@@ -26,7 +26,7 @@ const itemClassName = cn(
   'data-[active=true]:bg-primary-soft data-[active=true]:font-semibold data-[active=true]:text-primary',
   'data-[active=true]:hover:bg-primary-soft data-[active=true]:hover:text-primary data-[active=true]:[&>svg]:text-primary',
   // A small brand bar marks the active destination in the expanded sidebar.
-  'data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0',
+  'data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:start-0',
   'data-[active=true]:before:w-1 data-[active=true]:before:rounded-full data-[active=true]:before:bg-primary',
   'group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:before:hidden',
 )
@@ -36,19 +36,22 @@ function isActivePath(pathname: string, href: string) {
 }
 
 export const AppSidebar = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const location = useLocation()
   const userRole = useUserRole()
   const perms = usePermissions()
   const { isMobile, setOpenMobile } = useSidebar()
 
   const menuSections = getMenuSections(userRole, perms)
+  // Right-to-left languages put the sidebar, and its collapsed tooltips, on the right.
+  const isRtl = i18n.dir() === 'rtl'
+  const tooltipSide = isRtl ? 'left' : 'right'
   const closeMobileMenu = () => {
     if (isMobile) setOpenMobile(false)
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-sidebar-border">
+    <Sidebar collapsible="icon" side={isRtl ? 'right' : 'left'} className="border-sidebar-border">
       <SidebarHeader className="mt-3 h-16 flex-row items-center gap-3 px-4 lg:mt-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <GraduationCap className="size-5" aria-hidden="true" />
@@ -80,7 +83,7 @@ export const AppSidebar = () => {
                       if (!('href' in item)) {
                         return (
                           <SidebarMenuItem key={label}>
-                            <SidebarMenuButton tooltip={label} className={itemClassName} onClick={terminateSession}>
+                            <SidebarMenuButton tooltip={{ children: label, side: tooltipSide }} className={itemClassName} onClick={terminateSession}>
                               <item.icon aria-hidden="true" />
                               <span>{label}</span>
                             </SidebarMenuButton>
@@ -90,7 +93,7 @@ export const AppSidebar = () => {
                       const isActive = isActivePath(location.pathname, item.href)
                       return (
                         <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton asChild tooltip={label} isActive={isActive} className={itemClassName}>
+                          <SidebarMenuButton asChild tooltip={{ children: label, side: tooltipSide }} isActive={isActive} className={itemClassName}>
                             <Link
                               to={item.href}
                               aria-current={isActive ? 'page' : undefined}

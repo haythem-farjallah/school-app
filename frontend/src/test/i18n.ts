@@ -1,5 +1,6 @@
 import i18next, { type i18n as I18n, type Resource } from "i18next";
 import { initReactI18next } from "react-i18next";
+import type { SupportedLocale } from "@/services/i18n";
 
 // The real bundles, loaded the same way as src/services/i18n.ts but synchronously.
 const bundles = import.meta.glob<Record<string, unknown>>("../locales/*/translation.json", {
@@ -12,7 +13,7 @@ export const localeBundles: Record<string, Record<string, unknown>> = Object.fro
 );
 
 /** An i18next instance with the application's translations, for rendering components in tests. */
-export function createTestI18n(lng: "en" | "fr" = "en"): I18n {
+export function createTestI18n(lng: SupportedLocale = "en"): I18n {
   const resources: Resource = Object.fromEntries(
     Object.entries(localeBundles).map(([locale, translation]) => [locale, { translation }]),
   );

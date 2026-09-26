@@ -50,7 +50,7 @@ function initialsOf(firstName?: string, lastName?: string) {
 }
 
 export const TopNavbar = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const userRole = useUserRole()
   const perms = usePermissions()
@@ -151,17 +151,17 @@ export const TopNavbar = () => {
             aria-label={sidebarToggleLabel}
             aria-expanded={isMobile ? openMobile : open}
           >
-            {isMobile ? <Menu /> : open ? <PanelLeftClose /> : <PanelLeftOpen />}
+            {isMobile ? <Menu /> : open ? <PanelLeftClose className="rtl:-scale-x-100" /> : <PanelLeftOpen className="rtl:-scale-x-100" />}
           </Button>
 
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="ml-1 hidden h-10 w-full max-w-md items-center gap-2 rounded-lg bg-card px-3 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-input-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-primary md:flex"
+            className="ms-1 hidden h-10 w-full max-w-md items-center gap-2 rounded-lg bg-card px-3 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-input-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-primary md:flex"
           >
             <Search className="size-4 shrink-0" aria-hidden="true" />
             <span className="truncate">{t('shell.search.placeholder')}</span>
-            <kbd className="pointer-events-none ml-auto hidden select-none rounded border border-border bg-muted px-1.5 font-sans text-xs font-medium text-muted-foreground lg:inline-block">
+            <kbd className="pointer-events-none ms-auto hidden select-none rounded border border-border bg-muted px-1.5 font-sans text-xs font-medium text-muted-foreground lg:inline-block">
               {isMac ? '⌘K' : 'Ctrl K'}
             </kbd>
           </button>
@@ -175,7 +175,7 @@ export const TopNavbar = () => {
             <Search />
           </Button>
 
-          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <div className="ms-auto flex items-center gap-1 sm:gap-2">
             {/* The bell keeps its own neutral styling, so it sits on a light surface. */}
             <div className="rounded-lg bg-card text-foreground">
               <NotificationBell />
@@ -192,7 +192,7 @@ export const TopNavbar = () => {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className={cn(barButton, 'w-auto gap-2 px-1.5 md:w-auto lg:pr-2.5')}
+                  className={cn(barButton, 'w-auto gap-2 px-1.5 md:w-auto lg:pe-2.5')}
                   aria-label={t('shell.account.menuLabel', { name: fullName })}
                 >
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground text-xs font-semibold text-primary">
@@ -202,7 +202,11 @@ export const TopNavbar = () => {
                   <ChevronDown className="hidden !size-4 opacity-80 sm:block" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 rounded-xl p-1.5 shadow-overlay">
+              {/* Radix alignment is physical; keep the menu under its trigger at the inline end in RTL too. */}
+              <DropdownMenuContent
+                align={i18n.dir() === 'rtl' ? 'start' : 'end'}
+                className="w-64 rounded-xl p-1.5 shadow-overlay"
+              >
                 <DropdownMenuLabel className="flex items-start gap-3 px-2 py-2 font-normal">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
                     {initials || <User className="size-5" aria-hidden="true" />}
@@ -238,10 +242,10 @@ export const TopNavbar = () => {
       </div>
 
       <Dialog open={isSearchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden rounded-xl border-border bg-card p-0 shadow-overlay [&>button]:top-5">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden rounded-xl border-border bg-card p-0 shadow-overlay [&>button]:top-5 rtl:[&>button]:left-4 rtl:[&>button]:right-auto">
           <DialogTitle className="sr-only">{t('shell.search.label')}</DialogTitle>
           <DialogDescription className="sr-only">{t('shell.search.dialogDescription')}</DialogDescription>
-          <div className="flex items-center gap-3 border-b border-border pl-4 pr-12">
+          <div className="flex items-center gap-3 border-b border-border ps-4 pe-12">
             <Search className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <input
               role="combobox"
@@ -293,7 +297,7 @@ export const TopNavbar = () => {
                         </span>
                         <span className="truncate text-xs text-muted-foreground">{item.section}</span>
                       </span>
-                      {selected && <CornerDownLeft className="ml-auto size-4 shrink-0 text-primary" aria-hidden="true" />}
+                      {selected && <CornerDownLeft className="ms-auto size-4 shrink-0 text-primary rtl:-scale-x-100" aria-hidden="true" />}
                     </li>
                   )
                 })}

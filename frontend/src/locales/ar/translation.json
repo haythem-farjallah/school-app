@@ -1,0 +1,137 @@
+{
+    "welcome": "مرحبًا",
+    "logout": "تسجيل الخروج",
+    "form": {
+        "submit": "تسجيل الدخول"
+    },
+    "First Name": "الاسم الأول",
+    "Last Name": "اسم العائلة",
+    "Email Address": "البريد الإلكتروني",
+    "Phone Number": "رقم الهاتف",
+    "Birthday": "تاريخ الميلاد",
+    "Gender": "الجنس",
+    "Address": "العنوان",
+    "Qualifications": "المؤهلات",
+    "Subjects Taught": "المواد التي يدرّسها",
+    "Available Hours": "الساعات المتاحة",
+    "Schedule Preferences": "تفضيلات الجدول",
+    "common": {
+        "actions": {
+            "retry": "إعادة المحاولة",
+            "goHome": "العودة إلى الصفحة الرئيسية"
+        },
+        "states": {
+            "loading": {
+                "title": "جارٍ التحميل…",
+                "description": "لن يستغرق ذلك سوى لحظة."
+            },
+            "empty": {
+                "title": "لا يوجد شيء بعد",
+                "description": "لا توجد بيانات لعرضها حتى الآن."
+            },
+            "error": {
+                "title": "حدث خطأ ما",
+                "description": "تعذّر تحميل هذا المحتوى. يُرجى المحاولة مرة أخرى.",
+                "unexpected": "حدث خطأ غير متوقع أثناء عرض هذه الصفحة.",
+                "details": "التفاصيل: {{details}}"
+            },
+            "notFound": {
+                "title": "الصفحة غير موجودة",
+                "description": "الصفحة التي تبحث عنها غير موجودة أو نُقلت إلى مكان آخر."
+            },
+            "unavailable": {
+                "title": "غير متاح بعد",
+                "description": "هذه الميزة غير متاحة في التطبيق حتى الآن."
+            }
+        }
+    },
+    "shell": {
+        "appName": "School App",
+        "navigationLabel": "التنقل الرئيسي",
+        "sidebar": {
+            "open": "فتح قائمة التنقل",
+            "collapse": "طيّ الشريط الجانبي",
+            "expand": "توسيع الشريط الجانبي"
+        },
+        "search": {
+            "label": "البحث عن صفحة",
+            "placeholder": "ابحث عن صفحة…",
+            "dialogDescription": "اكتب للتصفية، واستخدم مفاتيح الأسهم لاختيار صفحة، ثم اضغط Enter لفتحها.",
+            "resultsLabel": "الصفحات",
+            "noResults": "لا توجد صفحات تطابق «{{query}}»",
+            "hints": {
+                "navigate": "للتنقل",
+                "open": "للفتح",
+                "close": "للإغلاق"
+            },
+            "keys": {
+                "enter": "Enter",
+                "escape": "Esc"
+            }
+        },
+        "account": {
+            "menuLabel": "قائمة الحساب، {{name}}",
+            "fallbackName": "مستخدم",
+            "profileSettings": "إعدادات الملف الشخصي",
+            "signOut": "تسجيل الخروج"
+        }
+    },
+    "roles": {
+        "admin": "مسؤول النظام",
+        "teacher": "معلّم",
+        "student": "طالب",
+        "staff": "موظف إداري",
+        "parent": "وليّ أمر"
+    },
+    "navigation": {
+        "sections": {
+            "dashboard": "لوحة التحكم",
+            "academic": "الشؤون الأكاديمية",
+            "operations": "العمليات",
+            "menu": "القائمة",
+            "other": "أخرى",
+            "management": "الإدارة",
+            "communication": "التواصل",
+            "account": "الحساب",
+            "general": "عام"
+        },
+        "overview": "نظرة عامة",
+        "schoolManagement": "إدارة المدرسة",
+        "students": "الطلاب",
+        "teachers": "المعلمون",
+        "parents": "أولياء الأمور",
+        "staff": "الكادر الإداري",
+        "courses": "المقررات",
+        "classes": "الفصول",
+        "learningResources": "مصادر التعلّم",
+        "grades": "الدرجات",
+        "enrollments": "التسجيلات",
+        "timetables": "الجداول الدراسية",
+        "smartTimetable": "الجدول الذكي",
+        "rooms": "القاعات",
+        "schedule": "الجدول الزمني",
+        "announcements": "الإعلانات",
+        "enhancedAnnouncements": "الإعلانات المتقدمة",
+        "communicationDashboard": "لوحة التواصل",
+        "settings": "الإعدادات",
+        "permissions": "الصلاحيات",
+        "home": "الرئيسية",
+        "myClasses": "فصولي",
+        "attendance": "الحضور",
+        "exams": "الاختبارات",
+        "results": "النتائج",
+        "events": "الفعاليات",
+        "children": "الأبناء",
+        "meetings": "الاجتماعات",
+        "logout": "تسجيل الخروج",
+        "studentManagement": "إدارة الطلاب",
+        "teacherManagement": "إدارة المعلمين",
+        "parentManagement": "إدارة أولياء الأمور",
+        "classManagement": "إدارة الفصول",
+        "gradeManagement": "إدارة الدرجات",
+        "attendanceManagement": "إدارة الحضور",
+        "scheduleManagement": "إدارة الجدول الزمني",
+        "roomManagement": "إدارة القاعات",
+        "learningSpace": "مساحة التعلّم"
+    }
+}

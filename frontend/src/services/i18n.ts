@@ -8,7 +8,7 @@ import  resourcesToBackend  from "i18next-resources-to-backend";
 /* -------------------------------------------------------------------------- */
 /*  Supported locales – only languages with a bundle in src/locales/<lng>/     */
 /* -------------------------------------------------------------------------- */
-export const supportedLocales = ["en", "fr"] as const;
+export const supportedLocales = ["en", "fr", "zh-TW", "ar"] as const;
 export type SupportedLocale = (typeof supportedLocales)[number];
 
 export function isSupportedLocale(value: string | null | undefined): value is SupportedLocale {

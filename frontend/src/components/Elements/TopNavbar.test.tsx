@@ -14,6 +14,7 @@ import { token } from "@/lib/token";
 import { store } from "@/stores/store";
 import { loginSuccess, resetAuth } from "@/stores/authSlice";
 import { createTestI18n } from "@/test/i18n";
+import type { SupportedLocale } from "@/services/i18n";
 
 // The bell loads notifications over HTTP and WebSocket; the shell behaviour here does not involve it.
 vi.mock("@/features/notifications/components/NotificationBell", () => ({ NotificationBell: () => null }));
@@ -30,7 +31,7 @@ function signIn(user: typeof admin, permissions: string[] = []) {
 
 const rawKey = /\b(common|shell|navigation|roles)\.[a-zA-Z]/;
 
-function renderShell(path = "/", lng: "en" | "fr" = "en") {
+function renderShell(path = "/", lng: SupportedLocale = "en") {
   return render(
     <I18nextProvider i18n={createTestI18n(lng)}>
       <Provider store={store}>
@@ -196,6 +197,38 @@ describe("TopNavbar", () => {
     const { container } = renderShell();
 
     expect(screen.getByRole("navigation", { name: "Main navigation" })).toHaveTextContent("Enhanced Announcements");
+    expect(container.textContent).not.toMatch(rawKey);
+  });
+  it("puts the sidebar on the right and translates the shell in Arabic", async () => {
+    signIn(student);
+    const { container } = renderShell("/", "ar");
+
+    const nav = screen.getByRole("navigation", { name: "التنقل الرئيسي" });
+    expect(container.querySelector('[data-side="right"]')).toContainElement(nav);
+    expect(within(nav).getByRole("link", { name: "النتائج" })).toBeInTheDocument();
+    expect(screen.getByText("طالب")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "طيّ الشريط الجانبي" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "قائمة الحساب، Sam Student" })).toBeInTheDocument();
+
+    const { dialog } = await openSearch("البحث عن صفحة");
+    expect(within(dialog).getByRole("option", { name: /النتائج/ })).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(rawKey);
+    expect(dialog.textContent).not.toMatch(rawKey);
+  });
+
+  it("translates the shell to Traditional Chinese and keeps the sidebar on the left", async () => {
+    signIn(student);
+    const { container } = renderShell("/", "zh-TW");
+
+    const nav = screen.getByRole("navigation", { name: "主要導覽" });
+    expect(container.querySelector('[data-side="left"]')).toContainElement(nav);
+    expect(within(nav).getByRole("link", { name: "成績單" })).toBeInTheDocument();
+    expect(screen.getByText("學生")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "帳號選單，Sam Student" }));
+    expect(await screen.findByRole("menuitem", { name: "個人資料設定" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "登出" })).toBeInTheDocument();
     expect(container.textContent).not.toMatch(rawKey);
   });
 });

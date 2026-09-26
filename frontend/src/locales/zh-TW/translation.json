@@ -1,0 +1,137 @@
+{
+    "welcome": "歡迎",
+    "logout": "登出",
+    "form": {
+        "submit": "登入"
+    },
+    "First Name": "名字",
+    "Last Name": "姓氏",
+    "Email Address": "電子郵件地址",
+    "Phone Number": "電話號碼",
+    "Birthday": "出生日期",
+    "Gender": "性別",
+    "Address": "地址",
+    "Qualifications": "專業資格",
+    "Subjects Taught": "任教科目",
+    "Available Hours": "可授課時段",
+    "Schedule Preferences": "排課偏好",
+    "common": {
+        "actions": {
+            "retry": "重試",
+            "goHome": "返回首頁"
+        },
+        "states": {
+            "loading": {
+                "title": "載入中…",
+                "description": "請稍候片刻。"
+            },
+            "empty": {
+                "title": "目前沒有內容",
+                "description": "目前沒有可顯示的資料。"
+            },
+            "error": {
+                "title": "發生錯誤",
+                "description": "無法載入此內容，請再試一次。",
+                "unexpected": "顯示此頁面時發生未預期的錯誤。",
+                "details": "詳細資訊：{{details}}"
+            },
+            "notFound": {
+                "title": "找不到頁面",
+                "description": "您要找的頁面不存在或已移至其他位置。"
+            },
+            "unavailable": {
+                "title": "尚未開放",
+                "description": "此功能目前尚未在應用程式中提供。"
+            }
+        }
+    },
+    "shell": {
+        "appName": "School App",
+        "navigationLabel": "主要導覽",
+        "sidebar": {
+            "open": "開啟導覽選單",
+            "collapse": "收合側邊欄",
+            "expand": "展開側邊欄"
+        },
+        "search": {
+            "label": "搜尋頁面",
+            "placeholder": "搜尋頁面…",
+            "dialogDescription": "輸入文字即可篩選，使用方向鍵選擇頁面，再按 Enter 開啟。",
+            "resultsLabel": "頁面",
+            "noResults": "找不到符合「{{query}}」的頁面",
+            "hints": {
+                "navigate": "移動",
+                "open": "開啟",
+                "close": "關閉"
+            },
+            "keys": {
+                "enter": "Enter",
+                "escape": "Esc"
+            }
+        },
+        "account": {
+            "menuLabel": "帳號選單，{{name}}",
+            "fallbackName": "使用者",
+            "profileSettings": "個人資料設定",
+            "signOut": "登出"
+        }
+    },
+    "roles": {
+        "admin": "管理員",
+        "teacher": "教師",
+        "student": "學生",
+        "staff": "行政人員",
+        "parent": "家長"
+    },
+    "navigation": {
+        "sections": {
+            "dashboard": "儀表板",
+            "academic": "教務",
+            "operations": "校務",
+            "menu": "選單",
+            "other": "其他",
+            "management": "管理",
+            "communication": "溝通聯絡",
+            "account": "帳號",
+            "general": "一般"
+        },
+        "overview": "總覽",
+        "schoolManagement": "學校管理",
+        "students": "學生",
+        "teachers": "教師",
+        "parents": "家長",
+        "staff": "行政人員",
+        "courses": "課程",
+        "classes": "班級",
+        "learningResources": "學習資源",
+        "grades": "成績",
+        "enrollments": "註冊",
+        "timetables": "課表",
+        "smartTimetable": "智慧排課",
+        "rooms": "教室",
+        "schedule": "時間表",
+        "announcements": "公告",
+        "enhancedAnnouncements": "進階公告",
+        "communicationDashboard": "溝通儀表板",
+        "settings": "設定",
+        "permissions": "權限",
+        "home": "首頁",
+        "myClasses": "我的班級",
+        "attendance": "出缺勤",
+        "exams": "考試",
+        "results": "成績單",
+        "events": "活動",
+        "children": "子女",
+        "meetings": "親師會談",
+        "logout": "登出",
+        "studentManagement": "學生管理",
+        "teacherManagement": "教師管理",
+        "parentManagement": "家長管理",
+        "classManagement": "班級管理",
+        "gradeManagement": "成績管理",
+        "attendanceManagement": "出缺勤管理",
+        "scheduleManagement": "時間表管理",
+        "roomManagement": "教室管理",
+        "learningSpace": "學習空間"
+    }
+}
