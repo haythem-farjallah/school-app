@@ -1,12 +1,14 @@
 import * as React from "react";
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
+import { api } from "@/lib/api-client";
 import { http } from "@/lib/http";
 import type { 
   Class, 
   CreateClassRequest, 
   UpdateClassRequest,
 } from "@/types/class";
+import type { ApiResponse } from "@/types/level";
 import { useQueryApi } from "@/hooks/useQueryApi";
 
 const LIST_KEY = "classes";
@@ -84,18 +86,8 @@ export function useClass(id?: number) {
   return useQueryApi<Class>(
     ["class", id],
     async () => {
-      const response = await http.get(`/v1/classes/${id}`);
-      console.log("🔍 useClass - API response:", response);
-      
-      // The HTTP interceptor unwraps the response, so we might get:
-      // 1. Direct class data if backend returns Class directly
-      // 2. ApiResponse wrapper with data property
-      if (response && typeof response === 'object' && 'data' in response) {
-        return response.data as Class;
-      }
-      
-      // If it's already the class object directly
-      return response as Class;
+      const response = await api.get<ApiResponse<Class>>(`/v1/classes/${id}`);
+      return response.data.data;
     },
     { enabled: !!id },
   );
@@ -105,8 +97,8 @@ export function useClass(id?: number) {
 export function useCreateClass() {
   return useMutationApi<Class, CreateClassRequest>(
     async (classData) => {
-      const response = await http.post<Class>("/v1/classes", classData);
-      return response.data;
+      const response = await api.post<ApiResponse<Class>>("/v1/classes", classData);
+      return response.data.data;
     }
   );
 }
@@ -115,8 +107,8 @@ export function useCreateClass() {
 export function useUpdateClass() {
   return useMutationApi<Class, { id: number; data: UpdateClassRequest }>(
     async ({ id, data }) => {
-      const response = await http.put<Class>(`/v1/classes/${id}`, data);
-      return response.data;
+      const response = await api.put<ApiResponse<Class>>(`/v1/classes/${id}`, data);
+      return response.data.data;
     }
   );
 }
@@ -125,7 +117,7 @@ export function useUpdateClass() {
 export function useDeleteClass() {
   return useMutationApi<void, number>(
     async (id) => {
-      await http.delete(`/v1/classes/${id}`);
+      await api.delete(`/v1/classes/${id}`);
     }
   );
 }
