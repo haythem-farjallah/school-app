@@ -1,0 +1,83 @@
+/*
+ * Canonical design tokens.
+ *
+ * Colors are HSL channel triplets ("H S% L%") consumed through Tailwind as
+ * hsl(var(--token) / <alpha-value>). New UI uses the semantic Tailwind classes
+ * (bg-card, text-muted-foreground, bg-primary, ...) instead of raw palette colors.
+ * See frontend/docs/design-system.md.
+ *
+ * The application is light-first; there is no dark token set yet.
+ */
+:root {
+  /* Page canvas and text */
+  --background: 198 63% 97%;          /* ice blue  #F2F9FC */
+  --foreground: 205 23% 16%;          /* ink       #202B33 */
+
+  /* Surfaces */
+  --card: 0 0% 100%;
+  --card-foreground: 205 23% 16%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 205 23% 16%;
+
+  /* Brand teal (slightly deepened from #0F9D8A for AA contrast with white text) */
+  --primary: 172 84% 28%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 172 84% 24%;
+  --primary-soft: 168 48% 94%;        /* #E8F7F4 */
+
+  /* Quiet surfaces and supporting text */
+  --secondary: 198 40% 93%;
+  --secondary-foreground: 205 23% 16%;
+  --muted: 198 33% 94%;
+  --muted-foreground: 203 11% 43%;    /* ≈ #667680, darkened for AA on the canvas */
+  --accent: 168 48% 94%;
+  --accent-foreground: 172 84% 24%;
+
+  /* Status */
+  --destructive: 2 64% 50%;           /* ≈ #D94A45 */
+  --destructive-foreground: 0 0% 100%;
+  --success: 149 55% 33%;             /* ≈ #2D9961 */
+  --success-foreground: 0 0% 100%;
+  --success-soft: 149 50% 94%;
+  --warning: 41 100% 42%;             /* #D69200 — pair with dark text */
+  --warning-foreground: 205 23% 16%;
+  --warning-soft: 41 90% 93%;
+  --info: 215 70% 48%;                /* ≈ #4285E5 */
+  --info-foreground: 0 0% 100%;
+  --info-soft: 215 80% 95%;
+
+  /* Learning accents: expressive color for learning content only */
+  --learning-green: 100 50% 55%;      /* #79C653 */
+  --learning-yellow: 44 89% 62%;      /* #F4C84A */
+  --learning-coral: 9 84% 64%;        /* #F06B55 */
+  --learning-blue: 215 76% 58%;       /* #4285E5 */
+
+  /* Lines, controls, focus */
+  --border: 196 27% 89%;              /* #DCE7EB */
+  --input: 198 22% 80%;               /* control border */
+  --input-background: 195 40% 98%;    /* #F8FBFC */
+  --ring: 172 83% 34%;                /* #0F9D8A */
+
+  /* Sidebar */
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 205 18% 30%;
+  --sidebar-primary: 172 84% 28%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 168 48% 94%;
+  --sidebar-accent-foreground: 172 84% 24%;
+  --sidebar-border: 196 27% 89%;
+  --sidebar-ring: 172 83% 34%;
+
+  /* Role identity accent (overridden per role in role-themes.css) */
+  --role-accent: var(--primary);
+  --role-accent-soft: var(--primary-soft);
+
+  /* Shape */
+  --radius: 0.5rem;                   /* 8px controls; cards use rounded-xl (12px) */
+
+  /* Elevation: structure comes from borders and whitespace; shadows are secondary */
+  --shadow-xs: 0 1px 2px 0 hsl(205 23% 16% / 0.04);
+  --shadow-sm: 0 1px 3px 0 hsl(205 23% 16% / 0.06), 0 1px 2px -1px hsl(205 23% 16% / 0.06);
+  --shadow-md: 0 4px 8px -2px hsl(205 23% 16% / 0.08), 0 2px 4px -2px hsl(205 23% 16% / 0.06);
+  --shadow-overlay: 0 12px 32px -8px hsl(205 23% 16% / 0.18), 0 4px 8px -4px hsl(205 23% 16% / 0.08);
+}

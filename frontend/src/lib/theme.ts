@@ -1,4 +1,7 @@
-// Role-based theme system
+// Legacy compatibility layer for per-role themes.
+// New UI should use the semantic CSS tokens and --role-accent
+// (src/styles/design-tokens.css, src/styles/role-themes.css).
+// Existing consumers migrate incrementally.
 export interface RoleTheme {
   primary: string;
   primaryHover: string;

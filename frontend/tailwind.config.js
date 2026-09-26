@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 
+/* Semantic colors resolve to the tokens in src/styles/design-tokens.css. */
+const token = (name) => `hsl(var(--${name}) / <alpha-value>)`
+
 module.exports = {
   darkMode: ['class', 'class'],
   content: [
@@ -9,29 +12,70 @@ module.exports = {
   theme: {
   	extend: {
   		colors: {
-        /* --- primary / secondary / accent / etc. --- */
-        primary:             'hsl(var(--primary) / <alpha-value>)',
-        'primary-foreground':'hsl(var(--primary-foreground) / <alpha-value>)',
+        background:          token('background'),
+        foreground:          token('foreground'),
 
-        secondary:           'hsl(var(--secondary) / <alpha-value>)',
+        card:                token('card'),
+        'card-foreground':   token('card-foreground'),
+
+        popover:             token('popover'),
+        'popover-foreground':token('popover-foreground'),
+
+        primary: {
+          DEFAULT:           token('primary'),
+          foreground:        token('primary-foreground'),
+          hover:             token('primary-hover'),
+          soft:              token('primary-soft'),
+        },
+
+        secondary:           token('secondary'),
         'secondary-foreground':
-                              'hsl(var(--secondary-foreground) / <alpha-value>)',
+                              token('secondary-foreground'),
 
-        accent:              'hsl(var(--accent) / <alpha-value>)',
-        'accent-foreground': 'hsl(var(--accent-foreground) / <alpha-value>)',
+        muted:               token('muted'),
+        'muted-foreground':  token('muted-foreground'),
 
-        destructive:         'hsl(var(--destructive) / <alpha-value>)',
+        accent:              token('accent'),
+        'accent-foreground': token('accent-foreground'),
+
+        destructive:         token('destructive'),
         'destructive-foreground':
-                              'hsl(var(--destructive-foreground) / <alpha-value>)',
+                              token('destructive-foreground'),
 
-        muted:               'hsl(var(--muted) / <alpha-value>)',
-        'muted-foreground':  'hsl(var(--muted-foreground) / <alpha-value>)',
+        success: {
+          DEFAULT:           token('success'),
+          foreground:        token('success-foreground'),
+          soft:              token('success-soft'),
+        },
+        warning: {
+          DEFAULT:           token('warning'),
+          foreground:        token('warning-foreground'),
+          soft:              token('warning-soft'),
+        },
+        info: {
+          DEFAULT:           token('info'),
+          foreground:        token('info-foreground'),
+          soft:              token('info-soft'),
+        },
 
-        border:              'hsl(var(--border) / <alpha-value>)',
-        input:               'hsl(var(--input) / <alpha-value>)',
-        ring:                'hsl(var(--ring) / <alpha-value>)',
-        card:                'hsl(var(--card) / <alpha-value>)',
-        'card-foreground':   'hsl(var(--card-foreground) / <alpha-value>)',
+        learning: {
+          green:             token('learning-green'),
+          yellow:            token('learning-yellow'),
+          coral:             token('learning-coral'),
+          blue:              token('learning-blue'),
+        },
+
+        role: {
+          accent:            token('role-accent'),
+          'accent-soft':     token('role-accent-soft'),
+        },
+
+        border:              token('border'),
+        input: {
+          DEFAULT:           token('input'),
+          background:        token('input-background'),
+        },
+        ring:                token('ring'),
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
@@ -42,6 +86,18 @@ module.exports = {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			}
+  		},
+  		borderRadius: {
+  			xl: 'calc(var(--radius) + 4px)',
+  			lg: 'var(--radius)',
+  			md: 'calc(var(--radius) - 2px)',
+  			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		boxShadow: {
+  			xs: 'var(--shadow-xs)',
+  			sm: 'var(--shadow-sm)',
+  			md: 'var(--shadow-md)',
+  			overlay: 'var(--shadow-overlay)'
   		}
   	}
   },
