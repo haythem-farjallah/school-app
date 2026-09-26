@@ -1,7 +1,8 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { Student, CreateStudentData } from "@/types/student";
+import type { ApiResponse } from "@/types/level";
 import { useQueryApi } from "@/hooks/useQueryApi";
 import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
@@ -68,11 +69,8 @@ export function useStudent(id?: number) {
   const result = useQueryApi<Student>(
     ["student", id],
     async () => {
-      const response = await http.get<{ status: string; data: Student }>(`/v1/students/${id}`);
-      console.log("👤 useStudent - Raw API response:", response);
-      // The HTTP interceptor unwraps the axios response, so response is the API response body
-      // Extract the actual student data from the wrapped response
-      return (response as unknown as { status: string; data: Student }).data;
+      const response = await api.get<ApiResponse<Student>>(`/v1/students/${id}`);
+      return response.data.data;
     },
     { enabled: !!id },
   );
@@ -93,8 +91,7 @@ export function useCreateStudent() {
   return useMutationApi<Student, CreateStudentData>(
     async (studentData) => {
       console.log("➕ useCreateStudent - Creating student:", studentData);
-      const response = await http.post<{ status: string; data: Student }>("/v1/students", studentData);
-      console.log("➕ useCreateStudent - Response:", response.data);
+      const response = await api.post<ApiResponse<Student>>("/v1/students", studentData);
       return response.data.data;
     }
   );
@@ -126,8 +123,7 @@ export function useUpdateStudent() {
       
       console.log("✏️ useUpdateStudent - Flattened data for PATCH:", updateData);
       
-      const response = await http.patch<{ status: string; data: Student }>(`/v1/students/${id}`, updateData);
-      console.log("✏️ useUpdateStudent - Response:", response.data);
+      const response = await api.patch<ApiResponse<Student>>(`/v1/students/${id}`, updateData);
       return response.data.data;
     },
     {
@@ -151,7 +147,7 @@ export function useDeleteStudent() {
   return useMutationApi<void, number>(
     async (studentId) => {
       console.log("🗑️ useDeleteStudent - Deleting student:", studentId);
-      await http.delete(`/v1/students/${studentId}`);
+      await api.delete(`/v1/students/${studentId}`);
       console.log("🗑️ useDeleteStudent - Student deleted successfully");
     }
   );
