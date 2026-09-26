@@ -1,12 +1,13 @@
 import * as React from "react";
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { 
   Room, 
   CreateRoomRequest, 
   UpdateRoomRequest,
 } from "@/types/room";
+import type { ApiResponse } from "@/types/level";
 import { useQueryApi } from "@/hooks/useQueryApi";
 
 const LIST_KEY = "rooms";
@@ -66,18 +67,8 @@ export function useRoom(id?: number) {
   return useQueryApi<Room>(
     ["room", id],
     async () => {
-      const response = await http.get(`/v1/rooms/${id}`);
-      console.log("🔍 useRoom - API response:", response);
-      
-      // The HTTP interceptor unwraps the response, so we might get:
-      // 1. Direct room data if backend returns Room directly
-      // 2. ApiResponse wrapper with data property
-      if (response && typeof response === 'object' && 'data' in response) {
-        return response.data as Room;
-      }
-      
-      // If it's already the room object directly
-      return response as Room;
+      const response = await api.get<ApiResponse<Room>>(`/v1/rooms/${id}`);
+      return response.data.data;
     },
     { enabled: !!id },
   );
@@ -87,8 +78,8 @@ export function useRoom(id?: number) {
 export function useCreateRoom() {
   return useMutationApi<Room, CreateRoomRequest>(
     async (roomData) => {
-      const response = await http.post<Room>("/v1/rooms", roomData);
-      return response.data;
+      const response = await api.post<ApiResponse<Room>>("/v1/rooms", roomData);
+      return response.data.data;
     }
   );
 }
@@ -97,8 +88,8 @@ export function useCreateRoom() {
 export function useUpdateRoom() {
   return useMutationApi<Room, { id: number; data: UpdateRoomRequest }>(
     async ({ id, data }) => {
-      const response = await http.put<Room>(`/v1/rooms/${id}`, data);
-      return response.data;
+      const response = await api.put<ApiResponse<Room>>(`/v1/rooms/${id}`, data);
+      return response.data.data;
     }
   );
 }
@@ -107,7 +98,7 @@ export function useUpdateRoom() {
 export function useDeleteRoom() {
   return useMutationApi<void, number>(
     async (id) => {
-      await http.delete(`/v1/rooms/${id}`);
+      await api.delete(`/v1/rooms/${id}`);
     }
   );
 } 
