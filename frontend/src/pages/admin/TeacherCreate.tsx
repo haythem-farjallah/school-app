@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
-import { useMutationApi } from "@/hooks/useMutationApi";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { http } from "@/lib/http";
-import type { Teacher, CreateTeacherData } from "@/types/teacher";
+import type { CreateTeacherData } from "@/types/teacher";
+import { useCreateTeacher } from "@/features/teachers/hooks/use-teachers";
 import { teacherSchema, teacherFields, type TeacherValues } from "@/features/teachers/teacherForm.definition";
 
 const TeachersCreate = () => {
@@ -18,26 +17,7 @@ const TeachersCreate = () => {
 
   console.log("➕ TeachersCreate - Component mounted");
 
-  const createTeacherMutation = useMutationApi<Teacher, CreateTeacherData>(
-    async (data) => {
-      console.log("➕ TeachersCreate - Creating teacher with data:", data);
-      const response = await http.post<{ status: string; data: Teacher }>("/admin/teachers", data);
-      console.log("➕ TeachersCreate - Response:", response.data);
-      return response.data.data;
-    },
-    {
-      onSuccess: () => {
-        console.log("✅ TeachersCreate - Teacher created successfully");
-        toast.success("Teacher created successfully!");
-        navigate("/admin/teachers");
-      },
-      onError: (error: unknown) => {
-        console.error("❌ TeachersCreate - Failed to create teacher:", error);
-        const message = getApiErrorMessage(error, "Failed to create teacher");
-        toast.error(message);
-      },
-    }
-  );
+  const createTeacherMutation = useCreateTeacher();
 
   const createTeacherRecipe: FormRecipe = {
     schema: teacherSchema,
@@ -63,7 +43,18 @@ const TeachersCreate = () => {
         schedulePreferences: formValues.schedulePreferences,
       };
       console.log("➕ TeachersCreate - Transformed teacher data:", teacherData);
-      await createTeacherMutation.mutateAsync(teacherData);
+      await createTeacherMutation.mutateAsync(teacherData, {
+        onSuccess: () => {
+          console.log("✅ TeachersCreate - Teacher created successfully");
+          toast.success("Teacher created successfully!");
+          navigate("/admin/teachers");
+        },
+        onError: (error: unknown) => {
+          console.error("❌ TeachersCreate - Failed to create teacher:", error);
+          const message = getApiErrorMessage(error, "Failed to create teacher");
+          toast.error(message);
+        },
+      });
     },
   };
 

@@ -13,12 +13,10 @@ import {
 } from "@/components/ui/sheet"
 import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
-import { useMutationApi } from "@/hooks/useMutationApi"
 import { getApiErrorMessage } from "@/lib/api-error"
-import { http } from "@/lib/http"
 import type { Teacher, CreateTeacherData, UpdateTeacherData } from "@/types/teacher"
 import { teacherSchema, teacherFields, teacherUpdateSchema, teacherUpdateFields, type TeacherValues, type TeacherUpdateValues } from "../teacherForm.definition"
-import { useUpdateTeacher } from "../hooks/use-teachers"
+import { useCreateTeacher, useUpdateTeacher } from "../hooks/use-teachers"
 
 interface AddTeacherSheetProps {
   onSuccess?: () => void
@@ -27,23 +25,7 @@ interface AddTeacherSheetProps {
 export function AddTeacherSheet({ onSuccess }: AddTeacherSheetProps) {
   const [open, setOpen] = React.useState(false)
 
-  const addTeacherMutation = useMutationApi<Teacher, CreateTeacherData>(
-    async (data) => {
-      const response = await http.post<{ status: string; data: Teacher }>("/admin/teachers", data)
-      return (response as unknown as { status: string; data: Teacher }).data
-    },
-    {
-      onSuccess: () => {
-        toast.success("Teacher added successfully!")
-        setOpen(false)
-        onSuccess?.()
-      },
-      onError: (error: unknown) => {
-        const message = getApiErrorMessage(error, "Failed to add teacher")
-        toast.error(message)
-      },
-    }
-  )
+  const addTeacherMutation = useCreateTeacher()
 
   const addTeacherRecipe: FormRecipe = {
     schema: teacherSchema,
@@ -67,7 +49,17 @@ export function AddTeacherSheet({ onSuccess }: AddTeacherSheetProps) {
           : formValues.availableHours,
         schedulePreferences: formValues.schedulePreferences,
       };
-      await addTeacherMutation.mutateAsync(teacherData);
+      await addTeacherMutation.mutateAsync(teacherData, {
+        onSuccess: () => {
+          toast.success("Teacher added successfully!")
+          setOpen(false)
+          onSuccess?.()
+        },
+        onError: (error: unknown) => {
+          const message = getApiErrorMessage(error, "Failed to add teacher")
+          toast.error(message)
+        },
+      });
     },
   }
 
