@@ -14,5 +14,124 @@
     "Qualifications": "Qualifications",
     "Subjects Taught": "Subjects Taught",
     "Available Hours": "Available Hours",
-    "Schedule Preferences": "Schedule Preferences"
+    "Schedule Preferences": "Schedule Preferences",
+    "common": {
+        "actions": {
+            "retry": "Retry",
+            "goHome": "Go to home page"
+        },
+        "states": {
+            "loading": {
+                "title": "Loading…",
+                "description": "This will only take a moment."
+            },
+            "empty": {
+                "title": "Nothing here yet",
+                "description": "There is nothing to show yet."
+            },
+            "error": {
+                "title": "Something went wrong",
+                "description": "This content could not be loaded. Please try again.",
+                "unexpected": "An unexpected error occurred while displaying this page.",
+                "details": "Details: {{details}}"
+            },
+            "notFound": {
+                "title": "Page not found",
+                "description": "The page you are looking for does not exist or has moved."
+            },
+            "unavailable": {
+                "title": "Not available yet",
+                "description": "This feature is not available in the application yet."
+            }
+        }
+    },
+    "shell": {
+        "appName": "School App",
+        "navigationLabel": "Main navigation",
+        "sidebar": {
+            "open": "Open navigation menu",
+            "collapse": "Collapse sidebar",
+            "expand": "Expand sidebar"
+        },
+        "search": {
+            "label": "Search pages",
+            "placeholder": "Search pages…",
+            "dialogDescription": "Type to filter, use the arrow keys to choose a page and press Enter to open it.",
+            "resultsLabel": "Pages",
+            "noResults": "No pages match “{{query}}”",
+            "hints": {
+                "navigate": "to navigate",
+                "open": "to open",
+                "close": "to close"
+            },
+            "keys": {
+                "enter": "Enter",
+                "escape": "Esc"
+            }
+        },
+        "account": {
+            "menuLabel": "Account menu, {{name}}",
+            "fallbackName": "User",
+            "profileSettings": "Profile settings",
+            "signOut": "Sign out"
+        }
+    },
+    "roles": {
+        "admin": "Admin",
+        "teacher": "Teacher",
+        "student": "Student",
+        "staff": "Staff",
+        "parent": "Parent"
+    },
+    "navigation": {
+        "sections": {
+            "dashboard": "Dashboard",
+            "academic": "Academic",
+            "operations": "Operations",
+            "menu": "Menu",
+            "other": "Other",
+            "management": "Management",
+            "communication": "Communication",
+            "account": "Account",
+            "general": "General"
+        },
+        "overview": "Overview",
+        "schoolManagement": "School Management",
+        "students": "Students",
+        "teachers": "Teachers",
+        "parents": "Parents",
+        "staff": "Staff",
+        "courses": "Courses",
+        "classes": "Classes",
+        "learningResources": "Learning Resources",
+        "grades": "Grades",
+        "enrollments": "Enrollments",
+        "timetables": "Timetables",
+        "smartTimetable": "Smart Timetable",
+        "rooms": "Rooms",
+        "schedule": "Schedule",
+        "announcements": "Announcements",
+        "enhancedAnnouncements": "Enhanced Announcements",
+        "communicationDashboard": "Communication Dashboard",
+        "settings": "Settings",
+        "permissions": "Permissions",
+        "home": "Home",
+        "myClasses": "My Classes",
+        "attendance": "Attendance",
+        "exams": "Exams",
+        "results": "Results",
+        "events": "Events",
+        "children": "Children",
+        "meetings": "Meetings",
+        "logout": "Logout",
+        "studentManagement": "Student Management",
+        "teacherManagement": "Teacher Management",
+        "parentManagement": "Parent Management",
+        "classManagement": "Class Management",
+        "gradeManagement": "Grade Management",
+        "attendanceManagement": "Attendance Management",
+        "scheduleManagement": "Schedule Management",
+        "roomManagement": "Room Management",
+        "learningSpace": "Learning Space"
+    }
 }

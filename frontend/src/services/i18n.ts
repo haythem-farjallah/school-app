@@ -6,10 +6,14 @@ import  resourcesToBackend  from "i18next-resources-to-backend";
 
 
 /* -------------------------------------------------------------------------- */
-/*  Supported locales – keep this list in sync with LanguageContext           */
+/*  Supported locales – only languages with a bundle in src/locales/<lng>/     */
 /* -------------------------------------------------------------------------- */
-export const supportedLocales = ["en", "zh-TW", "fr", "ar"] as const;
+export const supportedLocales = ["en", "fr"] as const;
 export type SupportedLocale = (typeof supportedLocales)[number];
+
+export function isSupportedLocale(value: string | null | undefined): value is SupportedLocale {
+  return supportedLocales.includes(value as SupportedLocale);
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Lazy JSON loader (Vite)                                                   */

@@ -1,22 +1,37 @@
 import { isRouteErrorResponse, useRouteError, Link } from "react-router-dom";
+import { Home } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { ErrorState } from "./ErrorState";
 
 const ErrorRouteElement = () => {
   const err = useRouteError();
+  const { t } = useTranslation();
 
-  let message = "Something went wrong.";
-  if (isRouteErrorResponse(err)) message = `${err.status} – ${err.statusText}`;
+  const status = isRouteErrorResponse(err) ? err.status : undefined;
+  const notFound = status === 404;
+  const details = isRouteErrorResponse(err) ? `${err.status} ${err.statusText}`.trim() : undefined;
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-      <h1 className="text-3xl font-bold text-red-600">Oops!</h1>
-      <p className="text-lg">{message}</p>
-      <Link
-        to="/"
-        className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-      >
-        GoHome
-      </Link>
-    </div>
+    <main className="flex min-h-svh items-center justify-center bg-background px-4">
+      <ErrorState
+        title={t(notFound ? "common.states.notFound.title" : "common.states.error.title")}
+        description={
+          <>
+            {t(notFound ? "common.states.notFound.description" : "common.states.error.unexpected")}
+            {details && <span className="mt-1 block text-xs">{t("common.states.error.details", { details })}</span>}
+          </>
+        }
+        action={
+          <Button asChild>
+            <Link to="/">
+              <Home aria-hidden="true" />
+              {t("common.actions.goHome")}
+            </Link>
+          </Button>
+        }
+      />
+    </main>
   );
 };
 

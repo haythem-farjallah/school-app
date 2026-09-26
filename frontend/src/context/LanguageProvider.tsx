@@ -4,16 +4,19 @@ import React, {
     useMemo,
     useState,
   } from "react";
-  import i18n, { supportedLocales, SupportedLocale } from "../services/i18n";
+  import i18n, { isSupportedLocale, supportedLocales, SupportedLocale } from "../services/i18n";
   import { LanguageContext } from "./LanguageContext";
   
   export const LanguageProvider: React.FC<React.PropsWithChildren> = ({
     children,
   }) => {
-    const initial =
-      (localStorage.getItem("lang") as SupportedLocale | null) ??
-      (i18n.resolvedLanguage as SupportedLocale) ??
-      "en";
+    // A stored language that is no longer supported falls back to the detected one.
+    const stored = localStorage.getItem("lang");
+    const initial: SupportedLocale = isSupportedLocale(stored)
+      ? stored
+      : isSupportedLocale(i18n.resolvedLanguage)
+        ? i18n.resolvedLanguage
+        : "en";
   
     const [lang, setLangState] = useState<SupportedLocale>(initial);
   
@@ -25,6 +28,12 @@ import React, {
   
     useEffect(() => {
       if (i18n.language !== lang) i18n.changeLanguage(lang);
+    }, [lang]);
+
+    // Keep the document language and direction in step with the UI language.
+    useEffect(() => {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = i18n.dir(lang);
     }, [lang]);
   
     const value = useMemo(

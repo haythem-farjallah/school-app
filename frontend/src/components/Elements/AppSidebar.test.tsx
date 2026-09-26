@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { I18nextProvider } from "react-i18next";
 import { AppSidebar } from "./AppSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { RequireAuth } from "@/components/guards/RequireAuth";
@@ -12,11 +13,8 @@ import { queryClient } from "@/lib/query-client";
 import { token } from "@/lib/token";
 import { store } from "@/stores/store";
 import { loginSuccess, resetAuth } from "@/stores/authSlice";
+import { createTestI18n } from "@/test/i18n";
 
-vi.mock("react-i18next", () => {
-  const t = (key: string) => key;
-  return { useTranslation: () => ({ t }) };
-});
 
 describe("AppSidebar logout", () => {
   beforeEach(() => {
@@ -53,25 +51,27 @@ describe("AppSidebar logout", () => {
     );
     queryClient.setQueryData(["userProfile"], { id: 1 });
     render(
-      <Provider store={store}>
-        <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={["/"]}>
-            <Routes>
-              <Route path="/login" element={<p>Login page</p>} />
-              <Route
-                path="/"
-                element={
-                  <RequireAuth>
-                    <SidebarProvider>
-                      <AppSidebar />
-                    </SidebarProvider>
-                  </RequireAuth>
-                }
-              />
-            </Routes>
-          </MemoryRouter>
-        </QueryClientProvider>
-      </Provider>,
+      <I18nextProvider i18n={createTestI18n()}>
+        <Provider store={store}>
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter initialEntries={["/"]}>
+              <Routes>
+                <Route path="/login" element={<p>Login page</p>} />
+                <Route
+                  path="/"
+                  element={
+                    <RequireAuth>
+                      <SidebarProvider>
+                        <AppSidebar />
+                      </SidebarProvider>
+                    </RequireAuth>
+                  }
+                />
+              </Routes>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </Provider>
+      </I18nextProvider>,
     );
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Logout" }));
@@ -87,6 +87,6 @@ describe("AppSidebar logout", () => {
     const items = Object.values(menuConfig).flatMap((sections) => sections.flatMap((section) => section.items));
 
     expect(items.filter((item) => "href" in item && item.href === "/logout")).toEqual([]);
-    expect(items.filter((item) => item.label === "Logout").every((item) => "action" in item)).toBe(true);
+    expect(items.filter((item) => item.label === "navigation.logout").every((item) => "action" in item)).toBe(true);
   });
 });

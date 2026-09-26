@@ -19,9 +19,6 @@ import { getMenuSections } from '@/config/menuConfig'
 import { terminateSession } from '@/lib/session'
 import { cn } from '@/lib/utils'
 
-/** Temporary product name; the application has no final brand yet. */
-const APP_NAME = 'School App'
-
 const itemClassName = cn(
   'relative h-10 gap-3 rounded-lg px-3 font-medium text-sidebar-foreground',
   '[&>svg]:size-5 [&>svg]:text-muted-foreground',
@@ -57,11 +54,12 @@ export const AppSidebar = () => {
           <GraduationCap className="size-5" aria-hidden="true" />
         </div>
         <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-          <span className="truncate text-base font-semibold leading-tight text-foreground">{APP_NAME}</span>
+          {/* shell.appName is a temporary product name; the application has no final brand yet. */}
+          <span className="truncate text-base font-semibold leading-tight text-foreground">{t('shell.appName')}</span>
           {userRole && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="size-2 rounded-full bg-role-accent" aria-hidden="true" />
-              <span className="capitalize">{userRole.toLowerCase()}</span>
+              <span>{t(`roles.${userRole.toLowerCase()}`)}</span>
             </span>
           )}
         </div>
@@ -69,7 +67,7 @@ export const AppSidebar = () => {
 
       <SidebarContent className="p-0">
         <ScrollArea className="h-full">
-          <nav aria-label="Main navigation" className="pb-4">
+          <nav aria-label={t('shell.navigationLabel')} className="pb-4">
             {menuSections.map((section) => (
               <SidebarGroup key={section.title} className="px-2 py-2">
                 <SidebarGroupLabel className="px-3 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">

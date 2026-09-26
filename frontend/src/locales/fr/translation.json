@@ -14,5 +14,124 @@
     "Qualifications": "Qualifications",
     "Subjects Taught": "Matières enseignées",
     "Available Hours": "Heures disponibles",
-    "Schedule Preferences": "Préférences d'horaire"
-} 
+    "Schedule Preferences": "Préférences d'horaire",
+    "common": {
+        "actions": {
+            "retry": "Réessayer",
+            "goHome": "Retour à l'accueil"
+        },
+        "states": {
+            "loading": {
+                "title": "Chargement…",
+                "description": "Cela ne prendra qu'un instant."
+            },
+            "empty": {
+                "title": "Rien pour le moment",
+                "description": "Il n'y a encore rien à afficher."
+            },
+            "error": {
+                "title": "Une erreur est survenue",
+                "description": "Ce contenu n'a pas pu être chargé. Veuillez réessayer.",
+                "unexpected": "Une erreur inattendue s'est produite lors de l'affichage de cette page.",
+                "details": "Détails : {{details}}"
+            },
+            "notFound": {
+                "title": "Page introuvable",
+                "description": "La page que vous cherchez n'existe pas ou a été déplacée."
+            },
+            "unavailable": {
+                "title": "Pas encore disponible",
+                "description": "Cette fonctionnalité n'est pas encore disponible dans l'application."
+            }
+        }
+    },
+    "shell": {
+        "appName": "School App",
+        "navigationLabel": "Navigation principale",
+        "sidebar": {
+            "open": "Ouvrir le menu de navigation",
+            "collapse": "Réduire la barre latérale",
+            "expand": "Déplier la barre latérale"
+        },
+        "search": {
+            "label": "Rechercher une page",
+            "placeholder": "Rechercher une page…",
+            "dialogDescription": "Saisissez du texte pour filtrer, choisissez une page avec les flèches et appuyez sur Entrée pour l'ouvrir.",
+            "resultsLabel": "Pages",
+            "noResults": "Aucune page ne correspond à « {{query}} »",
+            "hints": {
+                "navigate": "pour naviguer",
+                "open": "pour ouvrir",
+                "close": "pour fermer"
+            },
+            "keys": {
+                "enter": "Entrée",
+                "escape": "Échap"
+            }
+        },
+        "account": {
+            "menuLabel": "Menu du compte, {{name}}",
+            "fallbackName": "Utilisateur",
+            "profileSettings": "Paramètres du profil",
+            "signOut": "Se déconnecter"
+        }
+    },
+    "roles": {
+        "admin": "Administrateur",
+        "teacher": "Enseignant",
+        "student": "Élève",
+        "staff": "Personnel",
+        "parent": "Parent"
+    },
+    "navigation": {
+        "sections": {
+            "dashboard": "Tableau de bord",
+            "academic": "Scolarité",
+            "operations": "Opérations",
+            "menu": "Menu",
+            "other": "Autres",
+            "management": "Gestion",
+            "communication": "Communication",
+            "account": "Compte",
+            "general": "Général"
+        },
+        "overview": "Vue d'ensemble",
+        "schoolManagement": "Gestion de l'école",
+        "students": "Élèves",
+        "teachers": "Enseignants",
+        "parents": "Parents",
+        "staff": "Personnel",
+        "courses": "Cours",
+        "classes": "Classes",
+        "learningResources": "Ressources pédagogiques",
+        "grades": "Notes",
+        "enrollments": "Inscriptions",
+        "timetables": "Emplois du temps",
+        "smartTimetable": "Emploi du temps intelligent",
+        "rooms": "Salles",
+        "schedule": "Planning",
+        "announcements": "Annonces",
+        "enhancedAnnouncements": "Annonces avancées",
+        "communicationDashboard": "Tableau de communication",
+        "settings": "Paramètres",
+        "permissions": "Autorisations",
+        "home": "Accueil",
+        "myClasses": "Mes classes",
+        "attendance": "Présences",
+        "exams": "Examens",
+        "results": "Résultats",
+        "events": "Événements",
+        "children": "Enfants",
+        "meetings": "Réunions",
+        "logout": "Déconnexion",
+        "studentManagement": "Gestion des élèves",
+        "teacherManagement": "Gestion des enseignants",
+        "parentManagement": "Gestion des parents",
+        "classManagement": "Gestion des classes",
+        "gradeManagement": "Gestion des notes",
+        "attendanceManagement": "Gestion des présences",
+        "scheduleManagement": "Gestion du planning",
+        "roomManagement": "Gestion des salles",
+        "learningSpace": "Espace d'apprentissage"
+    }
+}

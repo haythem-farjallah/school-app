@@ -45,11 +45,6 @@ const barButton =
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
 
-// Menu section titles are upper-case labels; search shows them as quieter secondary text.
-function sentenceCase(text: string) {
-  return text === text.toUpperCase() ? text.charAt(0) + text.slice(1).toLowerCase() : text
-}
-
 function initialsOf(firstName?: string, lastName?: string) {
   return `${firstName?.charAt(0) ?? ''}${lastName?.charAt(0) ?? ''}`.toUpperCase()
 }
@@ -65,9 +60,9 @@ export const TopNavbar = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const fullName = user ? `${user.firstName} ${user.lastName}` : 'User'
+  const fullName = user ? `${user.firstName} ${user.lastName}` : t('shell.account.fallbackName')
   const initials = initialsOf(user?.firstName, user?.lastName)
-  const roleLabel = user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase() : null
+  const roleLabel = user?.role ? t(`roles.${user.role.toLowerCase()}`) : null
 
   // Search offers exactly the pages this user can navigate to; actions such as logout are not listed.
   const searchItems = useMemo((): SearchItem[] => {
@@ -75,13 +70,13 @@ export const TopNavbar = () => {
     for (const section of getMenuSections(userRole, perms)) {
       for (const item of section.items) {
         if ('href' in item) {
-          items.push({ title: t(item.label), section: sentenceCase(t(section.title)), href: item.href, icon: item.icon })
+          items.push({ title: t(item.label), section: t(section.title), href: item.href, icon: item.icon })
         }
       }
     }
     items.push(
-      { title: t('Learning Space'), section: t('General'), href: '/learning-space', icon: BookOpen },
-      { title: t('Profile settings'), section: t('Account'), href: '/profile', icon: Settings },
+      { title: t('navigation.learningSpace'), section: t('navigation.sections.general'), href: '/learning-space', icon: BookOpen },
+      { title: t('shell.account.profileSettings'), section: t('navigation.sections.account'), href: '/profile', icon: Settings },
     )
     return items.filter((item, index) => items.findIndex((other) => other.href === item.href) === index)
   }, [userRole, perms, t])
@@ -142,7 +137,7 @@ export const TopNavbar = () => {
     }
   }
 
-  const sidebarToggleLabel = isMobile ? 'Open navigation menu' : open ? 'Collapse sidebar' : 'Expand sidebar'
+  const sidebarToggleLabel = t(isMobile ? 'shell.sidebar.open' : open ? 'shell.sidebar.collapse' : 'shell.sidebar.expand')
 
   return (
     <>
@@ -165,7 +160,7 @@ export const TopNavbar = () => {
             className="ml-1 hidden h-10 w-full max-w-md items-center gap-2 rounded-lg bg-card px-3 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-input-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-primary md:flex"
           >
             <Search className="size-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">Search pages…</span>
+            <span className="truncate">{t('shell.search.placeholder')}</span>
             <kbd className="pointer-events-none ml-auto hidden select-none rounded border border-border bg-muted px-1.5 font-sans text-xs font-medium text-muted-foreground lg:inline-block">
               {isMac ? '⌘K' : 'Ctrl K'}
             </kbd>
@@ -175,7 +170,7 @@ export const TopNavbar = () => {
             size="icon"
             className={cn(barButton, 'md:hidden')}
             onClick={() => setSearchOpen(true)}
-            aria-label="Search pages"
+            aria-label={t('shell.search.label')}
           >
             <Search />
           </Button>
@@ -187,9 +182,9 @@ export const TopNavbar = () => {
             </div>
 
             <Button asChild variant="ghost" className={cn(barButton, 'w-auto px-3 md:w-auto')}>
-              <Link to="/learning-space" aria-label="Learning Space">
+              <Link to="/learning-space" aria-label={t('navigation.learningSpace')}>
                 <BookOpen aria-hidden="true" />
-                <span className="hidden lg:inline">Learning Space</span>
+                <span className="hidden lg:inline">{t('navigation.learningSpace')}</span>
               </Link>
             </Button>
 
@@ -198,7 +193,7 @@ export const TopNavbar = () => {
                 <Button
                   variant="ghost"
                   className={cn(barButton, 'w-auto gap-2 px-1.5 md:w-auto lg:pr-2.5')}
-                  aria-label={`Account menu, ${fullName}`}
+                  aria-label={t('shell.account.menuLabel', { name: fullName })}
                 >
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground text-xs font-semibold text-primary">
                     {initials || <User className="!size-4" aria-hidden="true" />}
@@ -226,7 +221,7 @@ export const TopNavbar = () => {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer gap-2 rounded-lg px-2 py-2">
                   <Settings className="size-4 text-muted-foreground" aria-hidden="true" />
-                  Profile settings
+                  {t('shell.account.profileSettings')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -234,7 +229,7 @@ export const TopNavbar = () => {
                   className="cursor-pointer gap-2 rounded-lg px-2 py-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
                 >
                   <LogOut className="size-4" aria-hidden="true" />
-                  Sign out
+                  {t('shell.account.signOut')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -244,18 +239,18 @@ export const TopNavbar = () => {
 
       <Dialog open={isSearchOpen} onOpenChange={setSearchOpen}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden rounded-xl border-border bg-card p-0 shadow-overlay [&>button]:top-5">
-          <DialogTitle className="sr-only">Search pages</DialogTitle>
-          <DialogDescription className="sr-only">Type to filter, use the arrow keys to choose a page and press Enter to open it.</DialogDescription>
+          <DialogTitle className="sr-only">{t('shell.search.label')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('shell.search.dialogDescription')}</DialogDescription>
           <div className="flex items-center gap-3 border-b border-border pl-4 pr-12">
             <Search className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <input
               role="combobox"
-              aria-label="Search pages"
+              aria-label={t('shell.search.label')}
               aria-expanded="true"
               aria-controls="shell-search-results"
               aria-activedescendant={searchResults.length > 0 ? `shell-search-option-${selectedIndex}` : undefined}
               aria-autocomplete="list"
-              placeholder="Search pages…"
+              placeholder={t('shell.search.placeholder')}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
@@ -268,7 +263,7 @@ export const TopNavbar = () => {
 
           <div className="max-h-[min(24rem,60vh)] overflow-y-auto p-2">
             {searchResults.length > 0 ? (
-              <ul id="shell-search-results" role="listbox" aria-label="Pages" className="flex flex-col gap-0.5">
+              <ul id="shell-search-results" role="listbox" aria-label={t('shell.search.resultsLabel')} className="flex flex-col gap-0.5">
                 {searchResults.map((item, index) => {
                   const selected = index === selectedIndex
                   return (
@@ -305,7 +300,7 @@ export const TopNavbar = () => {
               </ul>
             ) : (
               <p id="shell-search-results" className="px-3 py-10 text-center text-sm text-muted-foreground">
-                No pages match “<span className="font-medium text-foreground">{searchQuery.trim()}</span>”
+                {t('shell.search.noResults', { query: searchQuery.trim() })}
               </p>
             )}
           </div>
@@ -314,15 +309,15 @@ export const TopNavbar = () => {
             <span className="flex items-center gap-1.5">
               <kbd className="rounded border border-border bg-muted px-1.5 font-sans">↑</kbd>
               <kbd className="rounded border border-border bg-muted px-1.5 font-sans">↓</kbd>
-              to navigate
+              {t('shell.search.hints.navigate')}
             </span>
             <span className="flex items-center gap-1.5">
-              <kbd className="rounded border border-border bg-muted px-1.5 font-sans">Enter</kbd>
-              to open
+              <kbd className="rounded border border-border bg-muted px-1.5 font-sans">{t('shell.search.keys.enter')}</kbd>
+              {t('shell.search.hints.open')}
             </span>
             <span className="flex items-center gap-1.5">
-              <kbd className="rounded border border-border bg-muted px-1.5 font-sans">Esc</kbd>
-              to close
+              <kbd className="rounded border border-border bg-muted px-1.5 font-sans">{t('shell.search.keys.escape')}</kbd>
+              {t('shell.search.hints.close')}
             </span>
           </div>
         </DialogContent>
