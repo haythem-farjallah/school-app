@@ -1,7 +1,8 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { Teacher, CreateTeacherData, UpdateTeacherData } from "@/types/teacher";
+import type { ApiResponse } from "@/types/level";
 import { useQueryApi } from "@/hooks/useQueryApi";
 import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
@@ -69,11 +70,8 @@ export function useTeacher(id?: number) {
   const result = useQueryApi<Teacher>(
     ["teacher", id],
     async () => {
-      const response = await http.get<{ status: string; data: Teacher }>(`/admin/teachers/${id}`);
-      console.log("👤 useTeacher - Raw API response:", response);
-      // The HTTP interceptor unwraps the axios response, so response is the API response body
-      // Extract the actual teacher data from the wrapped response
-      return (response as unknown as { status: string; data: Teacher }).data;
+      const response = await api.get<ApiResponse<Teacher>>(`/admin/teachers/${id}`);
+      return response.data.data;
     },
     { enabled: !!id },
   );
@@ -94,9 +92,8 @@ export function useCreateTeacher() {
   return useMutationApi<Teacher, CreateTeacherData>(
     async (teacherData) => {
       console.log("➕ useCreateTeacher - Creating teacher:", teacherData);
-      const response = await http.post<{ status: string; data: Teacher }>("/admin/teachers", teacherData);
-      console.log("➕ useCreateTeacher - Response:", response.data);
-      return (response as unknown as { status: string; data: Teacher }).data;
+      const response = await api.post<ApiResponse<Teacher>>("/admin/teachers", teacherData);
+      return response.data.data;
     }
   );
 }
@@ -113,8 +110,7 @@ export function useUpdateTeacher() {
       // Extract the id and create the update payload
       const { id, ...updateData } = teacherData;
       
-      const response = await http.patch<{ status: string; data: Teacher }>(`/admin/teachers/${id}`, updateData);
-      console.log("✏️ useUpdateTeacher - Response:", response.data);
+      const response = await api.patch<ApiResponse<Teacher>>(`/admin/teachers/${id}`, updateData);
       return response.data.data;
     },
     {
@@ -138,7 +134,7 @@ export function useDeleteTeacher() {
   return useMutationApi<void, number>(
     async (teacherId) => {
       console.log("🗑️ useDeleteTeacher - Deleting teacher:", teacherId);
-      await http.delete(`/admin/teachers/${teacherId}`);
+      await api.delete(`/admin/teachers/${teacherId}`);
       console.log("🗑️ useDeleteTeacher - Teacher deleted successfully");
     }
   );
