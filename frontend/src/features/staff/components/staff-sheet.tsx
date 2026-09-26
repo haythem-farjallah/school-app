@@ -13,11 +13,10 @@ import {
 } from "@/components/ui/sheet"
 import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
-import { useMutationApi } from "@/hooks/useMutationApi"
 import { getApiErrorMessage } from "@/lib/api-error"
-import { http } from "@/lib/http"
-import type { Staff, CreateStaffRequest } from "@/types/staff"
+import type { Staff, CreateStaffRequest, UpdateStaffRequest } from "@/types/staff"
 import { staffSchema, staffFields, type StaffValues } from "../staffForm.definition"
+import { useCreateStaff, useUpdateStaff } from "../hooks/use-staff"
 
 interface AddStaffSheetProps {
   onSuccess?: () => void
@@ -26,27 +25,7 @@ interface AddStaffSheetProps {
 export function AddStaffSheet({ onSuccess }: AddStaffSheetProps) {
   const [open, setOpen] = React.useState(false)
 
-  const addStaffMutation = useMutationApi<Staff, CreateStaffRequest>(
-    async (data) => {
-      console.log("➕ AddStaffSheet - Creating staff:", data);
-      const response = await http.post<{ status: string; data: Staff }>("/admin/staff", data)
-      console.log("➕ AddStaffSheet - Response:", response.data);
-      return response.data.data
-    },
-    {
-      onSuccess: (data) => {
-        console.log("✅ AddStaffSheet - Staff created successfully:", data);
-        toast.success("Staff member added successfully!")
-        setOpen(false)
-        onSuccess?.()
-      },
-      onError: (error: unknown) => {
-        console.error("❌ AddStaffSheet - Failed to create staff:", error);
-        const message = getApiErrorMessage(error, "Failed to add staff member")
-        toast.error(message)
-      },
-    }
-  )
+  const addStaffMutation = useCreateStaff()
 
   const addStaffRecipe: FormRecipe = {
     schema: staffSchema,
@@ -69,7 +48,17 @@ export function AddStaffSheet({ onSuccess }: AddStaffSheetProps) {
         department: formValues.department,
       };
       console.log("➕ AddStaffSheet - Transformed staff data:", staffData);
-      await addStaffMutation.mutateAsync(staffData);
+      await addStaffMutation.mutateAsync(staffData, {
+        onSuccess: () => {
+          toast.success("Staff member added successfully!")
+          setOpen(false)
+          onSuccess?.()
+        },
+        onError: (error: unknown) => {
+          const message = getApiErrorMessage(error, "Failed to add staff member")
+          toast.error(message)
+        },
+      });
     },
   }
 
@@ -130,34 +119,37 @@ interface EditStaffSheetProps {
 export function EditStaffSheet({ staff, trigger, onSuccess }: EditStaffSheetProps) {
   const [open, setOpen] = React.useState(false)
 
-  const editStaffMutation = useMutationApi<Staff, StaffValues>(
-    async (data) => {
-      console.log("✏️ EditStaffSheet - Updating staff:", data);
-      const response = await http.patch<{ status: string; data: Staff }>(`/admin/staff/${staff.id}`, data)
-      console.log("✏️ EditStaffSheet - Response:", response.data);
-      return response.data.data
-    },
-    {
-      onSuccess: (data) => {
-        console.log("✅ EditStaffSheet - Staff updated successfully:", data);
-        toast.success("Staff member updated successfully!")
-        setOpen(false)
-        onSuccess?.()
-      },
-      onError: (error: unknown) => {
-        console.error("❌ EditStaffSheet - Failed to update staff:", error);
-        const message = getApiErrorMessage(error, "Failed to update staff member")
-        toast.error(message)
-      },
-    }
-  )
+  const editStaffMutation = useUpdateStaff()
 
   const editStaffRecipe: FormRecipe = {
     schema: staffSchema,
     fields: staffFields,
     onSubmit: async (values: unknown) => {
-      console.log("✏️ EditStaffSheet - Form submitted with values:", values);
-      await editStaffMutation.mutateAsync(values as StaffValues)
+      const formValues = values as StaffValues;
+      const staffData: UpdateStaffRequest = {
+        profile: {
+          firstName: formValues.firstName,
+          lastName: formValues.lastName,
+          email: formValues.email,
+          telephone: formValues.telephone,
+          birthday: formValues.birthday,
+          gender: formValues.gender,
+          address: formValues.address,
+        },
+        staffType: formValues.staffType,
+        department: formValues.department,
+      };
+      await editStaffMutation.mutateAsync({ id: staff.id, data: staffData }, {
+        onSuccess: () => {
+          toast.success("Staff member updated successfully!")
+          setOpen(false)
+          onSuccess?.()
+        },
+        onError: (error: unknown) => {
+          const message = getApiErrorMessage(error, "Failed to update staff member")
+          toast.error(message)
+        },
+      });
     },
   }
 
