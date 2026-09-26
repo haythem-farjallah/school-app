@@ -11,7 +11,10 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.Mappings;
 import org.mapstruct.Named;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,7 +33,7 @@ public interface StaffMapper
             @Mapping(target = "lastName",  source = "profile.lastName"),
             @Mapping(target = "email",     source = "profile.email"),
             @Mapping(target = "telephone", source = "profile.telephone"),
-            @Mapping(target = "birthday",  source = "profile.birthday"),
+            @Mapping(target = "birthday",  source = "profile.birthday", qualifiedByName = "birthdayAtStartOfDay"),
             @Mapping(target = "gender",    source = "profile.gender"),
             @Mapping(target = "address",   source = "profile.address"),
             @Mapping(target = "role",      constant = "STAFF"),
@@ -61,19 +64,25 @@ public interface StaffMapper
     StaffDto toDto(Staff entity);
 
     @Override
-    @BeanMapping(ignoreByDefault = true)
+    @BeanMapping(ignoreByDefault = true, nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mappings({
             @Mapping(target = "firstName", source = "profile.firstName"),
             @Mapping(target = "lastName", source = "profile.lastName"),
             @Mapping(target = "email", source = "profile.email"),
             @Mapping(target = "telephone", source = "profile.telephone"),
-            @Mapping(target = "birthday", source = "profile.birthday"),
+            @Mapping(target = "birthday", source = "profile.birthday", qualifiedByName = "birthdayAtStartOfDay"),
             @Mapping(target = "gender", source = "profile.gender"),
             @Mapping(target = "address", source = "profile.address"),
             @Mapping(target = "staffType", source = "staffType"),
             @Mapping(target = "department", source = "department")
     })
     void patch(StaffUpdateDto dto, @MappingTarget Staff entity);
+
+    /** The request carries a date; the entity stores it as the start of that day. */
+    @Named("birthdayAtStartOfDay")
+    default LocalDateTime birthdayAtStartOfDay(LocalDate birthday) {
+        return birthday == null ? null : birthday.atStartOfDay();
+    }
 
     @Named("permissionsToStrings")
     default Set<String> permissionsToStrings(Set<Permission> permissions) {
