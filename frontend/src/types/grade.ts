@@ -127,16 +127,6 @@ export interface SubjectGrade {
   letterGrade: string;
 }
 
-export interface CreateGradeRequest {
-  enrollmentId: number;
-  courseId: number;
-  score: number;
-  maxScore: number;
-  weight: number;
-  content: string;
-  description?: string;
-}
-
 // Enhanced Grade Requests
 export interface CreateEnhancedGradeRequest {
   studentId: number;
@@ -279,14 +269,6 @@ export interface TeacherAttendanceStatistics {
   }[];
 }
 
-export interface UpdateGradeRequest {
-  score?: number;
-  maxScore?: number;
-  weight?: number;
-  content?: string;
-  description?: string;
-}
-
 export interface GradeFilters {
   enrollmentId?: number;
   courseId?: number;
@@ -386,11 +368,3 @@ export const getGradeLevelColor = (percentage: number): string => {
   if (percentage >= 60) return 'text-orange-600';
   return 'text-red-600';
 };
-
-export const getGradeLevelBadgeColor = (percentage: number): string => {
-  if (percentage >= 90) return 'bg-green-100 text-green-800';
-  if (percentage >= 80) return 'bg-blue-100 text-blue-800';
-  if (percentage >= 70) return 'bg-yellow-100 text-yellow-800';
-  if (percentage >= 60) return 'bg-orange-100 text-orange-800';
-  return 'bg-red-100 text-red-800';
-}; 

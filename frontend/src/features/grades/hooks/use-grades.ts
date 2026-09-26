@@ -1,11 +1,8 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
 import { api } from "@/lib/api-client";
-import { http } from "@/lib/http";
 import type { 
   Grade, 
-  CreateGradeRequest, 
-  UpdateGradeRequest,
   GradeFilters,
   StaffGradeReview,
   StudentGradeSheet,
@@ -15,22 +12,6 @@ import type {
 } from "@/types/grade";
 import type { ApiResponse } from "@/types/level";
 import { useQueryApi } from "@/hooks/useQueryApi";
-
-const LIST_KEY = "grades";
-
-/* ── 1. Paginated list with filters ──────────────────────────────────────────────────── */
-export function useGrades(
-  options: { size?: number } & GradeFilters = {},
-) {
-  const { size = 10, ...filters } = options;
-
-  return usePaginated<Grade>(
-    "/v1/grades",
-    LIST_KEY,
-    size,
-    filters,
-  );
-}
 
 /* ── 2. Advanced filtering ──────────────────────────────────────────────────── */
 export function useGradesFilter(
@@ -43,35 +24,6 @@ export function useGradesFilter(
     ["grades", "filter"],
     size,
     filterParams,
-  );
-}
-
-/* ── 4. Create grade ──────────────────────────────────────────────────── */
-export function useCreateGrade() {
-  return useMutationApi<Grade, CreateGradeRequest>(
-    async (gradeData) => {
-      const response = await http.post<Grade>("/v1/grades", gradeData);
-      return response.data;
-    }
-  );
-}
-
-/* ── 5. Update grade ──────────────────────────────────────────────────── */
-export function useUpdateGrade() {
-  return useMutationApi<Grade, { id: number; data: UpdateGradeRequest }>(
-    async ({ id, data }) => {
-      const response = await http.patch<Grade>(`/v1/grades/${id}`, data);
-      return response.data;
-    }
-  );
-}
-
-/* ── 6. Delete grade ──────────────────────────────────────────────────── */
-export function useDeleteGrade() {
-  return useMutationApi<void, number>(
-    async (gradeId) => {
-      await http.delete(`/v1/grades/${gradeId}`);
-    }
   );
 }
 
