@@ -12,12 +12,8 @@ import com.example.school_management.feature.auth.repository.StaffRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.ParentRepository;
-import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
-import com.example.school_management.feature.academic.entity.TeachingAssignment;
 import com.example.school_management.feature.academic.entity.ClassEntity;
-import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.repository.ClassRepository;
-import com.example.school_management.feature.academic.repository.CourseRepository;
 import com.example.school_management.feature.academic.service.TeacherClassService;
 import com.example.school_management.feature.academic.dto.TeacherClassDto;
 import com.example.school_management.feature.operational.dto.*;
@@ -60,13 +56,11 @@ public class AnnouncementServiceImpl implements AnnouncementService {
     private final TeacherRepository teacherRepo;
     private final StudentRepository studentRepo;
     private final ParentRepository parentRepo;
-    private final TeachingAssignmentRepository teachingAssignmentRepo;
     private final NotificationRepository notificationRepo;
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
     private final RealTimeNotificationService realTimeNotificationService;
     private final ClassRepository classRepo;
-    private final CourseRepository courseRepo;
     private final TeacherClassService teacherClassService;
 
     @Override
@@ -568,51 +562,6 @@ public class AnnouncementServiceImpl implements AnnouncementService {
                 return classInfo;
             })
             .collect(Collectors.toList());
-    }
-
-    @Override
-    public void createTestTeachingAssignments() {
-        BaseUser currentUser = getCurrentUser();
-        if (!(currentUser instanceof Teacher)) {
-            throw new ConflictException("Only teachers can create test assignments");
-        }
-        
-        Teacher teacher = (Teacher) currentUser;
-        
-        // Check if teacher already has assignments
-        List<TeachingAssignment> existingAssignments = teachingAssignmentRepo.findByTeacherId(teacher.getId());
-        if (!existingAssignments.isEmpty()) {
-            log.info("Teacher {} already has {} assignments", teacher.getEmail(), existingAssignments.size());
-            return;
-        }
-        
-        // Get first 3 classes and first 2 courses
-        List<ClassEntity> classes = classRepo.findAll().stream().limit(3).toList();
-        List<Course> courses = courseRepo.findAll().stream().limit(2).toList();
-        
-        if (classes.isEmpty() || courses.isEmpty()) {
-            throw new ConflictException("No classes or courses found. Please create some first.");
-        }
-        
-        // Create assignments for each class-course combination
-        for (ClassEntity clazz : classes) {
-            for (Course course : courses) {
-                // Check if assignment already exists for this class-course combination
-                if (!teachingAssignmentRepo.existsByClazzIdAndCourseId(clazz.getId(), course.getId())) {
-                    TeachingAssignment assignment = new TeachingAssignment();
-                    assignment.setClazz(clazz);
-                    assignment.setCourse(course);
-                    assignment.setTeacher(teacher);
-                    assignment.setWeeklyHours(4); // Default 4 hours per week
-                    
-                    teachingAssignmentRepo.save(assignment);
-                    log.info("Created teaching assignment: Teacher {} -> Class {} -> Course {}", 
-                            teacher.getEmail(), clazz.getName(), course.getName());
-                }
-            }
-        }
-        
-        log.info("Test teaching assignments created for teacher: {}", teacher.getEmail());
     }
 
     /**

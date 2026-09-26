@@ -82,4 +82,15 @@ class ApplicationStartupTest {
 
         assertThat(patterns).isNotEmpty().noneMatch(pattern -> pattern.contains("/debug"));
     }
+
+    @Test
+    void testTeachingAssignmentEndpointIsNotMapped() {
+        List<String> patterns = handlerMapping.getHandlerMethods().keySet().stream()
+                .flatMap(mapping -> mapping.getPatternValues().stream())
+                .toList();
+
+        assertThat(patterns)
+                .contains("/api/v1/announcements/teacher-classes")
+                .doesNotContain("/api/v1/announcements/create-test-assignments");
+    }
 }

@@ -106,12 +106,4 @@ public class AnnouncementController {
         // This will be handled by the service layer
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.getTeacherClasses()));
     }
-
-    @Operation(summary = "Create test teaching assignments for current teacher (DEV ONLY)")
-    @PostMapping("/create-test-assignments")
-    @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<ApiSuccessResponse<String>> createTestAssignments() {
-        service.createTestTeachingAssignments();
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "Test teaching assignments created"));
-    }
 } 

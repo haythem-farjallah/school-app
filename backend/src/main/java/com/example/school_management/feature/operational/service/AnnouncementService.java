@@ -21,5 +21,4 @@ public interface AnnouncementService {
     
     /* ─── HELPER METHODS ─────────────────────────────────── */
     Object getTeacherClasses();
-    void createTestTeachingAssignments();
 } 
