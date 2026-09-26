@@ -1,4 +1,5 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
+import { api } from "@/lib/api-client";
 import { http } from "@/lib/http";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -13,7 +14,7 @@ export function useBulkDeleteTeachers() {
   return useMutationApi<void, number[]>(
     async (ids) => {
       console.log("🗑️ useBulkDeleteTeachers - Deleting teachers:", ids);
-      await http.delete('/admin/teachers/bulk', { data: ids });
+      await api.delete('/admin/teachers/bulk', { data: ids });
     },
     {
       onSuccess: (_, ids) => {
@@ -36,7 +37,7 @@ export function useBulkUpdateTeacherStatus() {
   return useMutationApi<void, { ids: number[]; status: string; reason?: string }>(
     async ({ ids, status, reason }) => {
       console.log("✏️ useBulkUpdateTeacherStatus - Updating status:", { ids, status, reason });
-      await http.patch('/admin/teachers/bulk/status', { ids, status, reason });
+      await api.patch('/admin/teachers/bulk/status', { ids, status, reason });
     },
     {
       onSuccess: (_, { ids, status }) => {
@@ -91,7 +92,7 @@ export function useBulkEmailTeachers() {
   }>(
     async ({ ids, subject, message, actionUrl, actionText }) => {
       console.log("📧 useBulkEmailTeachers - Sending emails:", { ids, subject });
-      await http.post('/admin/teachers/bulk/email', {
+      await api.post('/admin/teachers/bulk/email', {
         ids,
         subject,
         message,
@@ -121,7 +122,7 @@ export function useBulkExportTeachers() {
       const endpoint = format === 'csv' ? '/admin/teachers/export/csv' : '/admin/teachers/export/excel';
       const payload = ids && ids.length > 0 ? { ids } : {};
       
-      const response = await http.post(endpoint, payload, {
+      const response = await api.post<string | ArrayBuffer>(endpoint, payload, {
         responseType: format === 'csv' ? 'text' : 'arraybuffer',
         headers: {
           'Accept': format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
