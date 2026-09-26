@@ -1,4 +1,5 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
+import { api } from "@/lib/api-client";
 import { http } from "@/lib/http";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -26,7 +27,7 @@ export function useBulkDeleteStudents() {
   return useMutationApi<void, number[]>(
     async (ids) => {
       console.log("🗑️ useBulkDeleteStudents - Deleting students:", ids);
-      await http.delete("/v1/students/bulk", { data: ids });
+      await api.delete("/v1/students/bulk", { data: ids });
     },
     {
       onSuccess: () => {
@@ -49,7 +50,7 @@ export function useBulkUpdateStudentStatus() {
   return useMutationApi<void, { ids: number[]; status: string; reason?: string }>(
     async ({ ids, status, reason }) => {
       console.log("✏️ useBulkUpdateStudentStatus - Updating status:", { ids, status, reason });
-      await http.patch('/v1/students/bulk/status', { ids, status, reason });
+      await api.patch('/v1/students/bulk/status', { ids, status, reason });
     },
     {
       onSuccess: (_, { ids, status }) => {
@@ -74,7 +75,7 @@ export function useBulkExportStudents() {
       const endpoint = format === 'csv' ? '/v1/students/export/csv' : '/v1/students/export/excel';
       const payload = ids && ids.length > 0 ? { ids } : {};
       
-      const response = await http.post(endpoint, payload, {
+      const response = await api.post<string | ArrayBuffer>(endpoint, payload, {
         responseType: format === 'csv' ? 'text' : 'arraybuffer',
         headers: {
           'Accept': format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -135,7 +136,7 @@ export function useBulkEmailStudents() {
   }>(
     async ({ ids, subject, message, actionUrl, actionText }) => {
       console.log("📧 useBulkEmailStudents - Sending emails:", { ids, subject });
-      await http.post('/v1/students/bulk/email', {
+      await api.post('/v1/students/bulk/email', {
         ids,
         subject,
         message,
