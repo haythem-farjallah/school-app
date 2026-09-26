@@ -1,15 +1,13 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
-import { http } from "@/lib/http";
-import { API_URL } from "@/lib/env";
-import { token } from "@/lib/token";
-import axios from "axios";
+import { api } from "@/lib/api-client";
 import type { 
   LearningResource, 
   UpdateLearningResourceRequest,
   ResourceUploadRequest,
   LearningResourceFilters,
 } from "@/types/learning-resource";
+import type { ApiResponse } from "@/types/level";
 
 const LIST_KEY = "learning-resources";
 
@@ -51,12 +49,12 @@ export function useUploadLearningResource() {
         formData.append("courseIds", JSON.stringify(uploadData.courseIds));
       }
 
-      const response = await http.post<LearningResource>("/v1/learning-resources/upload", formData, {
+      const response = await api.post<ApiResponse<LearningResource>>("/v1/learning-resources/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-      return response.data;
+      return response.data.data;
     }
   );
 }
@@ -65,8 +63,8 @@ export function useUploadLearningResource() {
 export function useUpdateLearningResource() {
   return useMutationApi<LearningResource, { id: number; data: UpdateLearningResourceRequest }>(
     async ({ id, data }) => {
-      const response = await http.put<LearningResource>(`/v1/learning-resources/${id}`, data);
-      return response.data;
+      const response = await api.put<ApiResponse<LearningResource>>(`/v1/learning-resources/${id}`, data);
+      return response.data.data;
     }
   );
 }
@@ -75,7 +73,7 @@ export function useUpdateLearningResource() {
 export function useDeleteLearningResource() {
   return useMutationApi<void, number>(
     async (resourceId) => {
-      await http.delete(`/v1/learning-resources/${resourceId}`);
+      await api.delete(`/v1/learning-resources/${resourceId}`);
     }
   );
 }
@@ -84,12 +82,8 @@ export function useDeleteLearningResource() {
 export function useDownloadResource() {
   return useMutationApi<Blob, string>(
     async (filename) => {
-      // Use axios directly to bypass the response interceptor for blob responses
-      const response = await axios.get(`${API_URL}/v1/learning-resources/files/${filename}`, {
+      const response = await api.get<Blob>(`/v1/learning-resources/files/${filename}`, {
         responseType: 'blob',
-        headers: {
-          Authorization: `Bearer ${token.access}`,
-        },
       });
       return response.data;
     }
@@ -100,12 +94,8 @@ export function useDownloadResource() {
 export function usePreviewResource() {
   return useMutationApi<Blob, string>(
     async (filename) => {
-      // Use axios directly to bypass the response interceptor for blob responses
-      const response = await axios.get(`${API_URL}/v1/learning-resources/preview/${filename}`, {
+      const response = await api.get<Blob>(`/v1/learning-resources/preview/${filename}`, {
         responseType: 'blob',
-        headers: {
-          Authorization: `Bearer ${token.access}`,
-        },
       });
       return response.data;
     }

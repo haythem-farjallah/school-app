@@ -9,8 +9,9 @@ import { AutoForm } from "@/form/AutoForm";
 import type { FormRecipe } from "@/form/types";
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { Course } from "@/types/course";
+import type { ApiResponse } from "@/types/level";
 import { courseSchema, courseFields, type CourseValues } from "@/features/courses/courseForm.definition";
 
 const CoursesCreate = () => {
@@ -18,8 +19,8 @@ const CoursesCreate = () => {
 
   const createCourseMutation = useMutationApi<Course, CourseValues>(
     async (data) => {
-      const response = await http.post<Course>("/v1/courses", data);
-      return response.data;
+      const response = await api.post<ApiResponse<Course>>("/v1/courses", data);
+      return response.data.data;
     },
     {
       onSuccess: () => {

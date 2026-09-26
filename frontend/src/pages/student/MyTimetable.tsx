@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react';
 import { StudentTimetableView } from '../../features/timetable/components/StudentTimetableView';
 import { Card, CardContent } from '../../components/ui/card';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { http } from '../../lib/http';
+import { api } from '../../lib/api-client';
+import type { ApiResponse } from '../../types/level';
 import toast from 'react-hot-toast';
 
 interface StudentClass {
   id: number;
   name: string;
   level: string;
+}
+
+// The part of the student dashboard (GET /v1/dashboard/current-user) this page reads.
+interface StudentDashboard {
+  enrolledClasses: { classId: number; className: string }[];
 }
 
 export default function MyTimetable() {
@@ -18,29 +24,16 @@ export default function MyTimetable() {
   useEffect(() => {
     const fetchStudentClass = async () => {
       try {
-        // Try to get current student's class information
-        // This would typically come from authentication context
-        // For now, we'll try to get it from the API or use a default
-        
-        let classInfo = null;
-        
-        try {
-          // Try to get student dashboard first
-          const dashboardResponse = await http.get('/v1/dashboard/current-user');
-          if (dashboardResponse?.data?.enrolledClasses?.[0]) {
-            const enrolledClass = dashboardResponse.data.enrolledClasses[0];
-            classInfo = {
-              id: enrolledClass.classId,
-              name: enrolledClass.className,
-              level: enrolledClass.className // Use className as level fallback
-            };
-          }
-        } catch (error) {
-          console.log('No student dashboard found, trying alternative methods...');
-        }
+        // The student dashboard lists the classes the student is enrolled in.
+        const response = await api.get<ApiResponse<StudentDashboard>>('/v1/dashboard/current-user');
+        const enrolledClass = response.data.data.enrolledClasses[0];
 
-        if (classInfo) {
-          setStudentClass(classInfo);
+        if (enrolledClass) {
+          setStudentClass({
+            id: enrolledClass.classId,
+            name: enrolledClass.className,
+            level: enrolledClass.className // Use className as level fallback
+          });
         } else {
           toast.error('No class information found. Please contact your administrator.');
         }

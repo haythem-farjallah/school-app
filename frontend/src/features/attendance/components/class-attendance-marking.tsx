@@ -23,7 +23,6 @@ import {
 import { AttendanceStatus, UserType } from '../../../types/attendance';
 import { 
   useStudentsForClass,
-  useTeacherAttendanceClass,
   useMarkAttendanceForClass 
 } from '../hooks/use-attendance';
 import { useAllTeacherClasses } from '../../../hooks/useTeacherClasses';
@@ -54,13 +53,6 @@ export function ClassAttendanceMarking() {
     error: studentsError,
     refetch: refetchStudents 
   } = useStudentsForClass(selectedClassId || 0);
-
-  // TODO: Use the teacher attendance class view when we have teacher ID
-  // const { 
-  //   data: classDetails, 
-  //   isLoading: classDetailsLoading,
-  //   error: classDetailsError 
-  // } = useTeacherAttendanceClass(teacherId, selectedClassId, courseId);
 
   // Mark attendance mutation
   const markAttendanceMutation = useMarkAttendanceForClass();

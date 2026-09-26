@@ -20,8 +20,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const roleClasses = getRoleClasses(user?.role);
   
   const { data: unreadNotifications = [] } = useUnreadNotifications(userId);
-  const safeUnreadNotifications = Array.isArray(unreadNotifications) ? unreadNotifications : [];
-  const unreadCount = safeUnreadNotifications.length;
+  const unreadCount = unreadNotifications.length;
 
   // Animate when new notifications arrive
   useEffect(() => {

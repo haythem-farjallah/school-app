@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { api } from '../../../lib/api-client';
 import { http } from '../../../lib/http';
+import type { ApiResponse } from '../../../types/level';
 import { TimetableSlot } from '../../../types/timetable';
 import { useAuth } from '../../../hooks/useAuth';
 
@@ -56,13 +58,8 @@ export function useTeacherSchedule(teacherId?: number) {
   return useQuery({
     queryKey: ['teacher-schedule', teacherId],
     queryFn: async () => {
-      try {
-        const res = await http.get<{ status: string; data: TimetableSlot[] }>(`/v1/timetables/teacher/${teacherId}`);
-        return res.data || [];
-      } catch (error) {
-        console.warn(`Error loading teacher schedule for ${teacherId}:`, error);
-        return [];
-      }
+      const response = await api.get<ApiResponse<TimetableSlot[]>>(`/v1/timetables/teacher/${teacherId}`);
+      return response.data.data;
     },
     enabled: !!teacherId,
     staleTime: 1000 * 60 * 5, // 5 minutes

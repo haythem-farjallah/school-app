@@ -15,7 +15,8 @@ import {
 import { usePeriods } from '../hooks';
 import { Period } from '../../../types/period';
 import { TimetableSlot, DayOfWeek } from '../../../types/timetable';
-import { http } from '../../../lib/http';
+import { api } from '../../../lib/api-client';
+import type { ApiResponse } from '../../../types/level';
 import toast from 'react-hot-toast';
 
 interface TeacherTimetableViewProps {
@@ -66,68 +67,8 @@ export function TeacherTimetableView({ teacherId, teacherName }: TeacherTimetabl
       try {
         console.log('🔍 Fetching timetable for teacher:', teacherId);
         
-        // Try different API endpoints that might exist
-        let response;
-        let apiError = null;
-        try {
-          console.log('🌐 Calling API: GET /v1/timetables/teacher/' + teacherId);
-          response = await http.get(`/v1/timetables/teacher/${teacherId}`);
-          console.log('✅ API call successful');
-        } catch (error) {
-          console.error('❌ Primary API call failed:', error);
-          apiError = error;
-          // Fallback: get all timetable slots and filter by teacher
-          console.log('📋 Fallback: fetching all slots and filtering by teacher');
-          try {
-            response = await http.get('/v1/timetables/slots');
-            console.log('✅ Fallback API call successful');
-          } catch (fallbackError) {
-            console.error('❌ Fallback API call also failed:', fallbackError);
-            throw fallbackError;
-          }
-        }
-        
-        console.log('📥 Raw response object:', response);
-        console.log('📥 Response status:', response?.status);
-        console.log('📥 Response headers:', response?.headers);
-        console.log('📥 Teacher timetable response:', response);
-        console.log('📥 Response data type:', typeof response?.data);
-        console.log('📥 Response data:', response?.data);
-        console.log('📥 Is response.data array?', Array.isArray(response?.data));
-        
-        if (apiError) {
-          console.log('⚠️ Note: Using fallback API due to error:', apiError.message);
-        }
-        
-        let slots: TimetableSlot[] = [];
-        
-        // Handle different response structures
-        if (response?.data) {
-          // For teacher timetable endpoint: ApiSuccessResponse<List<TimetableSlot>>
-          // The data field contains the array directly
-          if (Array.isArray(response.data)) {
-            console.log('✅ Using response.data as array (teacher timetable format)');
-            slots = response.data;
-          } else if (response.data.data && Array.isArray(response.data.data)) {
-            console.log('✅ Using response.data.data (nested ApiSuccessResponse)');
-            slots = response.data.data;
-          } else if (response.data.content && Array.isArray(response.data.content)) {
-            console.log('✅ Using response.data.content');
-            slots = response.data.content;
-          } else if (response.data.slots && Array.isArray(response.data.slots)) {
-            console.log('✅ Using response.data.slots');
-            slots = response.data.slots;
-          } else {
-            console.log('❌ Unknown response structure:', response.data);
-            console.log('📊 Response.data keys:', Object.keys(response.data || {}));
-          }
-        } else if (Array.isArray(response)) {
-          console.log('✅ Using response as array');
-          slots = response;
-        } else {
-          console.log('❌ No valid data structure found');
-          console.log('📊 Response keys:', Object.keys(response || {}));
-        }
+        const response = await api.get<ApiResponse<TimetableSlot[]>>(`/v1/timetables/teacher/${teacherId}`);
+        const slots = response.data.data;
         
         console.log('📋 Total slots before filtering:', slots.length);
         console.log('📋 Sample slot structure:', slots[0]);

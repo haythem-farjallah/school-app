@@ -2,7 +2,7 @@ import * as React from "react";
 import { usePaginated } from "@/hooks/usePaginated";
 import { useQueryApi } from "@/hooks/useQueryApi";
 import { useMutationApi } from "@/hooks/useMutationApi";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { 
   Enrollment, 
   CreateEnrollmentRequest,
@@ -10,6 +10,7 @@ import type {
   DropEnrollmentRequest,
   EnrollmentStatus 
 } from "@/types/enrollment";
+import type { ApiResponse } from "@/types/level";
 
 const LIST_KEY = "enrollments";
 
@@ -80,12 +81,8 @@ export function useEnrollment(id?: number) {
   return useQueryApi<Enrollment>(
     ["enrollment", id],
     async () => {
-      const response = await http.get(`/v1/enrollments/${id}`);
-      // Handle potential API response wrapper
-      if (response && typeof response === 'object' && 'data' in response) {
-        return response.data as Enrollment;
-      }
-      return response as Enrollment;
+      const response = await api.get<ApiResponse<Enrollment>>(`/v1/enrollments/${id}`);
+      return response.data.data;
     },
     { enabled: !!id }
   );
@@ -136,8 +133,8 @@ export function useEnrollStudent() {
         classId: data.classId,
       };
       
-      const response = await http.post("/v1/enrollments/enroll", enrollmentData);
-      return response.data;
+      const response = await api.post<ApiResponse<Enrollment>>("/v1/enrollments/enroll", enrollmentData);
+      return response.data.data;
     }
   );
 }
@@ -145,10 +142,10 @@ export function useEnrollStudent() {
 export function useUpdateEnrollmentStatus() {
   return useMutationApi<Enrollment, UpdateEnrollmentStatusRequest & { id: number }>(
     async (data) => {
-      const response = await http.put(`/v1/enrollments/${data.id}/status`, {
+      const response = await api.put<ApiResponse<Enrollment>>(`/v1/enrollments/${data.id}/status`, {
         status: data.status
       });
-      return response.data;
+      return response.data.data;
     }
   );
 }
@@ -156,10 +153,9 @@ export function useUpdateEnrollmentStatus() {
 export function useDropEnrollment() {
   return useMutationApi<void, DropEnrollmentRequest & { id: number }>(
     async (data) => {
-      const response = await http.delete(`/v1/enrollments/${data.id}`, {
+      await api.delete(`/v1/enrollments/${data.id}`, {
         data: { reason: data.reason }
       });
-      return response.data;
     }
   );
 }

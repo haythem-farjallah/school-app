@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { http } from '@/lib/http';
+import { api } from '@/lib/api-client';
+import type { ApiResponse } from '@/types/level';
 
 export interface TeacherClassCourse {
   id: number;
@@ -40,8 +41,8 @@ export function useAllTeacherClasses(search?: string) {
         params.append('search', search);
       }
 
-      const response = await http.get(`/v1/teacher/classes/all?${params.toString()}`);
-      return response.data;
+      const response = await api.get<ApiResponse<TeacherClass[]>>(`/v1/teacher/classes/all?${params.toString()}`);
+      return response.data.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
@@ -52,8 +53,8 @@ export function useTeacherClassStats() {
   return useQuery({
     queryKey: ['teacher-class-stats'],
     queryFn: async (): Promise<TeacherClassStats> => {
-      const response = await http.get('/v1/teacher/classes/stats');
-      return response.data;
+      const response = await api.get<ApiResponse<TeacherClassStats>>('/v1/teacher/classes/stats');
+      return response.data.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes

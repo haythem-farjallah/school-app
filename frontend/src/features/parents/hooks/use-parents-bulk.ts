@@ -1,5 +1,5 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
@@ -12,8 +12,7 @@ export function useBulkDeleteParents() {
   return useMutationApi<void, number[]>(
     async (ids) => {
       console.log("🗑️ useBulkDeleteParents - Deleting parents:", ids);
-      // Simulate bulk delete by calling individual delete endpoints
-      await Promise.all(ids.map(id => http.delete(`/admin/parent-management/${id}`)));
+      await Promise.all(ids.map(id => api.delete(`/admin/parent-management/${id}`)));
     },
     {
       onSuccess: () => {

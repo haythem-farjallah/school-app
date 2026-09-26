@@ -1,6 +1,6 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { 
   TeachingAssignment, 
   CreateTeachingAssignmentData, 
@@ -73,7 +73,7 @@ export function useDeleteTeachingAssignment() {
 
   return useMutationApi<void, number>(
     async (id) => {
-      await http.delete(`/admin/teaching-assignments/${id}`);
+      await api.delete(`/admin/teaching-assignments/${id}`);
     },
     {
       onSuccess: () => {
@@ -93,7 +93,7 @@ export function useAssignTeacherToCourses() {
 
   return useMutationApi<void, BulkAssignTeacherToCoursesRequest>(
     async (data) => {
-      await http.post("/admin/teaching-assignments/assign/teacher-to-courses", data);
+      await api.post("/admin/teaching-assignments/assign/teacher-to-courses", data);
     },
     {
       onSuccess: (_, variables) => {
@@ -114,7 +114,7 @@ export function useAssignTeachersToClass() {
 
   return useMutationApi<void, BulkAssignTeachersToClassRequest>(
     async (data) => {
-      await http.post("/admin/teaching-assignments/assign/teachers-to-course", data);
+      await api.post("/admin/teaching-assignments/assign/teachers-to-course", data);
     },
     {
       onSuccess: (_, variables) => {
@@ -135,7 +135,7 @@ export function useBulkCreateTeachingAssignments() {
 
   return useMutationApi<void, CreateTeachingAssignmentData[]>(
     async (assignments) => {
-      await http.post("/admin/teaching-assignments/bulk/create", assignments);
+      await api.post("/admin/teaching-assignments/bulk/create", assignments);
     },
     {
       onSuccess: (_, variables) => {

@@ -1,18 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { 
   ResourceComment, 
-  CreateResourceCommentRequest, 
-  ResourceCommentResponse 
+  CreateResourceCommentRequest
 } from "@/types/learning-resource";
+import type { ApiResponse, PageDto } from "@/types/level";
 
 // Get comments for a resource
 export function useResourceComments(resourceId: number) {
   return useQuery({
     queryKey: ["resource-comments", resourceId],
-    queryFn: async (): Promise<ResourceCommentResponse> => {
-      const response = await http.get(`/resource-comments/resource/${resourceId}`);
-      return response.data;
+    queryFn: async (): Promise<PageDto<ResourceComment>> => {
+      const response = await api.get<ApiResponse<PageDto<ResourceComment>>>(`/v1/resource-comments/resource/${resourceId}`);
+      return response.data.data;
     },
     enabled: !!resourceId,
   });
@@ -24,8 +24,8 @@ export function useCreateResourceComment() {
   
   return useMutation({
     mutationFn: async (request: CreateResourceCommentRequest): Promise<ResourceComment> => {
-      const response = await http.post("/resource-comments", request);
-      return response.data;
+      const response = await api.post<ApiResponse<ResourceComment>>("/v1/resource-comments", request);
+      return response.data.data;
     },
     onSuccess: (_, variables) => {
       // Invalidate the comments query for this resource
@@ -42,7 +42,7 @@ export function useDeleteResourceComment() {
   
   return useMutation({
     mutationFn: async (commentId: number): Promise<void> => {
-      await http.delete(`/resource-comments/${commentId}`);
+      await api.delete(`/v1/resource-comments/${commentId}`);
     },
     onSuccess: () => {
       // Invalidate all resource comments queries

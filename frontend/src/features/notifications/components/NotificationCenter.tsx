@@ -12,12 +12,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNotifications, useUnreadNotifications, useMarkAsRead, useDeleteNotification } from '../hooks/use-notifications';
 import { useAuth } from '@/hooks/useAuth';
 import { getRoleClasses } from '@/lib/theme';
-import type { Notification } from '@/types/notification';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
 
 interface NotificationCenterProps {
-  userId: string;
+  userId?: number;
   isOpen: boolean;
   onClose: () => void;
   className?: string;
@@ -34,13 +33,11 @@ export function NotificationCenter({ userId, isOpen, onClose, className }: Notif
   });
   
   const { data: unreadNotifications = [] } = useUnreadNotifications(userId);
-  const safeNotifications = Array.isArray(notifications) ? notifications : [];
-  const safeUnreadNotifications = Array.isArray(unreadNotifications) ? unreadNotifications : [];
   
   const markAsReadMutation = useMarkAsRead();
   const deleteNotificationMutation = useDeleteNotification();
 
-  const handleMarkAsRead = async (notificationId: string) => {
+  const handleMarkAsRead = async (notificationId: number) => {
     try {
       await markAsReadMutation.mutateAsync({ notificationId });
       toast.success('Marked as read', { duration: 2000 });
@@ -49,7 +46,7 @@ export function NotificationCenter({ userId, isOpen, onClose, className }: Notif
     }
   };
 
-  const handleDeleteNotification = async (notificationId: string) => {
+  const handleDeleteNotification = async (notificationId: number) => {
     try {
       await deleteNotificationMutation.mutateAsync({ notificationId });
       toast.success('Notification deleted', { duration: 2000 });
@@ -77,9 +74,9 @@ export function NotificationCenter({ userId, isOpen, onClose, className }: Notif
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">Notifications</h3>
-              {safeUnreadNotifications.length > 0 && (
+              {unreadNotifications.length > 0 && (
                 <p className="text-sm text-gray-600">
-                  {safeUnreadNotifications.length} unread
+                  {unreadNotifications.length} unread
                 </p>
               )}
             </div>
@@ -103,7 +100,7 @@ export function NotificationCenter({ userId, isOpen, onClose, className }: Notif
               <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${roleClasses.primaryBg.replace('bg-', 'border-')} mx-auto mb-4`}></div>
               <p className="text-gray-500 text-sm">Loading notifications...</p>
             </div>
-          ) : safeNotifications.length === 0 ? (
+          ) : notifications.length === 0 ? (
             <div className="p-12 text-center">
               <div className="p-4 bg-gray-50 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                 <Bell className="h-8 w-8 text-gray-300" />
@@ -114,7 +111,7 @@ export function NotificationCenter({ userId, isOpen, onClose, className }: Notif
           ) : (
             <div className="p-2">
               <AnimatePresence>
-                {safeNotifications.map((notification, index) => (
+                {notifications.map((notification, index) => (
                   <motion.div
                     key={notification.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -142,7 +139,7 @@ export function NotificationCenter({ userId, isOpen, onClose, className }: Notif
                         <p className={`text-sm mb-3 leading-relaxed ${
                           notification.readAt ? 'text-gray-500' : 'text-gray-600'
                         }`}>
-                          {notification.body}
+                          {notification.message}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-gray-400">
                           <Clock className="h-3 w-3" />
@@ -185,10 +182,10 @@ export function NotificationCenter({ userId, isOpen, onClose, className }: Notif
       </div>
 
       {/* Footer */}
-      {safeNotifications.length > 0 && (
+      {notifications.length > 0 && (
         <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/50">
           <p className="text-xs text-gray-500 text-center">
-            Showing {safeNotifications.length} notifications
+            Showing {notifications.length} notifications
           </p>
         </div>
       )}

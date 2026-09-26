@@ -67,14 +67,14 @@ function CommentItem({ comment, onDelete, onReply }: CommentItemProps) {
       <div className="flex items-start space-x-3">
         <Avatar className="h-8 w-8">
           <AvatarFallback className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 text-xs font-semibold">
-            {getInitials(comment.userName)}
+            {getInitials(comment.commentedByName)}
           </AvatarFallback>
         </Avatar>
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="font-medium text-slate-900 text-sm">{comment.userName}</span>
+              <span className="font-medium text-slate-900 text-sm">{comment.commentedByName}</span>
               <span className="text-xs text-slate-500">
                 {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
               </span>
@@ -258,7 +258,7 @@ export function ResourceComments({ resourceId }: ResourceCommentsProps) {
 
   const handleReply = (comment: ResourceComment) => {
     // For now, just scroll to the comment form
-    toast.info(`Replying to ${comment.userName}`);
+    toast.info(`Replying to ${comment.commentedByName}`);
   };
 
   if (isLoading) {

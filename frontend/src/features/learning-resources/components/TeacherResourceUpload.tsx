@@ -49,7 +49,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePaginated } from "@/hooks/usePaginated";
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
+import type { ApiResponse } from "@/types/level";
+import type { LearningResource } from "@/types/learning-resource";
 
 // Types
 interface ClassInfo {
@@ -134,19 +136,19 @@ function TeacherResourceUpload() {
   }, [watchedClassIds]);
 
   // Upload mutations
-  const uploadFileMutation = useMutationApi<any, FormData>(
+  const uploadFileMutation = useMutationApi<LearningResource, FormData>(
     async (formData) => {
-      const response = await http.post("/v1/learning-resources/upload", formData, {
+      const response = await api.post<ApiResponse<LearningResource>>("/v1/learning-resources/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      return response.data;
+      return response.data.data;
     }
   );
 
-  const createUrlResourceMutation = useMutationApi<any, UploadFormData>(
+  const createUrlResourceMutation = useMutationApi<LearningResource, UploadFormData>(
     async (data) => {
-      const response = await http.post("/v1/learning-resources", data);
-      return response.data;
+      const response = await api.post<ApiResponse<LearningResource>>("/v1/learning-resources", data);
+      return response.data.data;
     }
   );
 

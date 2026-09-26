@@ -33,7 +33,8 @@ import { Period } from '../../../types/period';
 import { TimetableSlot, DayOfWeek } from '../../../types/timetable';
 import { Course } from '../../../types/course';
 import { Room } from '../../../types/room';
-import { http } from '../../../lib/http';
+import { api } from '../../../lib/api-client';
+import type { ApiResponse, PageDto } from '../../../types/level';
 import toast from 'react-hot-toast';
 
 interface ImprovedTimetableGridProps {
@@ -365,109 +366,16 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch teachers
-        let teachersData: Teacher[] = [];
-        try {
-          console.log('🔍 Fetching teachers from /admin/teachers...');
-          const teachersResponse = await http.get('/admin/teachers?size=100');
-          console.log('📥 Teachers API response:', teachersResponse);
-          console.log('📥 Teachers response type:', typeof teachersResponse);
-          console.log('📥 Teachers response keys:', Object.keys(teachersResponse || {}));
-          
-          // Try different data extraction methods
-          if (teachersResponse?.data) {
-            if (Array.isArray(teachersResponse.data)) {
-              teachersData = teachersResponse.data;
-              console.log('✅ Found teachers in response.data (array):', teachersData.length);
-            } else if (teachersResponse.data.content && Array.isArray(teachersResponse.data.content)) {
-              teachersData = teachersResponse.data.content;
-              console.log('✅ Found teachers in response.data.content:', teachersData.length);
-            } else {
-              console.log('❌ Teachers response.data structure:', teachersResponse.data);
-            }
-          } else if (Array.isArray(teachersResponse)) {
-            teachersData = teachersResponse;
-            console.log('✅ Found teachers in direct response:', teachersData.length);
-          } else {
-            console.log('❌ Unexpected teachers response structure:', teachersResponse);
-          }
-        } catch (error) {
-          console.error('❌ Error fetching teachers:', error);
-        }
-
-        // Fetch courses
-        let coursesData: Course[] = [];
-        try {
-          console.log('🔍 Fetching courses from /v1/courses...');
-          const coursesResponse = await http.get('/v1/courses?size=100');
-          console.log('📥 Courses API response:', coursesResponse);
-          console.log('📥 Courses response type:', typeof coursesResponse);
-          console.log('📥 Courses response keys:', Object.keys(coursesResponse || {}));
-          
-          // Try different data extraction methods
-          if (coursesResponse?.data) {
-            if (Array.isArray(coursesResponse.data)) {
-              coursesData = coursesResponse.data;
-              console.log('✅ Found courses in response.data (array):', coursesData.length);
-            } else if (coursesResponse.data.content && Array.isArray(coursesResponse.data.content)) {
-              coursesData = coursesResponse.data.content;
-              console.log('✅ Found courses in response.data.content:', coursesData.length);
-            } else {
-              console.log('❌ Courses response.data structure:', coursesResponse.data);
-            }
-          } else if (Array.isArray(coursesResponse)) {
-            coursesData = coursesResponse;
-            console.log('✅ Found courses in direct response:', coursesData.length);
-          } else {
-            console.log('❌ Unexpected courses response structure:', coursesResponse);
-          }
-        } catch (error) {
-          console.error('❌ Error fetching courses:', error);
-        }
-
-        // Fetch rooms
-        let roomsData: Room[] = [];
-        try {
-          console.log('🔍 Fetching rooms from /v1/rooms...');
-          const roomsResponse = await http.get('/v1/rooms?size=100');
-          console.log('📥 Rooms API response:', roomsResponse);
-          console.log('📥 Rooms response type:', typeof roomsResponse);
-          console.log('📥 Rooms response keys:', Object.keys(roomsResponse || {}));
-          
-          // Try different data extraction methods
-          if (roomsResponse?.data) {
-            if (Array.isArray(roomsResponse.data)) {
-              roomsData = roomsResponse.data;
-              console.log('✅ Found rooms in response.data (array):', roomsData.length);
-            } else if (roomsResponse.data.content && Array.isArray(roomsResponse.data.content)) {
-              roomsData = roomsResponse.data.content;
-              console.log('✅ Found rooms in response.data.content:', roomsData.length);
-            } else {
-              console.log('❌ Rooms response.data structure:', roomsResponse.data);
-            }
-          } else if (Array.isArray(roomsResponse)) {
-            roomsData = roomsResponse;
-            console.log('✅ Found rooms in direct response:', roomsData.length);
-          } else {
-            console.log('❌ Unexpected rooms response structure:', roomsResponse);
-          }
-        } catch (error) {
-          console.error('❌ Error fetching rooms:', error);
-        }
-
-        // Ensure arrays
-        const finalTeachers = Array.isArray(teachersData) ? teachersData : [];
-        const finalCourses = Array.isArray(coursesData) ? coursesData : [];
-        const finalRooms = Array.isArray(roomsData) ? roomsData : [];
+        const teachersResponse = await api.get<ApiResponse<PageDto<Teacher>>>('/admin/teachers?size=100');
+        const coursesResponse = await api.get<ApiResponse<PageDto<Course>>>('/v1/courses?size=100');
+        const roomsResponse = await api.get<ApiResponse<PageDto<Room>>>('/v1/rooms?size=100');
+        const finalTeachers = teachersResponse.data.data.content;
+        const finalCourses = coursesResponse.data.data.content;
+        const finalRooms = roomsResponse.data.data.content;
 
         setTeachers(finalTeachers);
         setCourses(finalCourses);
         setRooms(finalRooms);
-        
-        console.log('📊 Final data loaded:');
-        console.log('👨‍🏫 Teachers:', finalTeachers.map(t => ({ id: t.id, name: `${t.firstName} ${t.lastName}` })));
-        console.log('📚 Courses:', finalCourses.map(c => ({ id: c.id, name: c.name, color: c.color })));
-        console.log('🏢 Rooms:', finalRooms.map(r => ({ id: r.id, name: r.name })));
 
         // Create teacher-course combinations - all teachers but only their first subject
         const combos: TeacherCourseCombo[] = [];
@@ -604,7 +512,7 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
 
     setIsLoading(true);
     try {
-      await http.delete(`/v1/timetables/slots/${slotId}`);
+      await api.delete(`/v1/timetables/slots/${slotId}`);
       toast.success('Slot deleted successfully');
       await refetchTimetable();
     } catch (error) {
@@ -684,14 +592,13 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
         const existingSlot = slotMap.get(`${slotData.dayOfWeek}-${slotData.periodId}`);
         
         if (existingSlot) {
-          return http.put(`/v1/timetables/slots/${existingSlot.id}`, slotData);
+          return api.put(`/v1/timetables/slots/${existingSlot.id}`, slotData);
         } else {
-          return http.post('/v1/timetables/slots', slotData);
+          return api.post('/v1/timetables/slots', slotData);
         }
       });
 
-      const results = await Promise.all(savePromises);
-      console.log('🎯 Save results:', results);
+      await Promise.all(savePromises);
       
       toast.success(`✅ Successfully saved ${slotsToSave.length} timetable slots!`);
       
@@ -741,7 +648,7 @@ export function ImprovedTimetableGrid({ classId }: ImprovedTimetableGridProps) {
 
     setIsLoading(true);
     try {
-      await http.post(`/v1/timetables/class/${classId}/optimize`);
+      await api.post(`/v1/timetables/class/${classId}/optimize`);
       toast.success('Timetable generated successfully');
       await refetchTimetable();
     } catch (error) {

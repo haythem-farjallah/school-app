@@ -14,7 +14,8 @@ import { Users, BookOpen, TrendingUp, Plus, Zap, Clock } from "lucide-react";
 import { useEnrollments } from "../hooks/use-enrollments";
 import { getEnrollmentColumns } from "./enrollment-columns";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
+import type { ApiResponse } from "@/types/level";
 // import { useToast } from "@/hooks/use-toast"; // Using react-hot-toast instead
 
 // Filter parsers
@@ -23,6 +24,13 @@ const filterParsers = {
   status: parseAsArrayOf(parseAsString).withDefault([]),
   page: parseAsInteger.withDefault(0),
 };
+
+// The fields of the backend AutoEnrollmentResultDto shown after an auto-enrollment.
+interface AutoEnrollmentResult {
+  studentsEnrolled: number;
+  classesUsed: number;
+  classesCreated: number;
+}
 
 export function EnrollmentsTable() {
   const navigate = useNavigate();
@@ -102,15 +110,11 @@ export function EnrollmentsTable() {
   const handleAutoEnrollment = async () => {
     setAutoEnrollLoading(true);
     try {
-      const response = await http.post('/v1/enrollments/auto-enroll');
-      const result = response.data?.data;
-      
-      if (!result) {
-        throw new Error('No data received from auto-enrollment API');
-      }
+      const response = await api.post<ApiResponse<AutoEnrollmentResult>>('/v1/enrollments/auto-enroll');
+      const result = response.data.data;
       
       toast.success(
-        `Auto-Enrollment Complete! Successfully enrolled ${result.studentsEnrolled || 0} students into ${result.classesUsed || 0} classes (${result.classesCreated || 0} new classes created)`
+        `Auto-Enrollment Complete! Successfully enrolled ${result.studentsEnrolled} students into ${result.classesUsed} classes (${result.classesCreated} new classes created)`
       );
       
       // Refresh the enrollments table

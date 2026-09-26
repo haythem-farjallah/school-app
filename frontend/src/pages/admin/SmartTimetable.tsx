@@ -192,7 +192,7 @@ export default function SmartTimetable() {
                 <SelectValue placeholder="Select Timetable" />
               </SelectTrigger>
               <SelectContent>
-                {timetables?.data?.map((timetable: any) => (
+                {timetables?.map((timetable) => (
                   <SelectItem key={timetable.id} value={timetable.id.toString()}>
                     {timetable.name} ({timetable.academicYear})
                   </SelectItem>
@@ -203,7 +203,7 @@ export default function SmartTimetable() {
             {/* Export Options */}
             <TimetableExportDialog
               timetableId={selectedTimetableId}
-              timetableName={timetables?.data?.find((t: any) => t.id === selectedTimetableId)?.name || 'Timetable'}
+              timetableName={timetables?.find((t) => t.id === selectedTimetableId)?.name || 'Timetable'}
               trigger={
                 <Button variant="outline" className="flex items-center gap-2">
                   <Download className="h-4 w-4" />

@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { http } from "@/lib/http";
+import { api } from "@/lib/api-client";
 import type { 
   Attendance, 
   CreateAttendanceRequest, 
   AttendanceStatistics,
   AttendanceFilters
 } from "@/types/attendance";
+import type { ApiResponse, PageDto } from "@/types/level";
 
 const ATTENDANCE_KEY = "attendance";
 
@@ -27,8 +28,14 @@ export function useAttendanceRecords(filters: AttendanceFilters = {}) {
         }
       });
 
-      const response = await http.get(`/v1/attendance/filter?${params.toString()}`);
-      return response.data;
+      const response = await api.get<ApiResponse<PageDto<Attendance>>>(`/v1/attendance/filter?${params.toString()}`);
+      const page = response.data.data;
+      return {
+        data: page.content,
+        totalItems: page.totalElements,
+        totalPages: Math.ceil(page.totalElements / page.size),
+        currentPage: page.page,
+      };
     },
   });
 }
@@ -46,8 +53,8 @@ export function useAttendanceStatistics(filters: { startDate?: string; endDate?:
         }
       });
 
-      const response = await http.get(`/v1/attendance/statistics?${params.toString()}`);
-      return response.data;
+      const response = await api.get<ApiResponse<AttendanceStatistics>>(`/v1/attendance/statistics?${params.toString()}`);
+      return response.data.data;
     },
   });
 }
@@ -58,8 +65,8 @@ export function useCreateAttendance() {
   
   return useMutation({
     mutationFn: async (data: CreateAttendanceRequest): Promise<Attendance> => {
-      const response = await http.post("/v1/attendance", data);
-      return response.data;
+      const response = await api.post<ApiResponse<Attendance>>("/v1/attendance", data);
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
@@ -83,8 +90,8 @@ export function useUpdateAttendance() {
       id: number; 
       data: Partial<CreateAttendanceRequest> 
     }): Promise<Attendance> => {
-      const response = await http.patch(`/v1/attendance/${id}`, data);
-      return response.data;
+      const response = await api.put<ApiResponse<Attendance>>(`/v1/attendance/${id}`, data);
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
@@ -102,7 +109,7 @@ export function useDeleteAttendance() {
   
   return useMutation({
     mutationFn: async (id: number): Promise<void> => {
-      await http.delete(`/v1/attendance/${id}`);
+      await api.delete(`/v1/attendance/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
@@ -123,13 +130,8 @@ export function useTeacherAbsentStudents(teacherId: number, date?: string) {
   return useQuery({
     queryKey: [ATTENDANCE_KEY, "teacher-absent", teacherId, targetDate],
     queryFn: async (): Promise<Attendance[]> => {
-      try {
-        const response = await http.get(`/v1/attendance/teacher/${teacherId}/absent-students?date=${targetDate}`);
-        return response.data?.data || [];
-      } catch (error) {
-        console.error('Error fetching teacher absent students:', error);
-        return [];
-      }
+      const response = await api.get<ApiResponse<Attendance[]>>(`/v1/attendance/teacher/${teacherId}/absent-students?date=${targetDate}`);
+      return response.data.data;
     },
     enabled: !!teacherId,
   });
@@ -140,8 +142,8 @@ export function useTeacherWeeklySummary(teacherId: number, startOfWeek: string) 
   return useQuery({
     queryKey: [ATTENDANCE_KEY, "teacher-weekly", teacherId, startOfWeek],
     queryFn: async (): Promise<Record<string, Attendance[]>> => {
-      const response = await http.get(`/v1/attendance/teacher/${teacherId}/weekly-summary?startOfWeek=${startOfWeek}`);
-      return response.data?.data || {};
+      const response = await api.get<ApiResponse<Record<string, Attendance[]>>>(`/v1/attendance/teacher/${teacherId}/weekly-summary?startOfWeek=${startOfWeek}`);
+      return response.data.data;
     },
     enabled: !!teacherId && !!startOfWeek,
   });
@@ -154,13 +156,8 @@ export function useStudentsForSlot(slotId: number, date?: string) {
   return useQuery({
     queryKey: [ATTENDANCE_KEY, "slot-students", slotId, targetDate],
     queryFn: async (): Promise<Attendance[]> => {
-      try {
-        const response = await http.get(`/v1/attendance/slot/${slotId}/students?date=${targetDate}`);
-        return response.data?.data || [];
-      } catch (error) {
-        console.error('Error fetching students for slot:', error);
-        return [];
-      }
+      const response = await api.get<ApiResponse<Attendance[]>>(`/v1/attendance/slot/${slotId}/students?date=${targetDate}`);
+      return response.data.data;
     },
     enabled: !!slotId,
   });
@@ -171,33 +168,10 @@ export function useStudentsForClass(classId: number) {
   return useQuery({
     queryKey: [ATTENDANCE_KEY, "class-students", classId],
     queryFn: async (): Promise<Attendance[]> => {
-      try {
-        const response = await http.get(`/v1/attendance/class/${classId}/students-simple`);
-        return response.data?.data || [];
-      } catch (error) {
-        console.error('Error fetching students for class:', classId, error);
-        throw error; // Let React Query handle the error
-      }
+      const response = await api.get<ApiResponse<Attendance[]>>(`/v1/attendance/class/${classId}/students-simple`);
+      return response.data.data;
     },
     enabled: !!classId && classId > 0,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
-}
-
-// Get teacher attendance class view (similar to grade system)
-export function useTeacherAttendanceClass(teacherId: number, classId: number, courseId: number) {
-  return useQuery({
-    queryKey: [ATTENDANCE_KEY, "teacher-class", teacherId, classId, courseId],
-    queryFn: async () => {
-      try {
-        const response = await http.get(`/v1/attendance/teacher/${teacherId}/class/${classId}/course/${courseId}`);
-        return response.data?.data;
-      } catch (error) {
-        console.error('Error fetching teacher attendance class:', error);
-        throw error;
-      }
-    },
-    enabled: !!teacherId && !!classId && !!courseId,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
@@ -209,8 +183,8 @@ export function useCanTeacherMarkAttendance(teacherId: number, slotId: number, d
   return useQuery({
     queryKey: [ATTENDANCE_KEY, "can-mark", teacherId, slotId, targetDate],
     queryFn: async (): Promise<boolean> => {
-      const response = await http.get(`/v1/attendance/teacher/${teacherId}/can-mark/${slotId}?date=${targetDate}`);
-      return response.data?.data || false;
+      const response = await api.get<ApiResponse<boolean>>(`/v1/attendance/teacher/${teacherId}/can-mark/${slotId}?date=${targetDate}`);
+      return response.data.data;
     },
     enabled: !!teacherId && !!slotId,
   });
@@ -231,8 +205,8 @@ export function useMarkAttendanceForSlot() {
       attendanceList: CreateAttendanceRequest[] 
     }): Promise<Attendance[]> => {
       const targetDate = date || new Date().toISOString().split('T')[0];
-      const response = await http.post(`/v1/attendance/slot/${slotId}/mark?date=${targetDate}`, attendanceList);
-      return response.data?.data || [];
+      const response = await api.post<ApiResponse<Attendance[]>>(`/v1/attendance/slot/${slotId}/mark?date=${targetDate}`, attendanceList);
+      return response.data.data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
@@ -262,8 +236,8 @@ export function useMarkAttendanceForClass() {
       attendanceList: CreateAttendanceRequest[] 
     }): Promise<Attendance[]> => {
       const targetDate = date || new Date().toISOString().split('T')[0];
-      const response = await http.post(`/v1/attendance/class/${classId}/mark?date=${targetDate}`, attendanceList);
-      return response.data?.data || [];
+      const response = await api.post<ApiResponse<Attendance[]>>(`/v1/attendance/class/${classId}/mark?date=${targetDate}`, attendanceList);
+      return response.data.data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });

@@ -15,8 +15,9 @@ import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
 import { useMutationApi } from "@/hooks/useMutationApi"
 import { getApiErrorMessage } from "@/lib/api-error"
-import { http } from "@/lib/http"
+import { api } from "@/lib/api-client"
 import type { Course } from "@/types/course"
+import type { ApiResponse } from "@/types/level"
 import { courseSchema, courseFields, type CourseValues } from "../courseForm.definition"
 
 interface EditCourseSheetProps {
@@ -30,8 +31,8 @@ export function EditCourseSheet({ course, trigger, onSuccess }: EditCourseSheetP
 
   const editCourseMutation = useMutationApi<Course, CourseValues>(
     async (data) => {
-      const response = await http.put<Course>(`/v1/courses/${course.id}`, data)
-      return response.data
+      const response = await api.put<ApiResponse<Course>>(`/v1/courses/${course.id}`, data)
+      return response.data.data
     },
     {
       onSuccess: () => {

@@ -17,7 +17,8 @@ import {
 import { Teacher } from '../../../types/teacher';
 import { Period } from '../../../types/period';
 import { TimetableSlot, DayOfWeek } from '../../../types/timetable';
-import { http } from '../../../lib/http';
+import { api } from '../../../lib/api-client';
+import type { ApiResponse } from '../../../types/level';
 import toast from 'react-hot-toast';
 import { usePeriods } from '../hooks';
 
@@ -72,14 +73,14 @@ export function TeacherScheduleView({ teacherId, teacher }: TeacherScheduleViewP
     
     try {
       // Fetch teacher timetable slots
-      const slotsResponse = await http.get(`/v1/timetables/teacher/${teacherId}`);
-      const slots = slotsResponse?.data || [];
+      const slotsResponse = await api.get<ApiResponse<TimetableSlot[]>>(`/v1/timetables/teacher/${teacherId}`);
+      const slots = slotsResponse.data.data;
 
       // Fetch teacher details if not provided
       let teacherData = teacher;
       if (!teacherData) {
-        const teacherResponse = await http.get(`/admin/teachers/${teacherId}`);
-        teacherData = teacherResponse?.data;
+        const teacherResponse = await api.get<ApiResponse<Teacher>>(`/admin/teachers/${teacherId}`);
+        teacherData = teacherResponse.data.data;
       }
 
       if (!teacherData) {

@@ -16,7 +16,8 @@ import { AutoForm } from "@/form/AutoForm"
 import type { FormRecipe } from "@/form/types"
 import { useMutationApi } from "@/hooks/useMutationApi"
 import { getApiErrorMessage } from "@/lib/api-error"
-import { http } from "@/lib/http"
+import { api } from "@/lib/api-client"
+import type { ApiResponse } from "@/types/level"
 import type { LearningResource, CreateLearningResourceRequest } from "@/types/learning-resource"
 import { ResourceType } from "@/types/learning-resource"
 import { 
@@ -35,8 +36,8 @@ export function AddLearningResourceSheet({ onSuccess }: AddLearningResourceSheet
   // URL Resource Creation
   const addUrlResourceMutation = useMutationApi<LearningResource, CreateLearningResourceRequest>(
     async (data) => {
-      const response = await http.post<LearningResource>("/v1/learning-resources", data)
-      return response.data
+      const response = await api.post<ApiResponse<LearningResource>>("/v1/learning-resources", data)
+      return response.data.data
     },
     {
       onSuccess: () => {
@@ -129,8 +130,8 @@ export function EditLearningResourceSheet({ resource, trigger, onSuccess }: Edit
 
   const editResourceMutation = useMutationApi<LearningResource, LearningResourceValues>(
     async (data) => {
-      const response = await http.put<LearningResource>(`/v1/learning-resources/${resource.id}`, data)
-      return response.data
+      const response = await api.put<ApiResponse<LearningResource>>(`/v1/learning-resources/${resource.id}`, data)
+      return response.data.data
     },
     {
       onSuccess: () => {

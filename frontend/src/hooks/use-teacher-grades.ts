@@ -1,21 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { http } from '@/lib/http';
+import { api } from '@/lib/api-client';
+import type { ApiResponse } from '@/types/level';
 import { getApiErrorMessage } from '@/lib/api-error';
 import toast from 'react-hot-toast';
 
 // Enhanced grade management types
-export interface CreateEnhancedGradeRequest {
-  studentId: number;
-  classId: number;
-  courseId: number;
-  examType: ExamType;
-  semester: Semester;
-  score: number;
-  maxScore: number;
-  teacherRemarks?: string;
-  gradedAt?: string;
-}
-
 export interface BulkEnhancedGradeEntryRequest {
   classId: number;
   courseId: number;
@@ -69,8 +58,8 @@ export function useCreateBulkEnhancedGrades() {
   
   return useMutation({
     mutationFn: async (data: BulkEnhancedGradeEntryRequest) => {
-      const response = await http.post<EnhancedGradeResponse[]>('/v1/grades/bulk-entry', data);
-      return response.data;
+      const response = await api.post<ApiResponse<EnhancedGradeResponse[]>>('/v1/grades/bulk-entry', data);
+      return response.data.data;
     },
     onSuccess: (_, variables) => {
       toast.success(`Successfully saved grades for ${variables.grades.length} students!`);

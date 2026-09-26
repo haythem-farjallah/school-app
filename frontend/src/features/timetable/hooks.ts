@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { http } from '../../lib/http';
+import axios from 'axios';
+import { api } from '../../lib/api-client';
+import type { ApiResponse, PageDto } from '../../types/level';
 import { Period } from '../../types/period';
 import { Timetable } from '../../types/timetable';
 
@@ -7,9 +9,9 @@ export function usePeriods() {
   return useQuery({
     queryKey: ['periods'],
     queryFn: async () => {
-      const res = await http.get<Period[]>('/v1/periods');
-      console.log('API /v1/periods response:', res);
-      return res; // res is already the array!
+      // GET /v1/periods answers the plain list, without the ApiSuccessResponse envelope.
+      const response = await api.get<Period[]>('/v1/periods');
+      return response.data;
     },
   });
 }
@@ -19,19 +21,14 @@ export function useTimetable(classId: number) {
     queryKey: ['timetable', classId],
     queryFn: async () => {
       try {
-        console.log('🔍 Fetching timetable for class', classId);
-        const res = await http.get<{ status: string; data: Timetable }>(`/v1/timetables/class/${classId}`);
-        console.log('📥 Timetable API response for class', classId, ':', res);
-        console.log('📥 Timetable slots count:', res.data?.slots?.length || 0);
-        return res.data; // Return the data property from ApiSuccessResponse
-      } catch (err: unknown) {
-        const error = err as { response?: { status?: number } };
-        console.log('❌ Timetable API error for class', classId, ':', error?.response?.status);
-        if (error?.response?.status === 404) {
-          console.log('ℹ️ No timetable found for class', classId, '- this is normal for new classes');
-          return null; // No timetable exists for this class
+        const response = await api.get<ApiResponse<Timetable>>(`/v1/timetables/class/${classId}`);
+        return response.data.data;
+      } catch (error) {
+        // A class without a timetable answers 404; that is an empty timetable, not a failure.
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          return null;
         }
-        throw err;
+        throw error;
       }
     },
     enabled: !!classId,
@@ -47,9 +44,8 @@ export function useTimetables() {
   return useQuery({
     queryKey: ['timetables'],
     queryFn: async () => {
-      const res = await http.get<Timetable[]>('/v1/timetables');
-      console.log('API /v1/timetables response:', res);
-      return res; // res is already the array!
+      const response = await api.get<ApiResponse<PageDto<Timetable>>>('/v1/timetables');
+      return response.data.data.content;
     },
   });
-} 
+}

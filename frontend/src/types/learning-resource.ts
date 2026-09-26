@@ -72,23 +72,15 @@ export interface ResourceComment {
   id: number;
   content: string;
   resourceId: number;
-  userId: number;
-  userName: string;
+  resourceTitle: string;
+  commentedById: number;
+  commentedByName: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface CreateResourceCommentRequest {
   content: string;
   resourceId: number;
-}
-
-export interface ResourceCommentResponse {
-  content: ResourceComment[];
-  totalElements: number;
-  totalPages: number;
-  number: number;
-  size: number;
 }
 
 export interface ResourceUploadRequest {
