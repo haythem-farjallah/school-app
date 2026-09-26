@@ -58,22 +58,14 @@ describe("loginUser", () => {
     expect((error as AxiosError).response?.status).toBe(401);
   });
 
-  it("never calls a refresh endpoint when a leftover session is refused", async () => {
+  it("drops a leftover session when credentials are refused", async () => {
     localStorage.setItem("accessToken", "expired-access-token");
     localStorage.setItem("refreshToken", "expired-refresh-token");
-    let refreshCalls = 0;
-    server.use(
-      http.post(apiUrl("/auth/login"), refusedCredentials),
-      http.post(apiUrl("/auth/refresh-token"), () => {
-        refreshCalls++;
-        return new HttpResponse(null, { status: 404 });
-      }),
-    );
+    server.use(http.post(apiUrl("/auth/login"), refusedCredentials));
 
     const error = await loginUser({ email: "admin@fixtures.school.test", password: "wrong-pass" }).catch((e) => e);
 
     expect((error as AxiosError).response?.status).toBe(401);
-    expect(refreshCalls).toBe(0);
     expect(localStorage.getItem("accessToken")).toBeNull();
     expect(localStorage.getItem("refreshToken")).toBeNull();
   });

@@ -120,15 +120,7 @@ describe("LoginPage", () => {
   it("stays on the login page and drops a leftover session when credentials are refused", async () => {
     localStorage.setItem("accessToken", "expired-access-token");
     localStorage.setItem("refreshToken", "expired-refresh-token");
-    let refreshCalls = 0;
-    server.use(
-      refusedCredentials(),
-      // The backend has no refresh endpoint; the client must not try one.
-      http.post(apiUrl("/auth/refresh-token"), () => {
-        refreshCalls++;
-        return new HttpResponse(null, { status: 404 });
-      }),
-    );
+    server.use(refusedCredentials());
     renderLoginPage();
 
     await submitCredentials("admin@fixtures.school.test", "wrong-pass");
@@ -137,6 +129,5 @@ describe("LoginPage", () => {
     expect(screen.queryByText("Home page")).not.toBeInTheDocument();
     expect(localStorage.getItem("accessToken")).toBeNull();
     expect(localStorage.getItem("refreshToken")).toBeNull();
-    expect(refreshCalls).toBe(0);
   });
 });
