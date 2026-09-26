@@ -1,36 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { http } from "@/lib/http";
-import toast from "react-hot-toast";
 import type { 
   Attendance, 
   CreateAttendanceRequest, 
-  BulkAttendanceRequest,
   AttendanceStatistics,
-  AttendanceFilters,
-  AttendanceResponse,
-  ClassAttendanceSummary
+  AttendanceFilters
 } from "@/types/attendance";
 
 const ATTENDANCE_KEY = "attendance";
-
-// Get attendance records with filters
-export function useAttendance(filters: AttendanceFilters = {}) {
-  return useQuery({
-    queryKey: [ATTENDANCE_KEY, filters],
-    queryFn: async (): Promise<AttendanceResponse> => {
-      const params = new URLSearchParams();
-      
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          params.append(key, value.toString());
-        }
-      });
-
-      const response = await http.get(`/v1/attendance?${params.toString()}`);
-      return response.data;
-    },
-  });
-}
 
 // Get paginated attendance records (like useGrades)
 export function useAttendanceRecords(filters: AttendanceFilters = {}) {
@@ -56,54 +33,6 @@ export function useAttendanceRecords(filters: AttendanceFilters = {}) {
   });
 }
 
-// Get class attendance for a specific date
-export function useClassAttendance(classId: number, date: string) {
-  return useQuery({
-    queryKey: [ATTENDANCE_KEY, "class", classId, date],
-    queryFn: async (): Promise<Attendance[]> => {
-      const response = await http.get(`/v1/attendance/class/${classId}?date=${date}`);
-      return response.data;
-    },
-    enabled: !!classId && !!date,
-  });
-}
-
-// Get class attendance for a date range (for weekly/monthly views)
-export function useClassAttendanceRange(
-  classId: number, 
-  startDate: string, 
-  endDate: string
-) {
-  return useQuery({
-    queryKey: [ATTENDANCE_KEY, "class-range", classId, startDate, endDate],
-    queryFn: async (): Promise<Attendance[]> => {
-      const response = await http.get(
-        `/v1/attendance/class/${classId}/range?startDate=${startDate}&endDate=${endDate}`
-      );
-      return response.data;
-    },
-    enabled: !!classId && !!startDate && !!endDate,
-  });
-}
-
-// Get attendance statistics for a user
-export function useUserAttendanceStatistics(
-  userId: number, 
-  startDate: string, 
-  endDate: string
-) {
-  return useQuery({
-    queryKey: [ATTENDANCE_KEY, "user-statistics", userId, startDate, endDate],
-    queryFn: async (): Promise<AttendanceStatistics> => {
-      const response = await http.get(
-        `/v1/attendance/statistics/${userId}?startDate=${startDate}&endDate=${endDate}`
-      );
-      return response.data;
-    },
-    enabled: !!userId && !!startDate && !!endDate,
-  });
-}
-
 // Get attendance statistics for table
 export function useAttendanceStatistics(filters: { startDate?: string; endDate?: string } = {}) {
   return useQuery({
@@ -120,24 +49,6 @@ export function useAttendanceStatistics(filters: { startDate?: string; endDate?:
       const response = await http.get(`/v1/attendance/statistics?${params.toString()}`);
       return response.data;
     },
-  });
-}
-
-// Get class attendance summary for a date range
-export function useClassAttendanceSummary(
-  classId: number,
-  startDate: string,
-  endDate: string
-) {
-  return useQuery({
-    queryKey: [ATTENDANCE_KEY, "class-summary", classId, startDate, endDate],
-    queryFn: async (): Promise<ClassAttendanceSummary[]> => {
-      const response = await http.get(
-        `/v1/attendance/class/${classId}/summary?startDate=${startDate}&endDate=${endDate}`
-      );
-      return response.data;
-    },
-    enabled: !!classId && !!startDate && !!endDate,
   });
 }
 
@@ -203,80 +114,7 @@ export function useDeleteAttendance() {
   });
 }
 
-// Bulk mark attendance for a class
-export function useBulkMarkAttendance() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (data: BulkAttendanceRequest): Promise<void> => {
-      await http.post("/v1/attendance/bulk", data);
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
-      queryClient.invalidateQueries({ 
-        queryKey: [ATTENDANCE_KEY, "class", variables.classId] 
-      });
-      toast.success(`Attendance marked for ${variables.attendances.length} students`);
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to mark attendance: ${error.message}`);
-    },
-  });
-}
-
-// Copy attendance from previous day
-export function useCopyPreviousAttendance() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ 
-      classId, 
-      fromDate, 
-      toDate 
-    }: { 
-      classId: number; 
-      fromDate: string; 
-      toDate: string; 
-    }): Promise<void> => {
-      await http.post("/v1/attendance/copy", {
-        classId,
-        fromDate,
-        toDate,
-      });
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: [ATTENDANCE_KEY] });
-      queryClient.invalidateQueries({ 
-        queryKey: [ATTENDANCE_KEY, "class", variables.classId] 
-      });
-      toast.success("Attendance copied from previous day");
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to copy attendance: ${error.message}`);
-    },
-  });
-}
-
 // Teacher-specific attendance hooks
-
-// Get teacher's today schedule with attendance status
-export function useTeacherTodaySchedule(teacherId: number, date?: string) {
-  const targetDate = date || new Date().toISOString().split('T')[0];
-  
-  return useQuery({
-    queryKey: [ATTENDANCE_KEY, "teacher-today", teacherId, targetDate],
-    queryFn: async (): Promise<Attendance[]> => {
-      try {
-        const response = await http.get(`/v1/attendance/teacher/${teacherId}/today?date=${targetDate}`);
-        return response.data?.data || [];
-      } catch (error) {
-        console.error('Error fetching teacher today schedule:', error);
-        return [];
-      }
-    },
-    enabled: !!teacherId,
-  });
-}
 
 // Get absent students for teacher today
 export function useTeacherAbsentStudents(teacherId: number, date?: string) {

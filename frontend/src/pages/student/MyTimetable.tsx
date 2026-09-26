@@ -38,23 +38,7 @@ export default function MyTimetable() {
         } catch (error) {
           console.log('No student dashboard found, trying alternative methods...');
         }
-        
-        if (!classInfo) {
-          try {
-            // Fallback: get first available class
-            const classesResponse = await http.get('/v1/classes?size=1');
-            if (classesResponse?.data?.content?.[0]) {
-              classInfo = classesResponse.data.content[0];
-              toast.info('Using default class for demonstration');
-            } else if (classesResponse?.data?.[0]) {
-              classInfo = classesResponse.data[0];
-              toast.info('Using default class for demonstration');
-            }
-          } catch (error) {
-            console.error('Failed to fetch classes:', error);
-          }
-        }
-        
+
         if (classInfo) {
           setStudentClass(classInfo);
         } else {

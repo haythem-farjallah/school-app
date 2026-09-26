@@ -7,8 +7,7 @@ import {
   UserCheck,
   Mail,
   FileText,
-  X,
-  Upload
+  X
 } from "lucide-react";
 import {
   DataTableActionBar,
@@ -31,7 +30,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { BulkImportDialog, type ImportResult, type UserType as ImportUserType } from "./bulk-import-dialog";
 
 export type UserType = 'students' | 'teachers' | 'parents' | 'staff';
 
@@ -42,7 +40,6 @@ export interface UserBulkActionBarProps<TData> {
   onBulkStatusUpdate?: (ids: number[], status: string) => void;
   onBulkExport?: (ids: number[], format: 'csv' | 'xlsx') => void;
   onBulkEmail?: (ids: number[]) => void;
-  onBulkImport?: (file: File) => Promise<ImportResult[]>;
   // Additional action props based on user type
   onBulkAssignCourses?: (teacherIds: number[], courseIds: number[]) => void; // for teachers
   onBulkEnrollClasses?: (studentIds: number[], classIds: number[]) => void; // for students
@@ -55,7 +52,6 @@ export function UserBulkActionBar<TData extends { id: number }>({
   onBulkStatusUpdate,
   onBulkExport,
   onBulkEmail,
-  onBulkImport,
   onBulkAssignCourses,
   onBulkEnrollClasses,
 }: UserBulkActionBarProps<TData>) {
@@ -64,7 +60,6 @@ export function UserBulkActionBar<TData extends { id: number }>({
   const [selectedStatus, setSelectedStatus] = React.useState<string>("");
   const [showExportDialog, setShowExportDialog] = React.useState(false);
   const [exportFormat, setExportFormat] = React.useState<'csv' | 'xlsx'>('csv');
-  const [showImportDialog, setShowImportDialog] = React.useState(false);
 
   const selectedRows = table.getFilteredSelectedRowModel().rows;
   const selectedIds = selectedRows.map(row => row.original.id);
@@ -202,17 +197,6 @@ export function UserBulkActionBar<TData extends { id: number }>({
           </DataTableActionBarAction>
         )}
 
-        {/* Bulk Import */}
-        {onBulkImport && (
-          <DataTableActionBarAction
-            tooltip={`Import ${getUserTypeLabel()}s from file`}
-            onClick={() => setShowImportDialog(true)}
-          >
-            <Upload />
-            Import File
-          </DataTableActionBarAction>
-        )}
-
         {/* Special Actions by User Type */}
         {userType === 'teachers' && onBulkAssignCourses && (
           <DataTableActionBarAction
@@ -326,16 +310,6 @@ export function UserBulkActionBar<TData extends { id: number }>({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Import Dialog */}
-      {onBulkImport && (
-        <BulkImportDialog
-          open={showImportDialog}
-          onOpenChange={setShowImportDialog}
-          userType={userType as ImportUserType}
-          onImport={onBulkImport}
-        />
-      )}
     </>
   );
 }

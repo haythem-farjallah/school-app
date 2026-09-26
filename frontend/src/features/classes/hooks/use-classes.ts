@@ -2,7 +2,6 @@ import * as React from "react";
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { usePaginated } from "@/hooks/usePaginated";
 import { api } from "@/lib/api-client";
-import { http } from "@/lib/http";
 import type { 
   Class, 
   CreateClassRequest, 
@@ -121,45 +120,3 @@ export function useDeleteClass() {
     }
   );
 }
-
-/* ── 6. Add courses to class ──────────────────────────────────────────── */
-export function useAddCoursesToClass() {
-  return useMutationApi<void, { classId: number; courseIds: number[] }>(
-    async ({ classId, courseIds }) => {
-      await http.patch(`/v1/classes/${classId}/courses`, {
-        operation: "ADD",
-        ids: courseIds,
-      });
-    }
-  );
-}
-
-/* ── 7. Remove courses from class ──────────────────────────────────────── */
-export function useRemoveCoursesFromClass() {
-  return useMutationApi<void, { classId: number; courseIds: number[] }>(
-    async ({ classId, courseIds }) => {
-      await http.patch(`/v1/classes/${classId}/courses`, {
-        operation: "REMOVE",
-        ids: courseIds,
-      });
-    }
-  );
-}
-
-/* ── 8. Add student to class ──────────────────────────────────────────── */
-export function useAddStudentToClass() {
-  return useMutationApi<void, { classId: number; studentId: number }>(
-    async ({ classId, studentId }) => {
-      await http.post(`/v1/classes/${classId}/students/${studentId}`);
-    }
-  );
-}
-
-/* ── 9. Remove student from class ──────────────────────────────────────── */
-export function useRemoveStudentFromClass() {
-  return useMutationApi<void, { classId: number; studentId: number }>(
-    async ({ classId, studentId }) => {
-      await http.delete(`/v1/classes/${classId}/students/${studentId}`);
-    }
-  );
-} 

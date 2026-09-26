@@ -31,43 +31,6 @@ export interface TeacherClassStats {
   capacityUsed: number;
 }
 
-export interface TeacherClassesResponse {
-  data: TeacherClass[];
-  totalItems: number;
-  totalPages: number;
-  currentPage: number;
-  pageSize: number;
-}
-
-interface UseTeacherClassesOptions {
-  page?: number;
-  size?: number;
-  search?: string;
-  enabled?: boolean;
-}
-
-export function useTeacherClasses(options: UseTeacherClassesOptions = {}) {
-  const { page = 0, size = 10, search, enabled = true } = options;
-
-  return useQuery({
-    queryKey: ['teacher-classes', page, size, search],
-    queryFn: async (): Promise<TeacherClassesResponse> => {
-      const params = new URLSearchParams();
-      params.append('page', page.toString());
-      params.append('size', size.toString());
-      if (search) {
-        params.append('search', search);
-      }
-
-      const response = await http.get(`/v1/teacher/classes?${params.toString()}`);
-      return response.data;
-    },
-    enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-  });
-}
-
 export function useAllTeacherClasses(search?: string) {
   return useQuery({
     queryKey: ['teacher-classes-all', search],

@@ -1,9 +1,7 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { api } from "@/lib/api-client";
-import { http } from "@/lib/http";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import type { ImportResult } from "@/components/data-table/bulk-import-dialog";
 
 const LIST_KEY = "students";
 
@@ -152,86 +150,6 @@ export function useBulkEmailStudents() {
       onError: (error) => {
         console.error("❌ useBulkEmailStudents - Error:", error);
         toast.error("Failed to send emails");
-      }
-    }
-  );
-}
-
-/* ── Bulk Import Students ──────────────────────────────────────────────── */
-export function useBulkImportStudents() {
-  const queryClient = useQueryClient();
-  
-  return useMutationApi<ImportResult[], File>(
-    async (file) => {
-      console.log("📁 useBulkImportStudents - Processing file:", file.name);
-      
-      // Simulate file processing with progress updates
-      const results: ImportResult[] = [];
-      
-      // Parse file (this would be actual CSV/Excel parsing)
-      const mockData = [
-        { firstName: "John", lastName: "Doe", email: "john.doe@example.com" },
-        { firstName: "Jane", lastName: "Smith", email: "jane.smith@example.com" },
-        { firstName: "Bob", lastName: "Johnson", email: "bob.johnson@example.com" },
-        { firstName: "Alice", lastName: "Brown", email: "alice.brown@example.com" },
-        { firstName: "Charlie", lastName: "Wilson", email: "charlie.wilson@example.com" },
-      ];
-      
-      // Create initial results
-      mockData.forEach((data, index) => {
-        results.push({
-          id: `row-${index + 1}`,
-          row: index + 2, // Row 1 is headers
-          data,
-          status: 'pending'
-        });
-      });
-      
-      // Process each row with simulated delay
-      for (let i = 0; i < results.length; i++) {
-        // Update to processing
-        results[i].status = 'processing';
-        
-        // Simulate processing delay
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-        
-        // Simulate success/error (90% success rate)
-        if (Math.random() > 0.1) {
-          results[i].status = 'success';
-          
-          // Simulate API call to create student
-          try {
-            await http.post('/v1/students', {
-              profile: {
-                firstName: results[i].data.firstName,
-                lastName: results[i].data.lastName,
-                email: results[i].data.email,
-                role: 'STUDENT'
-              }
-            });
-          } catch (error) {
-            results[i].status = 'error';
-            results[i].error = 'Failed to create student in database';
-          }
-        } else {
-          results[i].status = 'error';
-          results[i].error = 'Invalid email format or missing required fields';
-        }
-      }
-      
-      return results;
-    },
-    {
-      onSuccess: (results) => {
-        const successful = results.filter(r => r.status === 'success').length;
-        const failed = results.filter(r => r.status === 'error').length;
-        
-        queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-        toast.success(`Import completed! ${successful} students added, ${failed} failed`);
-      },
-      onError: (error) => {
-        console.error("❌ useBulkImportStudents - Error:", error);
-        toast.error("Failed to process import file");
       }
     }
   );

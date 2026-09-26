@@ -4,7 +4,6 @@ import { http } from "@/lib/http";
 import type { 
   TeachingAssignment, 
   CreateTeachingAssignmentData, 
-  UpdateTeachingAssignmentData,
   BulkAssignTeacherToCoursesRequest,
   BulkAssignTeachersToClassRequest
 } from "@/types/teaching-assignment";
@@ -68,70 +67,6 @@ export function useTeachingAssignments(
   return result;
 }
 
-/* ── 2. Single teaching assignment ──────────────────────────────────────────────────── */
-export function useTeachingAssignment(id?: number) {
-  const queryClient = useQueryClient();
-
-  return useMutationApi<TeachingAssignment, number>(
-    async (assignmentId) => {
-      const response = await http.get<TeachingAssignment>(`/admin/teaching-assignments/${assignmentId}`);
-      return response.data;
-    },
-    {
-      queryKey: [LIST_KEY, id],
-      enabled: !!id,
-      onSuccess: () => {
-        // No toast for get, it's a read operation
-      },
-      onError: (error) => {
-        toast.error(`Failed to fetch teaching assignment: ${error.message}`);
-      },
-    }
-  );
-}
-
-/* ── 3. Create teaching assignment ──────────────────────────────────────────────────── */
-export function useCreateTeachingAssignment() {
-  const queryClient = useQueryClient();
-
-  return useMutationApi<TeachingAssignment, CreateTeachingAssignmentData>(
-    async (data) => {
-      const response = await http.post<TeachingAssignment>("/admin/teaching-assignments", data);
-      return response.data;
-    },
-    {
-      onSuccess: () => {
-        toast.success("Teaching assignment created successfully");
-        queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-      },
-      onError: (error) => {
-        toast.error(`Failed to create teaching assignment: ${error.message}`);
-      },
-    }
-  );
-}
-
-/* ── 4. Update teaching assignment ──────────────────────────────────────────────────── */
-export function useUpdateTeachingAssignment() {
-  const queryClient = useQueryClient();
-
-  return useMutationApi<TeachingAssignment, { id: number; data: UpdateTeachingAssignmentData }>(
-    async ({ id, data }) => {
-      const response = await http.patch<TeachingAssignment>(`/admin/teaching-assignments/${id}`, data);
-      return response.data;
-    },
-    {
-      onSuccess: () => {
-        toast.success("Teaching assignment updated successfully");
-        queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-      },
-      onError: (error) => {
-        toast.error(`Failed to update teaching assignment: ${error.message}`);
-      },
-    }
-  );
-}
-
 /* ── 5. Delete teaching assignment ──────────────────────────────────────────────────── */
 export function useDeleteTeachingAssignment() {
   const queryClient = useQueryClient();
@@ -147,26 +82,6 @@ export function useDeleteTeachingAssignment() {
       },
       onError: (error) => {
         toast.error(`Failed to delete teaching assignment: ${error.message}`);
-      },
-    }
-  );
-}
-
-/* ── 6. Bulk delete teaching assignments ──────────────────────────────────────────────────── */
-export function useBulkDeleteTeachingAssignments() {
-  const queryClient = useQueryClient();
-
-  return useMutationApi<void, number[]>(
-    async (ids) => {
-      await http.delete("/admin/teaching-assignments/bulk", { data: ids });
-    },
-    {
-      onSuccess: () => {
-        toast.success("Selected teaching assignments deleted successfully");
-        queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-      },
-      onError: (error) => {
-        toast.error(`Failed to bulk delete teaching assignments: ${error.message}`);
       },
     }
   );

@@ -5,12 +5,9 @@ import { useMutationApi } from "@/hooks/useMutationApi";
 import { http } from "@/lib/http";
 import type { 
   Enrollment, 
-  EnrollmentStats,
   CreateEnrollmentRequest,
   UpdateEnrollmentStatusRequest,
-  TransferStudentRequest,
   DropEnrollmentRequest,
-  BulkEnrollStudentsRequest,
   EnrollmentStatus 
 } from "@/types/enrollment";
 
@@ -130,21 +127,6 @@ export function useClassEnrollments(classId?: number, options?: { page?: number;
   );
 }
 
-export function useEnrollmentStats(type: "class" | "student", id?: number) {
-  return useQueryApi<EnrollmentStats>(
-    ["enrollment-stats", type, id],
-    async () => {
-      const response = await http.get(`/v1/enrollments/stats/${type}/${id}`);
-      // Handle potential API response wrapper
-      if (response && typeof response === 'object' && 'data' in response) {
-        return response.data as EnrollmentStats;
-      }
-      return response as EnrollmentStats;
-    },
-    { enabled: !!id }
-  );
-}
-
 export function useEnrollStudent() {
   return useMutationApi<Enrollment, CreateEnrollmentRequest>(
     async (data) => {
@@ -171,17 +153,6 @@ export function useUpdateEnrollmentStatus() {
   );
 }
 
-export function useTransferStudent() {
-  return useMutationApi<Enrollment, TransferStudentRequest & { id: number }>(
-    async (data) => {
-      const response = await http.put(`/v1/enrollments/${data.id}/transfer`, {
-        newClassId: data.newClassId
-      });
-      return response.data;
-    }
-  );
-}
-
 export function useDropEnrollment() {
   return useMutationApi<void, DropEnrollmentRequest & { id: number }>(
     async (data) => {
@@ -192,27 +163,3 @@ export function useDropEnrollment() {
     }
   );
 }
-
-export function useBulkEnrollStudents() {
-  return useMutationApi<void, BulkEnrollStudentsRequest>(
-    async (data) => {
-      const response = await http.post("/v1/enrollments/bulk-enroll", data);
-      return response.data;
-    }
-  );
-}
-
-export function useCanEnrollStudent() {
-  return useQueryApi<boolean>(
-    ["can-enroll-student"],
-    async () => {
-      const response = await http.get("/v1/enrollments/can-enroll");
-      // Handle potential API response wrapper
-      if (response && typeof response === 'object' && 'data' in response) {
-        return response.data as boolean;
-      }
-      return response as boolean;
-    },
-    { enabled: false } // Enable manually when needed
-  );
-} 

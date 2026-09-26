@@ -1,7 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { http } from '@/lib/http';
-import { getApiErrorMessage } from '@/lib/api-error';
-import toast from 'react-hot-toast';
 
 // Types for teacher classes and grade management
 export interface TeacherClass {
@@ -56,21 +54,6 @@ export interface StudentGradeEntry {
   weight?: number;
 }
 
-// Hook to fetch teacher's classes for grade management
-export function useTeacherGradeClasses(teacherId?: number) {
-  return useQuery({
-    queryKey: ['teacher-grade-classes', teacherId],
-    queryFn: async () => {
-      if (!teacherId) throw new Error('Teacher ID is required');
-      
-      const response = await http.get(`/v1/classes/teacher/${teacherId}?size=50`);
-      return response.data.data.content || [];
-    },
-    enabled: !!teacherId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-}
-
 // Hook to fetch specific class details for grading
 export function useTeacherGradeClass(teacherId?: number, classId?: number, courseId?: number) {
   return useQuery({
@@ -115,77 +98,38 @@ export function useTeacherGradeClass(teacherId?: number, classId?: number, cours
         
         // Get students enrolled in this class
         let students = [];
-        try {
-          console.log('Fetching enrollments for class ID:', classId);
-          const enrollmentsResponse = await http.get(`/v1/enrollments/class/${classId}?size=100`);
-          console.log('Enrollments response:', enrollmentsResponse);
-          
-          let enrollments = [];
-          if (enrollmentsResponse.data?.data?.content) {
-            enrollments = enrollmentsResponse.data.data.content;
-          } else if (enrollmentsResponse.data?.content) {
-            enrollments = enrollmentsResponse.data.content;
-          } else if (Array.isArray(enrollmentsResponse.data?.data)) {
-            enrollments = enrollmentsResponse.data.data;
-          }
-          
-          console.log('Parsed enrollments:', enrollments);
-          
-          // Transform enrollments to student format
-          students = enrollments.map((enrollment: any) => ({
-            studentId: enrollment.student?.id || enrollment.studentId,
-            firstName: enrollment.student?.firstName || 'Student',
-            lastName: enrollment.student?.lastName || `${enrollment.id}`,
-            email: enrollment.student?.email || `student${enrollment.id}@school.edu`,
-            enrollmentId: enrollment.id,
-            currentGrades: {
-              firstExam: null,
-              secondExam: null,
-              finalExam: null,
-              quizzes: [],
-              assignments: [],
-            },
-            average: 0,
-            attendanceRate: 85.0, // Default attendance rate
-          }));
-        } catch (enrollmentError) {
-          console.warn('Could not fetch enrollments, using mock data:', enrollmentError);
-          // Fallback to mock students if enrollment fetch fails
-          students = [
-            {
-              studentId: 1,
-              firstName: 'John',
-              lastName: 'Doe',
-              email: 'john.doe@school.edu',
-              enrollmentId: 1,
-              currentGrades: {
-                firstExam: null,
-                secondExam: null,
-                finalExam: null,
-                quizzes: [],
-                assignments: [],
-              },
-              average: 0,
-              attendanceRate: 85.0,
-            },
-            {
-              studentId: 2,
-              firstName: 'Jane',
-              lastName: 'Smith',
-              email: 'jane.smith@school.edu',
-              enrollmentId: 2,
-              currentGrades: {
-                firstExam: null,
-                secondExam: null,
-                finalExam: null,
-                quizzes: [],
-                assignments: [],
-              },
-              average: 0,
-              attendanceRate: 92.0,
-            },
-          ];
+        console.log('Fetching enrollments for class ID:', classId);
+        const enrollmentsResponse = await http.get(`/v1/enrollments/class/${classId}?size=100`);
+        console.log('Enrollments response:', enrollmentsResponse);
+        
+        let enrollments = [];
+        if (enrollmentsResponse.data?.data?.content) {
+          enrollments = enrollmentsResponse.data.data.content;
+        } else if (enrollmentsResponse.data?.content) {
+          enrollments = enrollmentsResponse.data.content;
+        } else if (Array.isArray(enrollmentsResponse.data?.data)) {
+          enrollments = enrollmentsResponse.data.data;
         }
+        
+        console.log('Parsed enrollments:', enrollments);
+        
+        // Transform enrollments to student format
+        students = enrollments.map((enrollment: any) => ({
+          studentId: enrollment.student?.id || enrollment.studentId,
+          firstName: enrollment.student?.firstName || 'Student',
+          lastName: enrollment.student?.lastName || `${enrollment.id}`,
+          email: enrollment.student?.email || `student${enrollment.id}@school.edu`,
+          enrollmentId: enrollment.id,
+          currentGrades: {
+            firstExam: null,
+            secondExam: null,
+            finalExam: null,
+            quizzes: [],
+            assignments: [],
+          },
+          average: 0,
+          attendanceRate: 85.0, // Default attendance rate
+        }));
         
         const result = {
           classId: classData.id,
@@ -208,42 +152,6 @@ export function useTeacherGradeClass(teacherId?: number, classId?: number, cours
     },
     enabled: !!classId,
     staleTime: 2 * 60 * 1000, // 2 minutes
-  });
-}
-
-// Hook to save bulk grades
-export function useBulkGradeEntry() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (data: BulkGradeEntry) => {
-      const response = await http.post('/v1/grades/bulk', data);
-      return response.data;
-    },
-    onSuccess: (_, variables) => {
-      toast.success('Grades saved successfully!');
-      
-      // Invalidate related queries
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-grade-classes'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-grade-class', undefined, variables.classId, variables.courseId] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['grades'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-classes-basic'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-class-stats'] 
-      });
-    },
-    onError: (error) => {
-      const message = getApiErrorMessage(error, 'Failed to save grades');
-      toast.error(message);
-    },
   });
 }
 

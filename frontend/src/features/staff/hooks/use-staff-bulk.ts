@@ -1,9 +1,7 @@
 import { useMutationApi } from "@/hooks/useMutationApi";
 import { api } from "@/lib/api-client";
-import { http } from "@/lib/http";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import type { ImportResult } from "@/components/data-table/bulk-import-dialog";
 
 const LIST_KEY = "staff";
 
@@ -69,7 +67,7 @@ export function useBulkUpdateDepartment() {
       );
     },
     {
-      onSuccess: (_, { ids, department }) => {
+      onSuccess: (_, { ids }) => {
         console.log("✅ useBulkUpdateDepartment - Success");
         queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
         toast.success(`Updated department for ${ids.length} staff member${ids.length !== 1 ? 's' : ''}`);
@@ -98,7 +96,7 @@ export function useBulkUpdateStaffType() {
       );
     },
     {
-      onSuccess: (_, { ids, staffType }) => {
+      onSuccess: (_, { ids }) => {
         console.log("✅ useBulkUpdateStaffType - Success");
         queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
         toast.success(`Updated staff type for ${ids.length} member${ids.length !== 1 ? 's' : ''}`);
@@ -197,73 +195,6 @@ export function useBulkEmailStaff() {
       onError: (error) => {
         console.error("❌ useBulkEmailStaff - Error:", error);
         toast.error("Failed to send emails");
-      }
-    }
-  );
-}
-
-/* ── Bulk Import Staff ───────────────────────────────────────────────── */
-export function useBulkImportStaff() {
-  const queryClient = useQueryClient();
-  
-  return useMutationApi<ImportResult[], File>(
-    async (file) => {
-      console.log("📁 useBulkImportStaff - Processing file:", file.name);
-      
-      // Simulate file processing with progress updates
-      const results: ImportResult[] = [];
-      const mockData = [
-        { firstName: "Karen", lastName: "White", email: "karen.white@school.edu", department: "Administration", position: "Secretary" },
-        { firstName: "James", lastName: "Garcia", email: "james.garcia@school.edu", department: "IT", position: "Technician" },
-        { firstName: "Maria", lastName: "Rodriguez", email: "maria.rodriguez@school.edu", department: "Maintenance", position: "Custodian" }
-      ];
-
-      for (let i = 0; i < mockData.length; i++) {
-        const data = mockData[i];
-        const result: ImportResult = {
-          id: `staff-${i + 1}`,
-          row: i + 1,
-          data,
-          status: 'pending',
-        };
-        results.push(result);
-      }
-
-      // Simulate processing each row
-      for (const result of results) {
-        result.status = 'processing';
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        try {
-          // Simulate API call
-          await http.post('/admin/staff', result.data);
-          result.status = 'success';
-          console.log(`✅ Staff imported: ${result.data.firstName} ${result.data.lastName}`);
-        } catch (error) {
-          result.status = 'error';
-          result.error = 'Failed to create staff record';
-          console.error(`❌ Failed to import staff: ${result.data.firstName} ${result.data.lastName}`, error);
-        }
-      }
-
-      return results;
-    },
-    {
-      onSuccess: (results) => {
-        const successful = results.filter(r => r.status === 'success').length;
-        const failed = results.filter(r => r.status === 'error').length;
-        
-        queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-        
-        if (failed === 0) {
-          toast.success(`Successfully imported ${successful} staff members`);
-        } else {
-          toast.success(`Imported ${successful} staff members, ${failed} failed`);
-        }
-      },
-      onError: (error) => {
-        console.error("❌ useBulkImportStaff - Error:", error);
-        toast.error("Failed to import staff");
       }
     }
   );

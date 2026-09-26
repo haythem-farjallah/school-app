@@ -36,30 +36,6 @@ export function useCreateResourceComment() {
   });
 }
 
-// Update a comment
-export function useUpdateResourceComment() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ 
-      commentId, 
-      content 
-    }: { 
-      commentId: number; 
-      content: string; 
-    }): Promise<ResourceComment> => {
-      const response = await http.put(`/resource-comments/${commentId}`, { content });
-      return response.data;
-    },
-    onSuccess: (data) => {
-      // Invalidate the comments query for this resource
-      queryClient.invalidateQueries({
-        queryKey: ["resource-comments", data.resourceId],
-      });
-    },
-  });
-}
-
 // Delete a comment
 export function useDeleteResourceComment() {
   const queryClient = useQueryClient();
@@ -67,33 +43,6 @@ export function useDeleteResourceComment() {
   return useMutation({
     mutationFn: async (commentId: number): Promise<void> => {
       await http.delete(`/resource-comments/${commentId}`);
-    },
-    onSuccess: () => {
-      // Invalidate all resource comments queries
-      queryClient.invalidateQueries({
-        queryKey: ["resource-comments"],
-      });
-    },
-  });
-}
-
-// Like/Unlike a comment (if this feature exists in backend)
-export function useLikeResourceComment() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ 
-      commentId, 
-      isLiked 
-    }: { 
-      commentId: number; 
-      isLiked: boolean; 
-    }): Promise<void> => {
-      if (isLiked) {
-        await http.post(`/resource-comments/${commentId}/like`);
-      } else {
-        await http.delete(`/resource-comments/${commentId}/like`);
-      }
     },
     onSuccess: () => {
       // Invalidate all resource comments queries

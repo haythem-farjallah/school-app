@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/lib/http';
 import { getApiErrorMessage } from '@/lib/api-error';
 import toast from 'react-hot-toast';
@@ -63,36 +63,6 @@ export enum Semester {
   SECOND = 'SECOND'
 }
 
-// Hook to create a single enhanced grade
-export function useCreateEnhancedGrade() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (data: CreateEnhancedGradeRequest) => {
-      const response = await http.post<EnhancedGradeResponse>('/v1/grades/enhanced', data);
-      return response.data;
-    },
-    onSuccess: (_, variables) => {
-      toast.success('Grade saved successfully!');
-      
-      // Invalidate related queries
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-grade-classes'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-grade-class', undefined, variables.classId, variables.courseId] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['grades'] 
-      });
-    },
-    onError: (error) => {
-      const message = getApiErrorMessage(error, 'Failed to save grade');
-      toast.error(message);
-    },
-  });
-}
-
 // Hook to create bulk enhanced grades
 export function useCreateBulkEnhancedGrades() {
   const queryClient = useQueryClient();
@@ -118,98 +88,6 @@ export function useCreateBulkEnhancedGrades() {
     },
     onError: (error) => {
       const message = getApiErrorMessage(error, 'Failed to save grades');
-      toast.error(message);
-    },
-  });
-}
-
-// Hook to get grades by teacher
-export function useTeacherGrades(teacherId?: number) {
-  return useQuery({
-    queryKey: ['teacher-grades', teacherId],
-    queryFn: async () => {
-      if (!teacherId) throw new Error('Teacher ID is required');
-      
-      const response = await http.get<EnhancedGradeResponse[]>(`/v1/grades/teacher/${teacherId}`);
-      return response.data;
-    },
-    enabled: !!teacherId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
-}
-
-// Hook to get grades by class
-export function useClassGrades(classId?: number) {
-  return useQuery({
-    queryKey: ['class-grades', classId],
-    queryFn: async () => {
-      if (!classId) throw new Error('Class ID is required');
-      
-      const response = await http.get<EnhancedGradeResponse[]>(`/v1/grades/class/${classId}`);
-      return response.data;
-    },
-    enabled: !!classId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
-}
-
-// Hook to update a grade
-export function useUpdateGrade() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ gradeId, data }: { gradeId: number; data: Partial<CreateEnhancedGradeRequest> }) => {
-      const response = await http.patch(`/v1/grades/${gradeId}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success('Grade updated successfully!');
-      
-      // Invalidate related queries
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-grade-classes'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-grade-class'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['grades'] 
-      });
-    },
-    onError: (error) => {
-      const message = getApiErrorMessage(error, 'Failed to update grade');
-      toast.error(message);
-    },
-  });
-}
-
-// Hook to delete a grade
-export function useDeleteGrade() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ gradeId, reason }: { gradeId: number; reason: string }) => {
-      const response = await http.delete(`/v1/grades/${gradeId}`, {
-        data: { reason }
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success('Grade deleted successfully!');
-      
-      // Invalidate related queries
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-grade-classes'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['teacher-grade-class'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['grades'] 
-      });
-    },
-    onError: (error) => {
-      const message = getApiErrorMessage(error, 'Failed to delete grade');
       toast.error(message);
     },
   });

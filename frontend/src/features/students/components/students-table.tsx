@@ -11,8 +11,7 @@ import { DataTableEnhancedFilterList } from "@/components/data-table/data-table-
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, TrendingUp, Plus, Upload } from "lucide-react";
-import { BulkImportDialog } from "@/components/data-table/bulk-import-dialog";
+import { Users, UserCheck, TrendingUp, Plus } from "lucide-react";
 import { type Parser, useQueryState, useQueryStates, parseAsInteger, parseAsString } from "nuqs";
 import {
   Dialog,
@@ -25,7 +24,7 @@ import {
 
 
 import { useStudents, useDeleteStudent } from "../hooks/use-students";
-import { useBulkDeleteStudents, useBulkUpdateStudentStatus, useBulkExportStudents, useBulkImportStudents } from "../hooks/use-students-bulk";
+import { useBulkDeleteStudents, useBulkUpdateStudentStatus, useBulkExportStudents } from "../hooks/use-students-bulk";
 import { getStudentsColumns } from "./student-columns";
 import type { Student } from "@/types/student";
 import { UserBulkActionBar } from "@/components/data-table/user-bulk-action-bar";
@@ -35,7 +34,6 @@ export function StudentsTable() {
   const userRole = useUserRole();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [studentToDelete, setStudentToDelete] = React.useState<Student | null>(null);
-  const [showImportDialog, setShowImportDialog] = React.useState(false);
 
   const deleteMutation = useDeleteStudent();
   
@@ -46,7 +44,6 @@ export function StudentsTable() {
   const bulkDeleteMutation = useBulkDeleteStudents();
   const bulkStatusMutation = useBulkUpdateStudentStatus();
   const bulkExportMutation = useBulkExportStudents();
-  const bulkImportMutation = useBulkImportStudents();
 
   const handleView = React.useCallback((student: Student) => {
     console.log("👁️ StudentsTable - Viewing student:", student);
@@ -114,11 +111,6 @@ export function StudentsTable() {
     // This would call bulk enrollment API
     toast.success(`Bulk enrollment dialog would open for ${studentIds.length} students`);
   }, []);
-
-  const handleBulkImport = React.useCallback(async (file: File) => {
-    console.log("📁 StudentsTable - Importing students from file:", file.name);
-    return await bulkImportMutation.mutateAsync(file);
-  }, [bulkImportMutation]);
 
   const columns = React.useMemo(
     () => getStudentsColumns({
@@ -227,14 +219,6 @@ export function StudentsTable() {
             </div>
             <div className="flex gap-3">
               <Button 
-                variant="outline"
-                onClick={() => setShowImportDialog(true)}
-                className="border-blue-300 text-blue-700 hover:bg-blue-50 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Import Students
-              </Button>
-              <Button 
                 onClick={handleCreate}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
               >
@@ -304,7 +288,6 @@ export function StudentsTable() {
                     onBulkStatusUpdate={handleBulkStatusUpdate}
                     onBulkExport={handleBulkExport}
                     onBulkEmail={handleBulkEmail}
-                    onBulkImport={handleBulkImport}
                     onBulkEnrollClasses={handleBulkEnrollClasses}
                   />
                 }
@@ -356,14 +339,6 @@ export function StudentsTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Import Dialog */}
-      <BulkImportDialog
-        open={showImportDialog}
-        onOpenChange={setShowImportDialog}
-        userType="students"
-        onImport={handleBulkImport}
-      />
     </div>
   );
 } 
