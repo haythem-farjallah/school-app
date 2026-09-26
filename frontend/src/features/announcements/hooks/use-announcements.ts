@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { http } from '../../../lib/http';
+import { api } from '../../../lib/api-client';
 import { getApiErrorMessage } from '../../../lib/api-error';
 import { Announcement, CreateAnnouncementRequest, AnnouncementFilters } from '../../../types/announcement';
-import { PageDto } from '../../../types/level';
+import type { ApiResponse, PageDto } from '../../../types/level';
 import toast from 'react-hot-toast';
 
 // Get announcements with filters
@@ -17,10 +17,8 @@ export function useAnnouncements(filters: AnnouncementFilters = {}) {
       if (filters.isPublic !== undefined) params.append('isPublic', filters.isPublic.toString());
 
       console.log('🔍 useAnnouncements - Making API call with params:', params.toString());
-      const response = await http.get<PageDto<Announcement>>(`/v1/announcements?${params}`);
-      console.log('✅ useAnnouncements - API response:', response);
-      // The HTTP interceptor doesn't unwrap the response, so we need to access response.data
-      return (response as any).data;
+      const response = await api.get<ApiResponse<PageDto<Announcement>>>(`/v1/announcements?${params}`);
+      return response.data.data;
     },
   });
 }
@@ -30,8 +28,8 @@ export function usePublicAnnouncements(page = 0, size = 10) {
   return useQuery({
     queryKey: ['announcements', 'public', page, size],
     queryFn: async () => {
-      const response = await http.get<PageDto<Announcement>>(`/v1/announcements/public?page=${page}&size=${size}`);
-      return (response as any).data;
+      const response = await api.get<ApiResponse<PageDto<Announcement>>>(`/v1/announcements/public?page=${page}&size=${size}`);
+      return response.data.data;
     },
   });
 }
@@ -45,8 +43,8 @@ export function useCreateAnnouncement() {
   
   return useMutation({
     mutationFn: async (data: CreateAnnouncementRequest) => {
-      const response = await http.post<Announcement>('/v1/announcements', data);
-      return response;
+      const response = await api.post<ApiResponse<Announcement>>('/v1/announcements', data);
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
@@ -64,8 +62,8 @@ export function useUpdateAnnouncement() {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<CreateAnnouncementRequest> }) => {
-      const response = await http.put<Announcement>(`/v1/announcements/${id}`, data);
-      return response;
+      const response = await api.put<ApiResponse<Announcement>>(`/v1/announcements/${id}`, data);
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
@@ -83,7 +81,7 @@ export function useDeleteAnnouncement() {
   
   return useMutation({
     mutationFn: async (id: number) => {
-      await http.delete(`/v1/announcements/${id}`);
+      await api.delete(`/v1/announcements/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
