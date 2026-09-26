@@ -1,18 +1,14 @@
-import React from 'react';
-import { Helmet } from 'react-helmet-async';
-import { CommunicationDashboard } from '@/features/notifications/components/CommunicationDashboard';
+import { useTranslation } from "react-i18next";
 
 export default function CommunicationDashboardPage() {
+  const { t } = useTranslation();
+
   return (
-    <>
-      <Helmet>
-        <title>Communication Dashboard - School Management System</title>
-        <meta name="description" content="Monitor and analyze your notification system performance across all communication channels" />
-      </Helmet>
-      
-      <div className="container mx-auto p-6">
-        <CommunicationDashboard />
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">{t('Communication Dashboard')}</h1>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <p className="text-gray-600">Communication analytics are not available yet.</p>
       </div>
-    </>
+    </div>
   );
 }
