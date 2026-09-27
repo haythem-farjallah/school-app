@@ -98,7 +98,7 @@ function updateConnectionStatus(status: Partial<ConnectionStatus>) {
 /**
  * Connect to WebSocket and subscribe to relevant topics
  */
-export function connectWebSocket(user?: { id: number; role: string; email?: string }) {
+export function connectWebSocket(user?: { id: number; role: string }) {
   if (client?.connected) {
     console.log('🔗 WebSocket already connected');
     return;
@@ -115,11 +115,12 @@ export function connectWebSocket(user?: { id: number; role: string; email?: stri
   
   client = new Client({
     webSocketFactory: () => new SockJS(WS_URL),
-    connectHeaders: token.access ? { 
-      Authorization: `Bearer ${token.access}`,
-      'X-User-ID': user.id.toString(),
-      'X-User-Role': user.role
-    } : {},
+    // Runs before every CONNECT, including reconnects, so the session always presents the access
+    // token that is current at that moment. The server derives the user and role from it.
+    beforeConnect: (stompClient) => {
+      const accessToken = token.access;
+      stompClient.connectHeaders = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+    },
     reconnectDelay: 5000,
     heartbeatIncoming: 4000,
     heartbeatOutgoing: 4000,

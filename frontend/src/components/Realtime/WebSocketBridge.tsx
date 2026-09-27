@@ -25,18 +25,13 @@ export function WebSocketBridge() {
   // Manage WebSocket connection based on user authentication
   useEffect(() => {
     if (user && user.id && user.role) {
-      console.log('🔗 User authenticated, connecting WebSocket...', {
-        userId: user.id,
-        userRole: user.role,
-        userEmail: user.email
-      });
+      console.log('🔗 User authenticated, connecting WebSocket...');
       
       // Small delay to ensure token is available in localStorage
       const timer = setTimeout(() => {
         connectWebSocket({
           id: user.id,
-          role: user.role,
-          email: user.email
+          role: user.role
         });
       }, 100);
 
