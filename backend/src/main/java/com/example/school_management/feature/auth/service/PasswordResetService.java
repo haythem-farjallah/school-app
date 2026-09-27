@@ -23,6 +23,8 @@ import java.util.Map;
  * Forgot-password flow: a six-digit code is emailed to an active account and exchanged for a
  * new password. Neither step tells the caller whether the email belongs to an account.
  *
+ * A successful reset revokes every token issued to the account before it.
+ *
  * Only a one-way hash of the code is stored. A code expires after {@link #OTP_LIFETIME}, is
  * discarded after {@link #MAX_FAILED_ATTEMPTS} wrong attempts, and works once.
  */
@@ -108,6 +110,8 @@ public class PasswordResetService {
 
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setPasswordChangeRequired(false);
+        // Every access and refresh token issued before the reset stops working.
+        user.setTokenVersion(user.getTokenVersion() + 1);
         log.info("Password reset for {}", user.getEmail());
     }
 

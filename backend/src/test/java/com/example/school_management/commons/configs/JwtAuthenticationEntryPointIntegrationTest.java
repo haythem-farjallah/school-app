@@ -61,6 +61,8 @@ class JwtAuthenticationEntryPointIntegrationTest {
     void tokenSignedWithAnotherKeyGetsProblemDetail() throws Exception {
         String forged = Jwts.builder()
                 .setSubject(DevFixtureLoader.ADMIN_EMAIL)
+                .claim("tokenType", "ACCESS")
+                .claim("tokenVersion", 0)
                 .setExpiration(new Date(System.currentTimeMillis() + 60_000))
                 .signWith(Keys.hmacShaKeyFor("some-other-signing-key-0123456789abcdef".getBytes(StandardCharsets.UTF_8)),
                         SignatureAlgorithm.HS256)

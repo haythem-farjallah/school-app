@@ -19,7 +19,8 @@ import java.util.Optional;
 /**
  * Issues and validates the two kinds of JWT the API uses. Every token carries a signed
  * {@value #TOKEN_TYPE_CLAIM} claim, so an access token is never accepted where a refresh
- * token is expected and the other way round. Tokens without that claim are invalid.
+ * token is expected and the other way round, and a signed {@value #TOKEN_VERSION_CLAIM} claim
+ * holding the account's token version when it was issued. Tokens without either claim are invalid.
  */
 @Component
 public class JwtTokenProvider {
@@ -27,8 +28,12 @@ public class JwtTokenProvider {
     private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
 
     static final String TOKEN_TYPE_CLAIM = "tokenType";
+    static final String TOKEN_VERSION_CLAIM = "tokenVersion";
 
     enum TokenType { ACCESS, REFRESH }
+
+    /** The account a validated token was issued to, and that account's token version at issue time. */
+    public record ValidatedToken(String email, int tokenVersion) {}
 
     @Value("${jwt.secret}")
     private String jwtSecret;                 // raw text OR base64 – see init()
@@ -70,7 +75,7 @@ public class JwtTokenProvider {
     }
 
     /* ----------------------------------------------------------- */
-    public String generateAccessToken(UserDetails user) {
+    public String generateAccessToken(UserDetails user, int tokenVersion) {
         List<String> roles = user.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)  // ROLE_ADMIN …
                 .toList();
@@ -80,6 +85,7 @@ public class JwtTokenProvider {
                 .setSubject(user.getUsername())
                 .claim("roles", roles)
                 .claim(TOKEN_TYPE_CLAIM, TokenType.ACCESS.name())
+                .claim(TOKEN_VERSION_CLAIM, tokenVersion)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + accessTtlMs))
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -90,11 +96,12 @@ public class JwtTokenProvider {
      * A refresh token only identifies the account: the refresh flow reloads its current
      * authorities from the database before issuing a new access token.
      */
-    public String generateRefreshToken(UserDetails user) {
+    public String generateRefreshToken(UserDetails user, int tokenVersion) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
                 .setSubject(user.getUsername())
                 .claim(TOKEN_TYPE_CLAIM, TokenType.REFRESH.name())
+                .claim(TOKEN_VERSION_CLAIM, tokenVersion)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + refreshTtlMs))
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -102,27 +109,44 @@ public class JwtTokenProvider {
     }
 
     /* ----------------------------------------------------------- */
-    /** Returns the email of a validly signed, unexpired ACCESS token; empty for anything else. */
-    public Optional<String> validateAccessToken(String token) {
-        return subjectOf(token, TokenType.ACCESS);
+    /** Returns the email and token version of a validly signed, unexpired ACCESS token; empty for anything else. */
+    public Optional<ValidatedToken> validateAccessToken(String token) {
+        return validate(token, TokenType.ACCESS);
     }
 
-    /** Returns the email of a validly signed, unexpired REFRESH token; empty for anything else. */
-    public Optional<String> validateRefreshToken(String token) {
-        return subjectOf(token, TokenType.REFRESH);
+    /** Returns the email and token version of a validly signed, unexpired REFRESH token; empty for anything else. */
+    public Optional<ValidatedToken> validateRefreshToken(String token) {
+        return validate(token, TokenType.REFRESH);
     }
 
-    private Optional<String> subjectOf(String token, TokenType expectedType) {
+    private Optional<ValidatedToken> validate(String token, TokenType expectedType) {
         try {
             Claims claims = parser.parseClaimsJws(token).getBody();
             if (!expectedType.name().equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
                 log.debug("JWT rejected: not an {} token", expectedType);
                 return Optional.empty();
             }
-            return Optional.ofNullable(claims.getSubject());
+            String email = claims.getSubject();
+            Optional<Integer> tokenVersion = tokenVersionOf(claims);
+            if (email == null || tokenVersion.isEmpty()) {
+                log.debug("JWT rejected: missing subject or token version");
+                return Optional.empty();
+            }
+            return Optional.of(new ValidatedToken(email, tokenVersion.get()));
         } catch (JwtException | IllegalArgumentException ex) {
             log.debug("Invalid JWT: {}", ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    /** The claim must be a non-negative whole number; a missing claim is never read as 0. */
+    private static Optional<Integer> tokenVersionOf(Claims claims) {
+        Object value = claims.get(TOKEN_VERSION_CLAIM);
+        if ((value instanceof Integer || value instanceof Long)
+                && ((Number) value).longValue() >= 0
+                && ((Number) value).longValue() <= Integer.MAX_VALUE) {
+            return Optional.of(((Number) value).intValue());
+        }
+        return Optional.empty();
     }
 }

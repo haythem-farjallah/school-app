@@ -1,5 +1,7 @@
 package com.example.school_management.commons.configs;
 
+import com.example.school_management.commons.configs.JwtTokenProvider.ValidatedToken;
+import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.service.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -53,11 +55,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extractToken(request);          // null if missing/invalid format
 
         // Only access tokens authenticate requests; a refresh token is only accepted by /api/auth/refresh.
-        Optional<String> email = token == null ? Optional.empty() : jwtTokenProvider.validateAccessToken(token);
+        Optional<ValidatedToken> validated =
+                token == null ? Optional.empty() : jwtTokenProvider.validateAccessToken(token);
 
-        if (email.isPresent()) {
+        if (validated.isPresent()) {
             try {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email.get());
+                BaseUser user = userDetailsService.findBaseUserByEmail(validated.get().email());
+
+                // A token issued before the account's sessions were revoked is treated as invalid.
+                if (validated.get().tokenVersion() != user.getTokenVersion()) {
+                    log.debug("JWT token version is no longer current");
+                    chain.doFilter(request, response);
+                    return;
+                }
+
+                UserDetails userDetails = userDetailsService.toUserDetails(user);
 
                 if (!userDetails.isEnabled()) {
                     log.debug("JWT belongs to a disabled account");

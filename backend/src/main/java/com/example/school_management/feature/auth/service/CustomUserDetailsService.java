@@ -42,8 +42,11 @@ public class CustomUserDetailsService implements UserDetailsService
     public UserDetails loadUserByUsername(String email)
             throws UsernameNotFoundException {
 
-        BaseUser user = findBaseUserByEmail(email);
+        return toUserDetails(findBaseUserByEmail(email));
+    }
 
+    /** Builds the Spring Security view of an already loaded account. */
+    public UserDetails toUserDetails(BaseUser user) {
         /* 1. ROLE_… authority */
         Collection<GrantedAuthority> auth = new ArrayList<>();
         auth.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));

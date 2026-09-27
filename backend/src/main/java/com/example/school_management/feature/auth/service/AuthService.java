@@ -57,8 +57,8 @@ public class AuthService {
                     BaseUser user = userDetailsService.findBaseUserByEmail(req.getEmail());
         
         // token creation
-        String access  = jwtTokenProvider.generateAccessToken((UserDetails) auth.getPrincipal());
-        String refresh = jwtTokenProvider.generateRefreshToken((UserDetails) auth.getPrincipal());
+        String access  = jwtTokenProvider.generateAccessToken((UserDetails) auth.getPrincipal(), user.getTokenVersion());
+        String refresh = jwtTokenProvider.generateRefreshToken((UserDetails) auth.getPrincipal(), user.getTokenVersion());
 
         var userDto = userMapper.toDto(user);
         // Compute effective permissions: role defaults ∪ per-user overrides
@@ -78,24 +78,29 @@ public class AuthService {
 
     /**
      * Issue a new access token for a valid refresh token. The account is reloaded from the
-     * database, so a suspended or deleted account cannot refresh and the new token carries the
-     * account's current authorities. Every rejection gets the same generic 401.
+     * database, so a suspended or deleted account, or a token issued before the account's
+     * sessions were revoked, cannot refresh, and the new token carries the account's current
+     * authorities and token version. Every rejection gets the same generic 401.
      */
     public RefreshTokenResponse refresh(String refreshToken) {
-        String email = jwtTokenProvider.validateRefreshToken(refreshToken)
+        JwtTokenProvider.ValidatedToken token = jwtTokenProvider.validateRefreshToken(refreshToken)
                 .orElseThrow(AuthService::invalidRefreshToken);
 
-        UserDetails user;
+        BaseUser account;
         try {
-            user = userDetailsService.loadUserByUsername(email);
+            account = userDetailsService.findBaseUserByEmail(token.email());
         } catch (UsernameNotFoundException ex) {
             throw invalidRefreshToken();
         }
+        if (token.tokenVersion() != account.getTokenVersion()) {
+            throw invalidRefreshToken();
+        }
+        UserDetails user = userDetailsService.toUserDetails(account);
         if (!user.isEnabled()) {
             throw invalidRefreshToken();
         }
 
-        return new RefreshTokenResponse(jwtTokenProvider.generateAccessToken(user));
+        return new RefreshTokenResponse(jwtTokenProvider.generateAccessToken(user, account.getTokenVersion()));
     }
 
     private static ResponseStatusException invalidRefreshToken() {

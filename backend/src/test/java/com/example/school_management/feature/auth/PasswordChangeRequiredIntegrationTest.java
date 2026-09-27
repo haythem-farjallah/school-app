@@ -116,6 +116,7 @@ class PasswordChangeRequiredIntegrationTest {
         String email = student(true);
         String token = accessToken(email);
         String newPassword = newPassword();
+        int tokenVersion = user(email).getTokenVersion();
 
         mockMvc.perform(changePassword(token, email, DevFixtureLoader.PASSWORD, newPassword))
                 .andExpect(status().isOk());
@@ -123,6 +124,7 @@ class PasswordChangeRequiredIntegrationTest {
         BaseUser changed = user(email);
         assertThat(changed.isPasswordChangeRequired()).isFalse();
         assertThat(passwordEncoder.matches(newPassword, changed.getPassword())).isTrue();
+        assertThat(changed.getTokenVersion()).isEqualTo(tokenVersion);
 
         mockMvc.perform(profile(token))
                 .andExpect(status().isOk())

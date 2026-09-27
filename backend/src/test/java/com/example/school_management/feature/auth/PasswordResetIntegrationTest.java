@@ -9,10 +9,12 @@ import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mail.MailSendException;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -43,6 +45,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -181,6 +184,48 @@ class PasswordResetIntegrationTest {
 
         expectInvalidOtp(reset(email, code, newPassword()));
         assertThat(passwordEncoder.matches(newPassword, user(email).getPassword())).isTrue();
+    }
+
+    @Test
+    void successfulResetRevokesEarlierSessions() throws Exception {
+        String email = student(Status.ACTIVE);
+        JsonNode oldTokens = loginTokens(email, DevFixtureLoader.PASSWORD);
+        String oldAccess = oldTokens.path("accessToken").asText();
+        String oldRefresh = oldTokens.path("refreshToken").asText();
+        int tokenVersion = user(email).getTokenVersion();
+        String newPassword = newPassword();
+
+        mockMvc.perform(reset(email, requestCode(email), newPassword)).andExpect(status().isOk());
+
+        assertThat(user(email).getTokenVersion()).isEqualTo(tokenVersion + 1);
+        mockMvc.perform(profile(oldAccess)).andExpect(status().isUnauthorized());
+        mockMvc.perform(refresh(oldRefresh))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"));
+        assertThat(login(email, DevFixtureLoader.PASSWORD)).isEqualTo(401);
+
+        JsonNode newTokens = loginTokens(email, newPassword);
+        mockMvc.perform(profile(newTokens.path("accessToken").asText()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(email));
+        mockMvc.perform(refresh(newTokens.path("refreshToken").asText()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").isString());
+        assertThat(user(email).getTokenVersion()).isEqualTo(tokenVersion + 1);
+    }
+
+    @Test
+    void failedResetKeepsEarlierSessions() throws Exception {
+        String email = student(Status.ACTIVE);
+        JsonNode tokens = loginTokens(email, DevFixtureLoader.PASSWORD);
+        int tokenVersion = user(email).getTokenVersion();
+        String code = requestCode(email);
+
+        expectInvalidOtp(reset(email, wrong(code), newPassword()));
+
+        assertThat(user(email).getTokenVersion()).isEqualTo(tokenVersion);
+        mockMvc.perform(profile(tokens.path("accessToken").asText())).andExpect(status().isOk());
+        mockMvc.perform(refresh(tokens.path("refreshToken").asText())).andExpect(status().isOk());
     }
 
     @Test
@@ -363,6 +408,27 @@ class PasswordResetIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("email", email, "password", password))))
                 .andReturn().getResponse().getStatus();
+    }
+
+    /** Logs in and returns the login response data (access token, refresh token, user). */
+    private JsonNode loginTokens(String email, String password) throws Exception {
+        String body = mockMvc.perform(withClientAddress(post("/api/auth/login"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", email, "password", password))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).path("data");
+    }
+
+    private MockHttpServletRequestBuilder refresh(String refreshToken) throws Exception {
+        return withClientAddress(post("/api/auth/refresh"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken)));
+    }
+
+    private static MockHttpServletRequestBuilder profile(String accessToken) {
+        return withClientAddress(get("/api/me/profile"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
     }
 
     /** A six-digit code that differs from the given one. */

@@ -63,6 +63,14 @@ public abstract class BaseUser {
     private int otpFailedAttempts;
     private boolean passwordChangeRequired = false;
     private Boolean isEmailVerified = false;
+    /**
+     * Carried by every JWT issued to the account; a token whose version differs is rejected.
+     * Raising it revokes all earlier sessions. Separate from the JPA {@code version} above,
+     * which changes on every update.
+     */
+    @JsonIgnore
+    @Column(nullable = false)
+    private int tokenVersion;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", columnDefinition = "status")
@@ -137,6 +145,9 @@ public abstract class BaseUser {
     
     public boolean isPasswordChangeRequired() { return passwordChangeRequired; }
     public void setPasswordChangeRequired(boolean passwordChangeRequired) { this.passwordChangeRequired = passwordChangeRequired; }
+    
+    public int getTokenVersion() { return tokenVersion; }
+    public void setTokenVersion(int tokenVersion) { this.tokenVersion = tokenVersion; }
     
     public Boolean getIsEmailVerified() { return isEmailVerified; }
     public void setIsEmailVerified(Boolean isEmailVerified) { this.isEmailVerified = isEmailVerified; }

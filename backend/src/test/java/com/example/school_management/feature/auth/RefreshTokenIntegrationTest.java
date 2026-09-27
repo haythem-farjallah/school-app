@@ -162,6 +162,7 @@ class RefreshTokenIntegrationTest {
     void tokenWithoutTypeCanNeitherAuthenticateNorRefresh() throws Exception {
         String untyped = Jwts.builder()
                 .setSubject(student(false))
+                .claim("tokenVersion", 0)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 60_000))
                 .signWith(signingKey(), SignatureAlgorithm.HS256)
@@ -169,6 +170,48 @@ class RefreshTokenIntegrationTest {
 
         mockMvc.perform(profile(untyped)).andExpect(status().isUnauthorized());
         expectInvalidRefresh(refresh(untyped));
+    }
+
+    @Test
+    void accessTokenWithoutVersionDoesNotAuthenticate() throws Exception {
+        String email = student(false);
+        String unversioned = Jwts.builder()
+                .setSubject(email)
+                .claim("tokenType", "ACCESS")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 60_000))
+                .signWith(signingKey(), SignatureAlgorithm.HS256)
+                .compact();
+
+        mockMvc.perform(profile(unversioned)).andExpect(status().isUnauthorized());
+        mockMvc.perform(profile(signed(accessTokenFor(email)))).andExpect(status().isOk());
+    }
+
+    @Test
+    void refreshTokenWithoutVersionIsUnauthorized() throws Exception {
+        String email = student(false);
+        String unversioned = Jwts.builder()
+                .setSubject(email)
+                .claim("tokenType", "REFRESH")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 60_000))
+                .signWith(signingKey(), SignatureAlgorithm.HS256)
+                .compact();
+
+        expectInvalidRefresh(refresh(unversioned));
+        refreshedAccessToken(signed(refreshTokenFor(email, 60_000)));
+    }
+
+    @Test
+    void tokensFromAnEarlierTokenVersionAreRejected() throws Exception {
+        String email = student(false);
+        JsonNode tokens = login(email);
+        BaseUser user = userRepository.findByEmail(email).orElseThrow();
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        userRepository.saveAndFlush(user);
+
+        mockMvc.perform(profile(tokens.path("accessToken").asText())).andExpect(status().isUnauthorized());
+        expectInvalidRefresh(refresh(tokens.path("refreshToken").asText()));
     }
 
     @Test
@@ -201,8 +244,23 @@ class RefreshTokenIntegrationTest {
         return Jwts.builder()
                 .setSubject(email)
                 .claim("tokenType", "REFRESH")
+                .claim("tokenVersion", 0)
                 .setIssuedAt(new Date(now - 120_000))
                 .setExpiration(new Date(now + ttlMs));
+    }
+
+    private static JwtBuilder accessTokenFor(String email) {
+        long now = System.currentTimeMillis();
+        return Jwts.builder()
+                .setSubject(email)
+                .claim("tokenType", "ACCESS")
+                .claim("tokenVersion", 0)
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + 60_000));
+    }
+
+    private String signed(JwtBuilder token) {
+        return token.signWith(signingKey(), SignatureAlgorithm.HS256).compact();
     }
 
     /** The test profile's secret is not Base64, so the provider uses its raw bytes. */
