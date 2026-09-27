@@ -1,7 +1,6 @@
 package com.example.school_management.commons.configs;
 
 import com.example.school_management.feature.auth.service.CustomUserDetailsService;
-import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.example.school_management.feature.auth.service.CustomUserDetailsService.PASSWORD_CHANGE_REQUIRED;
 
@@ -52,10 +52,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = extractToken(request);          // null if missing/invalid format
 
-        if (token != null && jwtTokenProvider.validateToken(token)) {
+        // Only access tokens authenticate requests; a refresh token is only accepted by /api/auth/refresh.
+        Optional<String> email = token == null ? Optional.empty() : jwtTokenProvider.validateAccessToken(token);
+
+        if (email.isPresent()) {
             try {
-                String email = jwtTokenProvider.getEmailFromToken(token);
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email.get());
 
                 if (!userDetails.isEnabled()) {
                     log.debug("JWT belongs to a disabled account");
@@ -79,8 +81,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
 
-            } catch (ExpiredJwtException ex) {
-                log.warn("JWT expired for {}: {}", request.getRequestURI(), ex.getMessage());
             } catch (Exception ex) {
                 log.error("JWT processing error: {}", ex.getMessage(), ex);
             }

@@ -7,6 +7,8 @@ import com.example.school_management.commons.dtos.LoginResponse;
 import com.example.school_management.commons.dtos.RegisterRequest;
 import com.example.school_management.feature.auth.dto.ChangePasswordRequest;
 import com.example.school_management.feature.auth.dto.ForgotPasswordRequest;
+import com.example.school_management.feature.auth.dto.RefreshTokenRequest;
+import com.example.school_management.feature.auth.dto.RefreshTokenResponse;
 import com.example.school_management.feature.auth.dto.ResetPasswordRequest;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
@@ -54,6 +56,19 @@ public class AuthController {
     ) {
         return ResponseEntity.ok(
                 new ApiSuccessResponse<>("success", authService.login(request))
+        );
+    }
+
+    /**
+     * Issues a new access token. The refresh token in the body is the credential, so no
+     * access token (expired or not) is required.
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiSuccessResponse<RefreshTokenResponse>> refresh(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+        return ResponseEntity.ok(
+                new ApiSuccessResponse<>("success", authService.refresh(request.refreshToken()))
         );
     }
 

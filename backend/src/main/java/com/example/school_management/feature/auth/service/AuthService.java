@@ -4,6 +4,7 @@ import com.example.school_management.commons.configs.JwtTokenProvider;
 import com.example.school_management.commons.dtos.LoginRequest;
 import com.example.school_management.commons.dtos.LoginResponse;
 import com.example.school_management.commons.dtos.RegisterRequest;
+import com.example.school_management.feature.auth.dto.RefreshTokenResponse;
 import com.example.school_management.feature.auth.entity.*;
 import com.example.school_management.feature.auth.mapper.AuthMapper;
 import com.example.school_management.feature.auth.mapper.UserMapper;
@@ -21,6 +22,7 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -73,6 +75,33 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
     }
+
+    /**
+     * Issue a new access token for a valid refresh token. The account is reloaded from the
+     * database, so a suspended or deleted account cannot refresh and the new token carries the
+     * account's current authorities. Every rejection gets the same generic 401.
+     */
+    public RefreshTokenResponse refresh(String refreshToken) {
+        String email = jwtTokenProvider.validateRefreshToken(refreshToken)
+                .orElseThrow(AuthService::invalidRefreshToken);
+
+        UserDetails user;
+        try {
+            user = userDetailsService.loadUserByUsername(email);
+        } catch (UsernameNotFoundException ex) {
+            throw invalidRefreshToken();
+        }
+        if (!user.isEnabled()) {
+            throw invalidRefreshToken();
+        }
+
+        return new RefreshTokenResponse(jwtTokenProvider.generateAccessToken(user));
+    }
+
+    private static ResponseStatusException invalidRefreshToken() {
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token");
+    }
+
     /**
      * Register a new user based on the provided role.
      */

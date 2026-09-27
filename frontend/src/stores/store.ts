@@ -1,7 +1,7 @@
 import { configureStore, Middleware } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
-import authReducer, { resetAuth } from "@/stores/authSlice";
-import { setSessionEndedHandler } from "@/lib/session";
+import authReducer, { accessTokenRefreshed, resetAuth } from "@/stores/authSlice";
+import { setAccessTokenUpdatedHandler, setSessionEndedHandler } from "@/lib/session";
 
 /* -------------------------------------------------------------------------- */
 /*  Slice reducers                                                            */
@@ -36,6 +36,8 @@ export const store = configureStore({
 
 // Ending the session (logout or a rejected access token) also clears the in-memory auth state.
 setSessionEndedHandler(() => store.dispatch(resetAuth()));
+// A refreshed access token replaces the one in the in-memory auth state.
+setAccessTokenUpdatedHandler((accessToken) => store.dispatch(accessTokenRefreshed(accessToken)));
 
 /* -------------------------------------------------------------------------- */
 /*  Typed hooks & helper types                                                */

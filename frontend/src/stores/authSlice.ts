@@ -44,6 +44,10 @@ const authSlice = createSlice({
       token.refresh = refreshToken;
       token.user = user;
     },
+    // A refresh replaces only the access token; the refresh token and user stay the same.
+    accessTokenRefreshed(state, action: PayloadAction<string>) {
+      state.accessToken = action.payload;
+    },
     // Add action to completely reset auth state
     resetAuth: () => ({
       user: null,
@@ -53,5 +57,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { loginSuccess, resetAuth } = authSlice.actions;
+export const { loginSuccess, accessTokenRefreshed, resetAuth } = authSlice.actions;
 export default authSlice.reducer;
