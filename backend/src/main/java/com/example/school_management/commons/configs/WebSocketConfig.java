@@ -15,6 +15,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketSecurityInterceptor securityInterceptor;
+    private final WebSocketDeliveryInterceptor deliveryInterceptor;
 
     // Browser origins allowed to open a WebSocket (APP_SECURITY_ALLOWED_ORIGINS, comma-separated).
     @Value("${app.security.allowed-origins}")
@@ -37,6 +38,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureClientInboundChannel(ChannelRegistration registration) {
         // The handshake is public; every STOMP frame is authenticated and authorized here.
         registration.interceptors(securityInterceptor);
+    }
+
+    @Override
+    public void configureClientOutboundChannel(ChannelRegistration registration) {
+        // Messages to the browser are only delivered while the receiving session is still authorized.
+        registration.interceptors(deliveryInterceptor);
     }
 
     @Override

@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
@@ -37,8 +39,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * STOMP CONNECT authentication and SUBSCRIBE authorization, using real tokens issued by
- * JwtTokenProvider and accounts loaded from PostgreSQL.
+ * STOMP CONNECT authentication, SUBSCRIBE authorization and revocation of connected sessions, using
+ * real tokens issued by JwtTokenProvider and accounts loaded from PostgreSQL.
  */
 @IntegrationTest
 class WebSocketSecurityInterceptorIntegrationTest {
@@ -47,6 +49,9 @@ class WebSocketSecurityInterceptorIntegrationTest {
 
     @Autowired
     WebSocketSecurityInterceptor interceptor;
+
+    @Autowired
+    WebSocketDeliveryInterceptor deliveryInterceptor;
 
     @Autowired
     JwtTokenProvider jwtTokenProvider;
@@ -111,8 +116,10 @@ class WebSocketSecurityInterceptorIntegrationTest {
         Authentication authentication = connect("Bearer " + accessToken(email));
 
         assertThat(authentication.isAuthenticated()).isTrue();
-        assertThat(authentication.getPrincipal()).isEqualTo(new WebSocketPrincipal(user.getId(), email));
+        assertThat(authentication.getPrincipal())
+                .isEqualTo(new WebSocketPrincipal(user.getId(), user.getTokenVersion()));
         assertThat(authentication.getName()).isEqualTo(user.getId().toString());
+        assertThat(authentication.getPrincipal().toString()).doesNotContain(email);
         assertThat(authentication.getAuthorities())
                 .extracting(GrantedAuthority::getAuthority)
                 .contains("ROLE_STUDENT")
@@ -258,10 +265,118 @@ class WebSocketSecurityInterceptorIntegrationTest {
         }
     }
 
+    /* ---------------- revocation after CONNECT ---------------- */
+
+    @Test
+    void suspendedAfterConnect() {
+        assertRevokedAfterConnect(email -> setStatus(email, Status.SUSPENDED));
+    }
+
+    @Test
+    void deletedAfterConnect() {
+        assertRevokedAfterConnect(email -> setStatus(email, Status.DELETED));
+    }
+
+    @Test
+    void tokenVersionRevokedAfterConnect() {
+        assertRevokedAfterConnect(email -> {
+            BaseUser user = userRepository.findByEmail(email).orElseThrow();
+            user.setTokenVersion(user.getTokenVersion() + 1);
+            userRepository.saveAndFlush(user);
+        });
+    }
+
+    @Test
+    void passwordChangeRequiredAfterConnect() {
+        assertRevokedAfterConnect(email -> {
+            BaseUser user = userRepository.findByEmail(email).orElseThrow();
+            user.setPasswordChangeRequired(true);
+            userRepository.saveAndFlush(user);
+        });
+    }
+
+    @Test
+    void protocolFramesToAnyConnectedSessionPass() {
+        String email = student();
+        String sessionId = "session-" + UUID.randomUUID();
+        connect("Bearer " + accessToken(email), sessionId);
+        setStatus(email, Status.SUSPENDED);
+
+        for (SimpMessageType type : new SimpMessageType[] {
+                SimpMessageType.CONNECT_ACK, SimpMessageType.HEARTBEAT, SimpMessageType.DISCONNECT_ACK}) {
+            SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create(type);
+            accessor.setSessionId(sessionId);
+            Message<byte[]> frame = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+            assertThat(deliveryInterceptor.preSend(frame, CHANNEL)).as("%s", type).isSameAs(frame);
+        }
+    }
+
+    @Test
+    void messagesToUnknownOrClosedSessionsAreSuppressed() {
+        String sessionId = "session-" + UUID.randomUUID();
+        assertThat(deliver(sessionId)).isNull();
+        assertThat(deliver(null)).isNull();
+
+        Authentication student = connect("Bearer " + accessToken(student()), sessionId);
+        assertThat(deliver(sessionId)).isNotNull();
+
+        send(frame(StompCommand.DISCONNECT, sessionId, accessor -> accessor.setUser(student)));
+        assertThat(deliver(sessionId)).isNull();
+    }
+
+    /**
+     * A session that was valid at CONNECT: frames and deliveries pass until the account changes, after
+     * which every later frame but DISCONNECT is refused generically and no message is delivered.
+     */
+    private void assertRevokedAfterConnect(Consumer<String> revoke) {
+        String email = student();
+        String sessionId = "session-" + UUID.randomUUID();
+        Authentication user = connect("Bearer " + accessToken(email), sessionId);
+        String ownQueue = personalQueue(user);
+
+        assertSubscribeAllowed(user, ownQueue);
+        assertThat(deliver(sessionId)).as("delivery before revocation").isNotNull();
+
+        revoke.accept(email);
+
+        assertThat(deliver(sessionId)).as("delivery after revocation").isNull();
+        for (StompCommand command : new StompCommand[] {
+                StompCommand.SUBSCRIBE, StompCommand.UNSUBSCRIBE, StompCommand.SEND}) {
+            Message<byte[]> sessionFrame = frame(command, sessionId, accessor -> {
+                accessor.setUser(user);
+                accessor.setSubscriptionId("sub-0");
+                accessor.setDestination(ownQueue);
+            });
+
+            assertThatThrownBy(() -> send(sessionFrame))
+                    .as("%s", command)
+                    .isInstanceOf(MessagingException.class)
+                    .hasMessage(WebSocketSecurityInterceptor.AUTHENTICATION_FAILED);
+        }
+        assertThatCode(() -> send(frame(StompCommand.DISCONNECT, sessionId, accessor -> accessor.setUser(user))))
+                .doesNotThrowAnyException();
+    }
+
+    /** A broker MESSAGE addressed to the session, as the simple broker hands it to the outbound channel. */
+    private Message<?> deliver(String sessionId) {
+        SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
+        accessor.setSessionId(sessionId);
+        accessor.setSubscriptionId("sub-0");
+        accessor.setDestination("/topic/system-alerts");
+        return deliveryInterceptor.preSend(
+                MessageBuilder.createMessage("{}".getBytes(StandardCharsets.UTF_8), accessor.getMessageHeaders()),
+                CHANNEL);
+    }
+
     /* ---------------- helpers ---------------- */
 
     private Authentication connect(String authorization) {
-        Message<byte[]> connectFrame = frame(StompCommand.CONNECT, accessor -> {
+        return connect(authorization, "session-" + UUID.randomUUID());
+    }
+
+    private Authentication connect(String authorization, String sessionId) {
+        Message<byte[]> connectFrame = frame(StompCommand.CONNECT, sessionId, accessor -> {
             if (authorization != null) {
                 accessor.setNativeHeader("Authorization", authorization);
             }
@@ -306,8 +421,13 @@ class WebSocketSecurityInterceptorIntegrationTest {
     }
 
     private static Message<byte[]> frame(StompCommand command, Consumer<StompHeaderAccessor> headers) {
+        return frame(command, "session-" + UUID.randomUUID(), headers);
+    }
+
+    private static Message<byte[]> frame(StompCommand command, String sessionId,
+                                         Consumer<StompHeaderAccessor> headers) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
-        accessor.setSessionId("session-" + UUID.randomUUID());
+        accessor.setSessionId(sessionId);
         headers.accept(accessor);
         accessor.setLeaveMutable(true);
         return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());

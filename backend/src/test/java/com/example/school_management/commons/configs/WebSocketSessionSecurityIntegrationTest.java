@@ -3,6 +3,11 @@ package com.example.school_management.commons.configs;
 import com.example.school_management.TestcontainersConfiguration;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.auth.entity.Status;
+import com.example.school_management.feature.auth.entity.Student;
+import com.example.school_management.feature.auth.entity.UserRole;
+import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.service.CustomUserDetailsService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
@@ -26,10 +32,14 @@ import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.lang.reflect.Type;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,7 +47,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * A real STOMP client against the running server: the account authenticated on CONNECT is kept for
  * the rest of the session, refused frames (including every client SEND) are answered with a generic
- * error, and the handshake only accepts the configured browser origins.
+ * error, a session stops receiving messages once its account is revoked, and the handshake only
+ * accepts the configured browser origins.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration.class)
@@ -60,6 +71,15 @@ class WebSocketSessionSecurityIntegrationTest {
 
     @Autowired
     SimpUserRegistry userRegistry;
+
+    @Autowired
+    UserRepository userRepository;
+
+    @Autowired
+    StudentRepository studentRepository;
+
+    @Autowired
+    PasswordEncoder passwordEncoder;
 
     private WebSocketStompClient stompClient;
 
@@ -97,6 +117,61 @@ class WebSocketSessionSecurityIntegrationTest {
         messagingTemplate.convertAndSend(queue, Map.of("title", "Absence recorded"));
 
         assertThat(received.get(10, TimeUnit.SECONDS)).isEqualTo(Map.of("title", "Absence recorded"));
+        session.disconnect();
+    }
+
+    @Test
+    void suspendedSessionReceivesNothingFurther() throws Exception {
+        assertNoDeliveryAfter(user -> user.setStatus(Status.SUSPENDED));
+    }
+
+    @Test
+    void deletedSessionReceivesNothingFurther() throws Exception {
+        assertNoDeliveryAfter(user -> user.setStatus(Status.DELETED));
+    }
+
+    @Test
+    void revokedSessionReceivesNothingFurther() throws Exception {
+        assertNoDeliveryAfter(user -> user.setTokenVersion(user.getTokenVersion() + 1));
+    }
+
+    @Test
+    void sessionThatMustChangeItsPasswordReceivesNothingFurther() throws Exception {
+        assertNoDeliveryAfter(user -> user.setPasswordChangeRequired(true));
+    }
+
+    /**
+     * Subscribes a fresh account to its own queue, proves delivery works, changes the account while the
+     * session stays connected, and expects the next notification never to reach the client.
+     */
+    private void assertNoDeliveryAfter(Consumer<BaseUser> revoke) throws Exception {
+        BaseUser student = student();
+        String queue = "/queue/user/" + student.getId() + "/notifications";
+        StompSession session = connect(ALLOWED_ORIGIN, "Bearer " + accessToken(student), new ErrorCapture());
+
+        BlockingQueue<Object> received = new LinkedBlockingQueue<>();
+        session.subscribe(queue, new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return Map.class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                received.add(payload);
+            }
+        });
+        awaitSubscription(student.getId(), queue);
+        messagingTemplate.convertAndSend(queue, Map.of("title", "Before"));
+        assertThat(received.poll(10, TimeUnit.SECONDS)).isEqualTo(Map.of("title", "Before"));
+
+        BaseUser account = userRepository.findById(student.getId()).orElseThrow();
+        revoke.accept(account);
+        userRepository.saveAndFlush(account);
+        messagingTemplate.convertAndSend(queue, Map.of("title", "After"));
+
+        assertThat(received.poll(1, TimeUnit.SECONDS)).isNull();
+        assertThat(session.isConnected()).isTrue();
         session.disconnect();
     }
 
@@ -166,6 +241,19 @@ class WebSocketSessionSecurityIntegrationTest {
         }
         return stompClient.connectAsync(
                 "ws://localhost:" + port + "/ws-native", handshakeHeaders, connectHeaders, errors);
+    }
+
+    private BaseUser student() {
+        Student student = new Student();
+        student.setRole(UserRole.STUDENT);
+        student.setEmail("websocket-" + UUID.randomUUID() + "@accounts.school.test");
+        student.setFirstName("Web");
+        student.setLastName("Socket");
+        student.setPassword(passwordEncoder.encode(DevFixtureLoader.PASSWORD));
+        student.setStatus(Status.ACTIVE);
+        student.setPasswordChangeRequired(false);
+        student.setIsEmailVerified(true);
+        return studentRepository.saveAndFlush(student);
     }
 
     private String accessToken(BaseUser user) {

@@ -29,7 +29,9 @@ import java.util.Optional;
  * Secures the STOMP frames that arrive over /ws and /ws-native. The HTTP handshake is public, so a
  * session is authenticated by its CONNECT frame, which must carry a current ACCESS token of an account
  * that may use the API, exactly as JwtAuthenticationFilter requires for HTTP. Every later frame runs
- * as that account, and a SUBSCRIBE is accepted only for the destinations the account may read.
+ * as that account, and only while the account is still ACTIVE, has not had its sessions revoked and
+ * does not have to change its password. A SUBSCRIBE is accepted only for the destinations the account
+ * may read.
  * WebSocket delivery is server to browser only, so every client SEND is refused.
  * A refused frame is answered with a generic STOMP ERROR, after which Spring closes the session.
  */
@@ -51,6 +53,7 @@ public class WebSocketSecurityInterceptor implements ChannelInterceptor {
 
     private final JwtTokenProvider         jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final WebSocketSessions        sessions;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -60,9 +63,13 @@ public class WebSocketSecurityInterceptor implements ChannelInterceptor {
         }
 
         switch (accessor.getCommand()) {
-            case CONNECT, STOMP -> accessor.setUser(authenticate(accessor));
-            // Also sent by Spring itself when a session closes, authenticated or not.
-            case DISCONNECT -> { }
+            case CONNECT, STOMP -> {
+                Authentication authentication = authenticate(accessor);
+                accessor.setUser(authentication);
+                sessions.connected(accessor.getSessionId(), (WebSocketPrincipal) authentication.getPrincipal());
+            }
+            // Also sent by Spring itself when a session closes, authenticated, revoked or not.
+            case DISCONNECT -> sessions.closed(accessor.getSessionId());
             case SUBSCRIBE -> authorizeSubscription(accessor);
             case SEND -> {
                 authenticatedUser(accessor);
@@ -102,7 +109,7 @@ public class WebSocketSecurityInterceptor implements ChannelInterceptor {
 
         log.debug("WebSocket connected");
         return UsernamePasswordAuthenticationToken.authenticated(
-                new WebSocketPrincipal(user.getId(), user.getEmail()), null, userDetails.getAuthorities());
+                new WebSocketPrincipal(user.getId(), user.getTokenVersion()), null, userDetails.getAuthorities());
     }
 
     private void authorizeSubscription(StompHeaderAccessor accessor) {
@@ -134,12 +141,16 @@ public class WebSocketSecurityInterceptor implements ChannelInterceptor {
                 destination.equals("/topic/notifications/" + role.toLowerCase(Locale.ROOT)));
     }
 
-    /** The account the session authenticated as on CONNECT; refuses the frame if there is none. */
-    private static Authentication authenticatedUser(StompHeaderAccessor accessor) {
+    /**
+     * The account the session authenticated as on CONNECT; refuses the frame if there is none or the
+     * account no longer authorizes the session.
+     */
+    private Authentication authenticatedUser(StompHeaderAccessor accessor) {
         Principal user = accessor.getUser();
         if (user instanceof Authentication authentication
                 && authentication.isAuthenticated()
-                && authentication.getPrincipal() instanceof WebSocketPrincipal) {
+                && authentication.getPrincipal() instanceof WebSocketPrincipal principal
+                && sessions.isAuthorized(principal)) {
             return authentication;
         }
         throw rejected("WebSocket frame without authentication rejected", AUTHENTICATION_FAILED);
