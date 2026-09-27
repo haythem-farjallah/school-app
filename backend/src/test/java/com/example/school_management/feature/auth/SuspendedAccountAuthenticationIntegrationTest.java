@@ -1,6 +1,7 @@
 package com.example.school_management.feature.auth;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Student;
@@ -36,8 +37,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @IntegrationTest
 class SuspendedAccountAuthenticationIntegrationTest {
 
-    private static final String PASSWORD = "Suspension-Pass-2024";
-
     @Autowired
     MockMvc mockMvc;
 
@@ -60,7 +59,7 @@ class SuspendedAccountAuthenticationIntegrationTest {
         String email = activeStudent();
         setStatus(email, Status.SUSPENDED);
 
-        String body = login(email, PASSWORD)
+        String body = login(email, DevFixtureLoader.PASSWORD)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Invalid credentials"))
                 .andExpect(jsonPath("$.data.accessToken").doesNotExist())
@@ -79,7 +78,7 @@ class SuspendedAccountAuthenticationIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
 
         setStatus(email, Status.SUSPENDED);
-        String suspended = login(email, PASSWORD)
+        String suspended = login(email, DevFixtureLoader.PASSWORD)
                 .andExpect(status().isUnauthorized())
                 .andReturn().getResponse().getContentAsString();
 
@@ -106,7 +105,7 @@ class SuspendedAccountAuthenticationIntegrationTest {
     void reactivatedAccountCanLogInAgain() throws Exception {
         String email = activeStudent();
         setStatus(email, Status.SUSPENDED);
-        login(email, PASSWORD).andExpect(status().isUnauthorized());
+        login(email, DevFixtureLoader.PASSWORD).andExpect(status().isUnauthorized());
 
         setStatus(email, Status.ACTIVE);
 
@@ -122,7 +121,7 @@ class SuspendedAccountAuthenticationIntegrationTest {
         student.setEmail(email);
         student.setFirstName("Sus");
         student.setLastName("Pended");
-        student.setPassword(passwordEncoder.encode(PASSWORD));
+        student.setPassword(passwordEncoder.encode(DevFixtureLoader.PASSWORD));
         student.setStatus(Status.ACTIVE);
         student.setPasswordChangeRequired(false);
         student.setIsEmailVerified(true);
@@ -137,7 +136,7 @@ class SuspendedAccountAuthenticationIntegrationTest {
     }
 
     private String accessToken(String email) throws Exception {
-        String body = login(email, PASSWORD)
+        String body = login(email, DevFixtureLoader.PASSWORD)
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         JsonNode token = objectMapper.readTree(body).path("data").path("accessToken");
