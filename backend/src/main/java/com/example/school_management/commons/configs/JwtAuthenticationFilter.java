@@ -53,57 +53,65 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain chain)
             throws ServletException, IOException {
 
+        authenticate(request);
+
+        // The only downstream call, outside the token handling, so an exception thrown further down the
+        // chain is never mistaken for a token problem and the chain never runs twice.
+        chain.doFilter(request, response);
+    }
+
+    /**
+     * Authenticates the request when it carries a current access token. A missing, invalid or revoked
+     * token, or an unusable account, leaves the request anonymous.
+     */
+    private void authenticate(HttpServletRequest request) {
         String token = extractToken(request);          // null if missing/invalid format
 
         // Only access tokens authenticate requests; a refresh token is only accepted by /api/auth/refresh.
         Optional<ValidatedToken> validated =
                 token == null ? Optional.empty() : jwtTokenProvider.validateAccessToken(token);
-
-        if (validated.isPresent()) {
-            try {
-                BaseUser user = userDetailsService.findBaseUserByEmail(validated.get().email());
-
-                // A token issued before the account's sessions were revoked is treated as invalid.
-                if (validated.get().tokenVersion() != user.getTokenVersion()) {
-                    log.debug("JWT token version is no longer current");
-                    chain.doFilter(request, response);
-                    return;
-                }
-
-                UserDetails userDetails = userDetailsService.toUserDetails(user);
-
-                if (!userDetails.isEnabled()) {
-                    log.debug("JWT belongs to a disabled account");
-                    chain.doFilter(request, response);
-                    return;
-                }
-
-                // Until the required password change is done, the token only authenticates that change.
-                // Other requests stay anonymous, so public endpoints still work and protected ones are
-                // answered 403 by the entry point.
-                if (requiresPasswordChange(userDetails) && !CHANGE_PASSWORD.matches(request)) {
-                    request.setAttribute(PASSWORD_CHANGE_REQUIRED, Boolean.TRUE);
-                    chain.doFilter(request, response);
-                    return;
-                }
-
-                UsernamePasswordAuthenticationToken auth =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities());
-
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
-
-            } catch (UsernameNotFoundException ex) {
-                // The account was deleted after the token was issued: an ordinary rejected token.
-                log.debug("JWT belongs to no current account");
-            } catch (Exception ex) {
-                // The exception's message and stack trace may name the account, so only its type is logged.
-                log.error("JWT processing error: {}", ex.getClass().getSimpleName());
-            }
+        if (validated.isEmpty()) {
+            return;
         }
 
-        chain.doFilter(request, response);
+        try {
+            BaseUser user = userDetailsService.findBaseUserByEmail(validated.get().email());
+
+            // A token issued before the account's sessions were revoked is treated as invalid.
+            if (validated.get().tokenVersion() != user.getTokenVersion()) {
+                log.debug("JWT token version is no longer current");
+                return;
+            }
+
+            UserDetails userDetails = userDetailsService.toUserDetails(user);
+
+            if (!userDetails.isEnabled()) {
+                log.debug("JWT belongs to a disabled account");
+                return;
+            }
+
+            // Until the required password change is done, the token only authenticates that change.
+            // Other requests stay anonymous, so public endpoints still work and protected ones are
+            // answered 403 by the entry point.
+            if (requiresPasswordChange(userDetails) && !CHANGE_PASSWORD.matches(request)) {
+                request.setAttribute(PASSWORD_CHANGE_REQUIRED, Boolean.TRUE);
+                return;
+            }
+
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+
+            auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+        } catch (UsernameNotFoundException ex) {
+            // The account was deleted after the token was issued: an ordinary rejected token.
+            log.debug("JWT belongs to no current account");
+        } catch (Exception ex) {
+            // The exception's message and stack trace may name the account, so only its type is logged.
+            log.error("JWT processing error: {}", ex.getClass().getSimpleName());
+        }
     }
 
     private static boolean requiresPasswordChange(UserDetails userDetails) {

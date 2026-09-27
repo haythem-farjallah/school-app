@@ -4,6 +4,7 @@ import com.example.school_management.commons.filter.RateLimitingFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -38,6 +39,10 @@ public class SecurityConfig {
   private final JwtAuthenticationFilter       jwtAuthFilter;
   private final RateLimitingFilter           rateLimitingFilter;
 
+  // The same browser origins WebSocketConfig allows (APP_SECURITY_ALLOWED_ORIGINS, comma-separated).
+  @Value("${app.security.allowed-origins}")
+  private String[] allowedOrigins;
+
   @Bean
   public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
     return cfg.getAuthenticationManager();
@@ -52,6 +57,8 @@ public class SecurityConfig {
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     http
             .cors(Customizer.withDefaults())
+            // Requests authenticate with a bearer token in the Authorization header, never a cookie.
+            // Revisit if authentication ever moves to cookies.
             .csrf(AbstractHttpConfigurer::disable)
             .exceptionHandling(exc -> exc
                     .authenticationEntryPoint(unauthorizedHandler)
@@ -64,7 +71,10 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("ADMIN")
                     // Changes the caller's own password; must precede the public /api/auth/** rule.
                     .requestMatchers(HttpMethod.POST, "/api/auth/change-password").authenticated()
-                    .requestMatchers("/api/auth/**", "/actuator/**").permitAll()
+                    .requestMatchers("/api/auth/**").permitAll()
+                    // Only health is public; any other endpoint an environment exposes is admin-only.
+                    .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                    .requestMatchers("/actuator/**").hasRole("ADMIN")
                     // Staff-managed people directories; everything else under /api/admin is admin-only.
                     .requestMatchers(
                             "/api/admin/teachers/**",
@@ -100,7 +110,7 @@ public class SecurityConfig {
   @Bean
   CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration cors = new CorsConfiguration();
-    cors.setAllowedOrigins(List.of("http://localhost:5173"));
+    cors.setAllowedOrigins(List.of(allowedOrigins));
     cors.setAllowedMethods(List.of("GET", "POST", "PUT","PATCH","DELETE", "OPTIONS"));
     cors.setAllowedHeaders(List.of("Content-Type", "Authorization"));
     cors.setAllowCredentials(true);
@@ -108,7 +118,8 @@ public class SecurityConfig {
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/api/**", cors); // apply to every API route
-    source.registerCorsConfiguration("/ws/**", cors); // apply to WebSocket endpoints
+    source.registerCorsConfiguration("/ws/**", cors); // SockJS endpoint
+    source.registerCorsConfiguration("/ws-native/**", cors);
     return source;
   }
 

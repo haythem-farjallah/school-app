@@ -486,7 +486,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             
         } catch (Exception e) {
             log.error("Error during auto-enrollment process: {}", e.getClass().getSimpleName());
-            errors.add("Auto-enrollment failed: " + e.getMessage());
+            // The exception's message may carry SQL or internal state, so the caller only gets a generic error.
+            errors.add("Auto-enrollment failed");
             
             return new AutoEnrollmentResultDto(
                 false,
