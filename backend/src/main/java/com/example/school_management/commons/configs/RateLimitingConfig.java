@@ -3,58 +3,15 @@ package com.example.school_management.commons.configs;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.RedisURI;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
 
 /**
- * Rate limiting configuration using Bucket4j and Redis
+ * Bucket4j limits per endpoint category. RateLimitingFilter keeps the buckets in local memory,
+ * so rate-limit state belongs to one application instance; multiple backend replicas need a
+ * shared or edge rate limiter later.
  */
-@Slf4j
-@Configuration
 public class RateLimitingConfig {
-
-    @Value("${spring.data.redis.host:localhost}")
-    private String redisHost;
-
-    @Value("${spring.data.redis.port:6379}")
-    private int redisPort;
-
-    @Value("${spring.data.redis.password:}")
-    private String redisPassword;
-
-    @Value("${spring.data.redis.database:0}")
-    private int redisDatabase;
-
-    /**
-     * Redis client for rate limiting
-     */
-    @Bean
-    public RedisClient redisClient() {
-        RedisURI.Builder builder = RedisURI.builder()
-                .withHost(redisHost)
-                .withPort(redisPort)
-                .withDatabase(redisDatabase);
-
-        if (redisPassword != null && !redisPassword.trim().isEmpty()) {
-            builder.withPassword(redisPassword.toCharArray());
-        }
-
-        return RedisClient.create(builder.build());
-    }
-
-    /**
-     * Redis client for rate limiting operations
-     */
-    @Bean
-    public RedisClient rateLimitingRedisClient() {
-        return redisClient();
-    }
 
     /**
      * Rate limiting configurations for different endpoint types

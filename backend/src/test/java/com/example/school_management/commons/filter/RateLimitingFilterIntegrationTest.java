@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.RequestBuilder;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.Map;
 
@@ -21,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 429 responses written by RateLimitingFilter, through the real security filter chain.
+ * No trusted proxies are configured here (the default), so forwarding headers must be ignored.
  */
 @IntegrationTest
 class RateLimitingFilterIntegrationTest {
@@ -30,6 +31,8 @@ class RateLimitingFilterIntegrationTest {
     // No other test uses these addresses, so each auth bucket starts full.
     private static final String CLIENT_ADDRESS = "10.0.3.1";
     private static final String SINGLE_REQUEST_CLIENT_ADDRESS = "10.0.3.2";
+    private static final String FORWARDED_FOR_SPOOFING_ADDRESS = "10.0.3.3";
+    private static final String REAL_IP_SPOOFING_ADDRESS = "10.0.3.4";
 
     @Autowired
     MockMvc mockMvc;
@@ -76,7 +79,31 @@ class RateLimitingFilterIntegrationTest {
         assertThat(body).doesNotContain(CLIENT_ADDRESS);
     }
 
-    private RequestBuilder failedLogin(String clientAddress) throws Exception {
+    @Test
+    void untrustedClientCannotSpoofForwardedForIntoFreshBuckets() throws Exception {
+        long capacity = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
+        for (int i = 0; i < capacity; i++) {
+            mockMvc.perform(failedLogin(FORWARDED_FOR_SPOOFING_ADDRESS).header("X-Forwarded-For", "198.51.100." + i))
+                    .andExpect(header().string("X-Rate-Limit-Remaining", String.valueOf(capacity - 1 - i)));
+        }
+
+        mockMvc.perform(failedLogin(FORWARDED_FOR_SPOOFING_ADDRESS).header("X-Forwarded-For", "198.51.100.200"))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void untrustedClientCannotSpoofRealIpIntoFreshBuckets() throws Exception {
+        long capacity = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
+        for (int i = 0; i < capacity; i++) {
+            mockMvc.perform(failedLogin(REAL_IP_SPOOFING_ADDRESS).header("X-Real-IP", "198.51.100." + i))
+                    .andExpect(header().string("X-Rate-Limit-Remaining", String.valueOf(capacity - 1 - i)));
+        }
+
+        mockMvc.perform(failedLogin(REAL_IP_SPOOFING_ADDRESS).header("X-Real-IP", "198.51.100.200"))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    private MockHttpServletRequestBuilder failedLogin(String clientAddress) throws Exception {
         return post(LOGIN_URI)
                 .with(request -> {
                     request.setRemoteAddr(clientAddress);
