@@ -56,8 +56,11 @@ public abstract class BaseUser {
     @Column(nullable = false, columnDefinition = "user_role")
     @ColumnTransformer(write = "?::user_role")
     private UserRole role;
-    private String otpCode;
+    @JsonIgnore
+    private String otpCode;               // one-way hash of the emailed reset code
     private LocalDateTime otpExpiry;
+    @JsonIgnore
+    private int otpFailedAttempts;
     private boolean passwordChangeRequired = false;
     private Boolean isEmailVerified = false;
 
@@ -128,6 +131,9 @@ public abstract class BaseUser {
     
     public LocalDateTime getOtpExpiry() { return otpExpiry; }
     public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
+    
+    public int getOtpFailedAttempts() { return otpFailedAttempts; }
+    public void setOtpFailedAttempts(int otpFailedAttempts) { this.otpFailedAttempts = otpFailedAttempts; }
     
     public boolean isPasswordChangeRequired() { return passwordChangeRequired; }
     public void setPasswordChangeRequired(boolean passwordChangeRequired) { this.passwordChangeRequired = passwordChangeRequired; }

@@ -15,7 +15,7 @@ import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.service.AuthService;
 import com.example.school_management.feature.auth.service.CustomUserDetailsService;
-import com.example.school_management.feature.auth.service.OtpService;
+import com.example.school_management.feature.auth.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
@@ -45,7 +45,7 @@ public class AuthController {
     private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
 
-    private final OtpService otpService;
+    private final PasswordResetService passwordResetService;
     private final UserRepository userRepo;
     private final CustomUserDetailsService userDetailsService;
 
@@ -82,29 +82,21 @@ public class AuthController {
     }
 
     /**
-     * Step 1 of “forgot-password” flow:  generate & email OTP.
+     * Step 1 of “forgot-password” flow: email a reset code. Always 200, so the response never
+     * tells whether the email belongs to an account.
      */
     @PostMapping("/forgot-password")
-    public ResponseEntity<Void> forgotPassword(@RequestBody ForgotPasswordRequest rq) {
-        BaseUser u = userDetailsService.findBaseUserByEmail(rq.getEmail());
-        otpService.generateAndSendOtp(u);
-        log.info("Forgot-password OTP sent to {}", rq.getEmail());
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest rq) {
+        passwordResetService.requestReset(rq.getEmail());
         return ResponseEntity.ok().build();
     }
 
     /**
-     * Step 2 of “forgot-password”: validate OTP, reset password.
+     * Step 2 of “forgot-password”: validate the code, reset the password.
      */
     @PostMapping("/reset-password")
-    public  ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest rq) {
-        BaseUser u = userDetailsService.findBaseUserByEmail(rq.getEmail());
-        otpService.validateOtp(u, rq.getOtp());
-
-        u.setPassword(passwordEncoder.encode(rq.getNewPassword()));
-        u.setPasswordChangeRequired(false);
-        userRepo.save(u);
-
-        log.info("Password reset for {}", rq.getEmail());
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest rq) {
+        passwordResetService.resetPassword(rq.getEmail(), rq.getOtp(), rq.getNewPassword());
         return ResponseEntity.ok().build();
     }
 

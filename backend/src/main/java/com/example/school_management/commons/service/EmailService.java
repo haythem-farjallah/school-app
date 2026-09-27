@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
@@ -45,8 +46,9 @@ public class EmailService {
      * @param subject      email subject (also passed into template ctx)
      * @param templateName name of HTML template (without “.html”)
      * @param variables    map of variables for template
+     * @throws MailException when the message cannot be built or sent. Sending is synchronous,
+     *                       so the caller knows whether the email went out.
      */
-    @Async
     public void sendTemplateEmail(
             String to,
             String subject,
@@ -73,8 +75,8 @@ public class EmailService {
             mailSender.send(msg);
             log.info("📧 Email sent to {}", to);
         }
-        catch (MailException | MessagingException ex) {
-            log.error("❌ Failed to send email to {}: {}", to, ex.getMessage(), ex);
+        catch (MessagingException ex) {
+            throw new MailPreparationException("Could not build the email", ex);
         }
     }
 
