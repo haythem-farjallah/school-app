@@ -32,6 +32,12 @@ public class CustomUserDetailsService implements UserDetailsService
 
     private final RolePermissionRepo      rolePermRepo;   // <-- NEW
 
+    /**
+     * Marks a user who must change their password before using the API. It is derived from the
+     * database on every load, so JwtAuthenticationFilter never relies on what the token says.
+     */
+    public static final String PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
+
     @Override
     public UserDetails loadUserByUsername(String email)
             throws UsernameNotFoundException {
@@ -50,7 +56,12 @@ public class CustomUserDetailsService implements UserDetailsService
         user.getPermissions()
                 .forEach(p -> auth.add(new SimpleGrantedAuthority(p.getCode())));
 
-        /* 4. Only ACTIVE accounts may authenticate; DELETED rows are never loaded */
+        /* 4. Pending first-login password change */
+        if (user.isPasswordChangeRequired()) {
+            auth.add(new SimpleGrantedAuthority(PASSWORD_CHANGE_REQUIRED));
+        }
+
+        /* 5. Only ACTIVE accounts may authenticate; DELETED rows are never loaded */
         return org.springframework.security.core.userdetails.User.withUsername(user.getEmail())
                 .password(user.getPassword())
                 .authorities(auth)

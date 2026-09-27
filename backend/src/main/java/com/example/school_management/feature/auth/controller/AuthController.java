@@ -14,12 +14,16 @@ import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.service.AuthService;
 import com.example.school_management.feature.auth.service.CustomUserDetailsService;
 import com.example.school_management.feature.auth.service.OtpService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -90,11 +94,18 @@ public class AuthController {
     }
 
     /**
-     * “First-login” change-password endpoint (old→new).
+     * “First-login” change-password endpoint (old→new). Changes only the caller's own password;
+     * the email in the body must be the authenticated account's.
      */
     @PostMapping("/change-password")
-    public ResponseEntity<Void> changePassword(@RequestBody ChangePasswordRequest rq) {
-        BaseUser u = userDetailsService.findBaseUserByEmail(rq.getEmail());
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal UserDetails principal,
+                                               @Valid @RequestBody ChangePasswordRequest rq) {
+        if (!principal.getUsername().equals(rq.getEmail())) {
+            throw new AccessDeniedException("You can only change your own password");
+        }
+
+        BaseUser u = userDetailsService.findBaseUserByEmail(principal.getUsername());
         if (!passwordEncoder.matches(rq.getOldPassword(), u.getPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid current password");
         }
@@ -103,7 +114,7 @@ public class AuthController {
         u.setPasswordChangeRequired(false);
         userRepo.save(u);
 
-        log.info("First-login password changed for {}", rq.getEmail());
+        log.info("First-login password changed for {}", principal.getUsername());
         return ResponseEntity.ok().build();
 
     }

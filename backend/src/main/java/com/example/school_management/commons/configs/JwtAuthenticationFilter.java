@@ -9,21 +9,29 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+
+import static com.example.school_management.feature.auth.service.CustomUserDetailsService.PASSWORD_CHANGE_REQUIRED;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
-    
+
+    private static final RequestMatcher CHANGE_PASSWORD =
+            AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/api/auth/change-password");
+
     private final JwtTokenProvider         jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
 
@@ -55,6 +63,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
+                // Until the required password change is done, the token only authenticates that change.
+                // Other requests stay anonymous, so public endpoints still work and protected ones are
+                // answered 403 by the entry point.
+                if (requiresPasswordChange(userDetails) && !CHANGE_PASSWORD.matches(request)) {
+                    request.setAttribute(PASSWORD_CHANGE_REQUIRED, Boolean.TRUE);
+                    chain.doFilter(request, response);
+                    return;
+                }
+
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
@@ -70,6 +87,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    private static boolean requiresPasswordChange(UserDetails userDetails) {
+        return userDetails.getAuthorities().stream()
+                .anyMatch(a -> PASSWORD_CHANGE_REQUIRED.equals(a.getAuthority()));
     }
 
     /* ------------------------------------------------------------ */

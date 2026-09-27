@@ -62,6 +62,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     // Account provisioning is admin-only; must precede the public /api/auth/** rule.
                     .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("ADMIN")
+                    // Changes the caller's own password; must precede the public /api/auth/** rule.
+                    .requestMatchers(HttpMethod.POST, "/api/auth/change-password").authenticated()
                     .requestMatchers("/api/auth/**", "/actuator/**").permitAll()
                     // Staff-managed people directories; everything else under /api/admin is admin-only.
                     .requestMatchers(

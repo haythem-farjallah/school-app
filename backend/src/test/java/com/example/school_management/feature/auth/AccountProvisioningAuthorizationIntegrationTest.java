@@ -2,6 +2,7 @@ package com.example.school_management.feature.auth;
 
 import com.example.school_management.IntegrationTest;
 import com.example.school_management.dev.DevFixtureLoader;
+import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -97,6 +98,7 @@ class AccountProvisioningAuthorizationIntegrationTest {
         String staffEmail = uniqueEmail("staff");
         mockMvc.perform(register(staffEmail, "STAFF").header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL)))
                 .andExpect(status().isCreated());
+        completeFirstLogin(staffEmail);
         String staffToken = bearer(staffEmail);
 
         mockMvc.perform(withClientAddress(get("/api/admin/teachers")).header(HttpHeaders.AUTHORIZATION, staffToken))
@@ -106,6 +108,13 @@ class AccountProvisioningAuthorizationIntegrationTest {
         mockMvc.perform(createAdministrator(adminEmail).header(HttpHeaders.AUTHORIZATION, staffToken))
                 .andExpect(status().isForbidden());
         assertThat(userRepository.existsByEmail(adminEmail)).isFalse();
+    }
+
+    // Provisioned accounts must change their password before using the API; this test is about STAFF authorization.
+    private void completeFirstLogin(String email) {
+        BaseUser user = userRepository.findByEmail(email).orElseThrow();
+        user.setPasswordChangeRequired(false);
+        userRepository.saveAndFlush(user);
     }
 
     private MockHttpServletRequestBuilder register(String email, String role) throws Exception {
