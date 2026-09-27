@@ -65,7 +65,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
     @Override
     public AnnouncementDto create(CreateAnnouncementRequest req) {
-        log.debug("Creating announcement: {}", req);
+        log.debug("Creating announcement");
         
         // Validate dates
         if (req.startDate() != null && req.endDate() != null && req.startDate().isAfter(req.endDate())) {
@@ -113,7 +113,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         } else if (currentUser instanceof Teacher) {
             // Teachers are not Staff, but we need to track who created the announcement
             // For now, we'll handle this in the listing logic
-            log.debug("Teacher {} created announcement, will be handled in listing logic", currentUser.getEmail());
+            log.debug("Teacher id={} created announcement, will be handled in listing logic", currentUser.getId());
         }
         
         // Add additional publishers if specified
@@ -152,7 +152,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for announcement creation: {}", e.getMessage());
+            log.warn("Failed to create audit event for announcement creation: {}", e.getClass().getSimpleName());
         }
         
         return toDto(saved);
@@ -160,7 +160,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
     @Override
     public AnnouncementDto update(Long id, UpdateAnnouncementRequest req) {
-        log.debug("Updating announcement {} with {}", id, req);
+        log.debug("Updating announcement id={}", id);
         
         Announcement entity = announcementRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + id));
@@ -206,7 +206,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for announcement update: {}", e.getMessage());
+            log.warn("Failed to create audit event for announcement update: {}", e.getClass().getSimpleName());
         }
         
         return toDto(updatedEntity);
@@ -238,7 +238,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for announcement deletion: {}", e.getMessage());
+            log.warn("Failed to create audit event for announcement deletion: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -263,14 +263,14 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         if (currentUser instanceof Teacher) {
             // Teachers see all announcements for now (until createdBy field is added)
             // This allows teachers to see announcements they created and public ones
-            log.debug("Teacher {} accessing announcements - showing all for now", currentUser.getEmail());
+            log.debug("Teacher id={} accessing announcements - showing all for now", currentUser.getId());
             // No additional filtering for teachers - they see all announcements
         } else if (currentUser.getRole().name().equals("ADMIN") || currentUser.getRole().name().equals("STAFF")) {
             // Admins and staff see all announcements (no additional filtering)
-            log.debug("Admin/Staff {} accessing announcements - showing all", currentUser.getEmail());
+            log.debug("Admin/Staff id={} accessing announcements - showing all", currentUser.getId());
         } else {
             // Students and parents see only public announcements
-            log.debug("Student/Parent {} accessing announcements - showing only public", currentUser.getEmail());
+            log.debug("Student/Parent id={} accessing announcements - showing only public", currentUser.getId());
             spec = spec.and((root, q, cb) -> cb.equal(root.get("isPublic"), true));
         }
 
@@ -390,7 +390,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
             .map(tc -> (long) tc.id())
             .collect(Collectors.toSet());
             
-        log.debug("Teacher {} has access to classes: {}", teacher.getEmail(), teacherClassIds);
+        log.debug("Teacher id={} has access to classes: {}", teacher.getId(), teacherClassIds);
         log.debug("Requested class IDs: {}", classIds);
             
         for (Long classId : classIds) {
@@ -478,8 +478,8 @@ public class AnnouncementServiceImpl implements AnnouncementService {
             );
         }
         
-        log.info("Sent announcement '{}' to {} users and {} roles", 
-            announcement.getTitle(), targetUsers.size(), targetRoles.size());
+        log.info("Sent announcement id={} to {} users and {} roles",
+            announcement.getId(), targetUsers.size(), targetRoles.size());
     }
     
     /**
@@ -570,6 +570,6 @@ public class AnnouncementServiceImpl implements AnnouncementService {
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Current user not found: " + email));
+                .orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
 } 

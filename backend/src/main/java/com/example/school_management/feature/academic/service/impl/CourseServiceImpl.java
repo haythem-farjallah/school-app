@@ -72,7 +72,7 @@ public class CourseServiceImpl implements CourseService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for course creation: {}", e.getMessage());
+            log.warn("Failed to create audit event for course creation: {}", e.getClass().getSimpleName());
         }
         
         return dto;
@@ -110,7 +110,7 @@ public class CourseServiceImpl implements CourseService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for course update: {}", e.getMessage());
+            log.warn("Failed to create audit event for course update: {}", e.getClass().getSimpleName());
         }
         
         return mapper.toCourseDto(entity);
@@ -141,7 +141,7 @@ public class CourseServiceImpl implements CourseService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for course deletion: {}", e.getMessage());
+            log.warn("Failed to create audit event for course deletion: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -216,7 +216,7 @@ public class CourseServiceImpl implements CourseService {
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Current user not found: " + email));
+                .orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
 
 }

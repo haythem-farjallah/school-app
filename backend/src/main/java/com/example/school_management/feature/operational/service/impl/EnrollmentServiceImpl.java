@@ -93,7 +93,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for enrollment: {}", e.getMessage());
+            log.warn("Failed to create audit event for enrollment: {}", e.getClass().getSimpleName());
         }
         
         // Send real-time enrollment notification
@@ -108,7 +108,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 null // Parent ID - could be enhanced with a repository lookup if needed
             );
         } catch (Exception e) {
-            log.warn("Failed to send real-time enrollment notification: {}", e.getMessage());
+            log.warn("Failed to send real-time enrollment notification: {}", e.getClass().getSimpleName());
         }
         
         return toDto(savedEnrollment);
@@ -145,7 +145,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for enrollment transfer: {}", e.getMessage());
+            log.warn("Failed to create audit event for enrollment transfer: {}", e.getClass().getSimpleName());
         }
         
         return toDto(updatedEnrollment);
@@ -180,7 +180,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for enrollment status update: {}", e.getMessage());
+            log.warn("Failed to create audit event for enrollment status update: {}", e.getClass().getSimpleName());
         }
         
         return toDto(updatedEnrollment);
@@ -216,7 +216,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for enrollment drop: {}", e.getMessage());
+            log.warn("Failed to create audit event for enrollment drop: {}", e.getClass().getSimpleName());
         }
         
         log.info("Enrollment {} dropped: {}", enrollmentId, reason);
@@ -310,7 +310,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                     enrolled++;
                 }
             } catch (Exception e) {
-                log.warn("Failed to enroll student {} in class {}: {}", studentId, classId, e.getMessage());
+                log.warn("Failed to enroll student id={} in class id={}: {}", studentId, classId, e.getClass().getSimpleName());
             }
         }
         
@@ -367,7 +367,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Current user not found: " + email));
+                .orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
 
     @Override
@@ -485,7 +485,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             );
             
         } catch (Exception e) {
-            log.error("Error during auto-enrollment process", e);
+            log.error("Error during auto-enrollment process: {}", e.getClass().getSimpleName());
             errors.add("Auto-enrollment failed: " + e.getMessage());
             
             return new AutoEnrollmentResultDto(
@@ -640,8 +640,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 
                 // Check if student is already enrolled in this specific class
                 if (!isPreview && isStudentEnrolledInClass(student.getId(), classEntity.getId())) {
-                    log.debug("Student {} is already enrolled in class {}, skipping", 
-                        student.getEmail(), classEntity.getName());
+                    log.debug("Student id={} is already enrolled in class id={}, skipping",
+                        student.getId(), classEntity.getId());
                     studentIndex++;
                     continue;
                 }
@@ -650,8 +650,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                     try {
                         // Double-check enrollment doesn't exist (race condition protection)
                         if (enrollmentRepo.findByStudentIdAndClassId(student.getId(), classEntity.getId()).isPresent()) {
-                            log.debug("Student {} already enrolled in class {} (race condition detected)", 
-                                student.getEmail(), classEntity.getName());
+                            log.debug("Student id={} already enrolled in class id={} (race condition detected)",
+                                student.getId(), classEntity.getId());
                             studentIndex++;
                             continue;
                         }
@@ -664,10 +664,10 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         enrollment.setEnrolledAt(LocalDateTime.now());
                         
                         enrollmentRepo.save(enrollment);
-                        log.debug("Enrolled student {} in class {}", student.getEmail(), classEntity.getName());
+                        log.debug("Enrolled student id={} in class id={}", student.getId(), classEntity.getId());
                     } catch (Exception e) {
-                        log.warn("Failed to enroll student {} in class {}: {}", 
-                            student.getEmail(), classEntity.getName(), e.getMessage());
+                        log.warn("Failed to enroll student id={} in class id={}: {}",
+                            student.getId(), classEntity.getId(), e.getClass().getSimpleName());
                         studentIndex++;
                         continue;
                     }

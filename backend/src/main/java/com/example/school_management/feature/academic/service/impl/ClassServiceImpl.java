@@ -83,7 +83,7 @@ public class ClassServiceImpl implements ClassService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for class creation: {}", e.getMessage());
+            log.warn("Failed to create audit event for class creation: {}", e.getClass().getSimpleName());
         }
         
         return dto;
@@ -113,7 +113,7 @@ public class ClassServiceImpl implements ClassService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for class update: {}", e.getMessage());
+            log.warn("Failed to create audit event for class update: {}", e.getClass().getSimpleName());
         }
         
         return mapper.toClassDto(entity);
@@ -144,7 +144,7 @@ public class ClassServiceImpl implements ClassService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for class deletion: {}", e.getMessage());
+            log.warn("Failed to create audit event for class deletion: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -333,10 +333,9 @@ public class ClassServiceImpl implements ClassService {
         // Get current teacher from security context
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String email = userDetails.getUsername();
-        log.debug("Current teacher email: {}", email);
 
         Teacher teacher = teacherRepo.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Current user is not a teacher: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("Current user is not a teacher"));
 
         log.debug("Found teacher with ID: {}", teacher.getId());
         return getClassesByTeacherId(teacher.getId(), pageable);
@@ -348,6 +347,6 @@ public class ClassServiceImpl implements ClassService {
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Current user not found: " + email));
+                .orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
 }

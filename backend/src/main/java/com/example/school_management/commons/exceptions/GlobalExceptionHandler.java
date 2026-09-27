@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
             ResourceNotFoundException ex,
             HttpServletRequest request) {
 
-        log.warn("Resource not found: {}", ex.getMessage());
+        log.warn("Resource not found");
         return problem(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
@@ -69,7 +69,7 @@ public class GlobalExceptionHandler {
             ConflictException ex,
             HttpServletRequest request) {
 
-        log.warn("Conflict: {}", ex.getMessage());
+        log.warn("Conflict");
         return problem(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException ex,
             HttpServletRequest request) {
 
-        log.warn("Malformed JSON request: {}", ex.getMessage());
+        log.warn("Malformed JSON request");
         return problem(HttpStatus.BAD_REQUEST, "Malformed JSON request", request);
     }
 
@@ -148,8 +148,9 @@ public class GlobalExceptionHandler {
             DataIntegrityViolationException ex,
             HttpServletRequest request) {
 
+        // The database's message names the offending values, so it is only inspected, never logged.
         String detail = ex.getMostSpecificCause().getMessage();
-        log.warn("Data integrity violation: {}", detail);
+        log.warn("Data integrity violation");
 
         /* Unique e-mail constraint ----------------------------------- */
         if (detail != null && detail.contains("users_email_key")) {
@@ -194,7 +195,8 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request) {
 
-        log.error("Unhandled exception caught: ", ex);
+        // The message and stack trace may carry request data, SQL or account identifiers.
+        log.error("Unhandled exception: {}", ex.getClass().getSimpleName());
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "UNEXPECTED_ERROR", request);
     }
 
