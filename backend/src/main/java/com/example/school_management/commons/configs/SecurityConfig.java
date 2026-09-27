@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilde
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -59,7 +60,16 @@ public class SecurityConfig {
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authorizeHttpRequests(auth -> auth
+                    // Account provisioning is admin-only; must precede the public /api/auth/** rule.
+                    .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("ADMIN")
                     .requestMatchers("/api/auth/**", "/actuator/**").permitAll()
+                    // Staff-managed people directories; everything else under /api/admin is admin-only.
+                    .requestMatchers(
+                            "/api/admin/teachers/**",
+                            "/api/admin/parent-management/**",
+                            "/api/admin/staff/**"
+                    ).hasAnyRole("ADMIN", "STAFF")
+                    .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     .requestMatchers("/ws/**", "/ws-native/**").permitAll() // Allow WebSocket endpoints
                     .requestMatchers(
                             "/swagger-ui.html",
