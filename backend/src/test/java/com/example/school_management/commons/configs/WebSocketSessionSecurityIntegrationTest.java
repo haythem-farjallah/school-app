@@ -36,8 +36,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * A real STOMP client against the running server: the account authenticated on CONNECT is kept for
- * the rest of the session, refused frames are answered with a generic error, and the handshake
- * only accepts the configured browser origins.
+ * the rest of the session, refused frames (including every client SEND) are answered with a generic
+ * error, and the handshake only accepts the configured browser origins.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration.class)
@@ -107,6 +107,17 @@ class WebSocketSessionSecurityIntegrationTest {
         StompSession session = connect(ALLOWED_ORIGIN, "Bearer " + accessToken(student), errors);
 
         session.subscribe("/queue/user/" + (student.getId() + 1) + "/notifications", new StompSessionHandlerAdapter() {});
+
+        assertThat(errors.message.get(10, TimeUnit.SECONDS)).isEqualTo(WebSocketSecurityInterceptor.ACCESS_DENIED);
+    }
+
+    @Test
+    void sendFromAuthenticatedSessionIsRefused() throws Exception {
+        BaseUser admin = userDetailsService.findBaseUserByEmail(DevFixtureLoader.ADMIN_EMAIL);
+        ErrorCapture errors = new ErrorCapture();
+        StompSession session = connect(ALLOWED_ORIGIN, "Bearer " + accessToken(admin), errors);
+
+        session.send("/app/test", Map.of("message", "hello"));
 
         assertThat(errors.message.get(10, TimeUnit.SECONDS)).isEqualTo(WebSocketSecurityInterceptor.ACCESS_DENIED);
     }

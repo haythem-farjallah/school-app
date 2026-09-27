@@ -227,6 +227,37 @@ class WebSocketSecurityInterceptorIntegrationTest {
                 .hasMessage(WebSocketSecurityInterceptor.AUTHENTICATION_FAILED);
     }
 
+    @Test
+    void authenticatedSendIsDenied() {
+        Authentication admin = connect("Bearer " + accessToken(DevFixtureLoader.ADMIN_EMAIL));
+
+        for (String destination : new String[] {"/app/test", "/app/admin/broadcast", "/topic/system-alerts"}) {
+            Message<byte[]> sendFrame = frame(StompCommand.SEND, accessor -> {
+                accessor.setUser(admin);
+                accessor.setDestination(destination);
+            });
+
+            assertThatThrownBy(() -> send(sendFrame))
+                    .as("send to %s", destination)
+                    .isInstanceOf(MessagingException.class)
+                    .hasMessage(WebSocketSecurityInterceptor.ACCESS_DENIED);
+        }
+    }
+
+    @Test
+    void authenticatedSessionFramesOtherThanSendStillPass() {
+        Authentication student = connect("Bearer " + accessToken(DevFixtureLoader.STUDENT_EMAIL));
+
+        for (StompCommand command : new StompCommand[] {StompCommand.UNSUBSCRIBE, StompCommand.DISCONNECT}) {
+            Message<byte[]> sessionFrame = frame(command, accessor -> {
+                accessor.setUser(student);
+                accessor.setSubscriptionId("sub-0");
+            });
+
+            assertThatCode(() -> send(sessionFrame)).as("%s", command).doesNotThrowAnyException();
+        }
+    }
+
     /* ---------------- helpers ---------------- */
 
     private Authentication connect(String authorization) {

@@ -30,6 +30,7 @@ import java.util.Optional;
  * session is authenticated by its CONNECT frame, which must carry a current ACCESS token of an account
  * that may use the API, exactly as JwtAuthenticationFilter requires for HTTP. Every later frame runs
  * as that account, and a SUBSCRIBE is accepted only for the destinations the account may read.
+ * WebSocket delivery is server to browser only, so every client SEND is refused.
  * A refused frame is answered with a generic STOMP ERROR, after which Spring closes the session.
  */
 @Component
@@ -63,6 +64,10 @@ public class WebSocketSecurityInterceptor implements ChannelInterceptor {
             // Also sent by Spring itself when a session closes, authenticated or not.
             case DISCONNECT -> { }
             case SUBSCRIBE -> authorizeSubscription(accessor);
+            case SEND -> {
+                authenticatedUser(accessor);
+                throw rejected("WebSocket send denied", ACCESS_DENIED);
+            }
             default -> authenticatedUser(accessor);
         }
         return message;

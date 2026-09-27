@@ -81,6 +81,19 @@ describe("connectWebSocket", () => {
     expect(headers).not.toHaveProperty("X-User-Role");
   });
 
+  it("only subscribes after connecting and never sends application messages", async () => {
+    token.access = "access-A";
+    connectWebSocket({ id: 52, role: "STUDENT" });
+    const socket = await openLatestSocket();
+
+    socket.onmessage?.({ data: "CONNECTED\nversion:1.2\nheart-beat:0,0\n\n\0" });
+    await vi.advanceTimersByTimeAsync(0);
+
+    const commands = socket.sent.map((frame) => frame.split("\n")[0]);
+    expect(commands).toContain("SUBSCRIBE");
+    expect(commands).not.toContain("SEND");
+  });
+
   it("reconnects with the access token that is current at reconnect time", async () => {
     token.access = "access-A";
     connectWebSocket({ id: 52, role: "STUDENT" });

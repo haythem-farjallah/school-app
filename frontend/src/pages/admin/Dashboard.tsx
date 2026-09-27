@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { AdminFeed } from '@/components/Admin/AdminFeed';
-import { WebSocketTestPanel } from '@/components/Admin/WebSocketTestPanel';
 import { RecentActivity } from '@/components/Dashboard/RecentActivity';
 import { useDashboardStats } from '@/hooks/use-dashboard-stats';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
@@ -134,9 +133,6 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
-      
-      {/* Development WebSocket Test Panel */}
-      <WebSocketTestPanel />
     </div>
   );
 }; 

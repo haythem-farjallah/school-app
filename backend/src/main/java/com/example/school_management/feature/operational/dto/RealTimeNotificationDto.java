@@ -73,55 +73,6 @@ public class RealTimeNotificationDto {
         );
     }
     
-    public static RealTimeNotificationDto systemAlert(
-            String title,
-            String message,
-            String priority) {
-        return new RealTimeNotificationDto(
-            java.util.UUID.randomUUID().toString(),
-            "SYSTEM_ALERT",
-            title,
-            message,
-            priority,
-            LocalDateTime.now(),
-            "SYSTEM",
-            "SystemAlert",
-            null,
-            Set.of("ADMIN"),
-            null,
-            null,
-            null
-        );
-    }
-    
-    public static RealTimeNotificationDto gradeNotification(
-            String studentName,
-            String courseName,
-            String className,
-            Double score,
-            Long studentId,
-            Long parentId) {
-        String title = "New Grade Posted";
-        String message = String.format("Grade posted for %s in %s (%s): %.2f", 
-            studentName, courseName, className, score);
-        
-        return new RealTimeNotificationDto(
-            java.util.UUID.randomUUID().toString(),
-            "GRADE_NOTIFICATION",
-            title,
-            message,
-            "MEDIUM",
-            LocalDateTime.now(),
-            "TEACHER",
-            "Grade",
-            null,
-            Set.of("PARENT", "STUDENT"),
-            Set.of(studentId, parentId),
-            "/grades",
-            null
-        );
-    }
-    
     public static RealTimeNotificationDto enrollmentNotification(
             String studentName,
             String className,
@@ -144,7 +95,7 @@ public class RealTimeNotificationDto {
             "Enrollment",
             null,
             Set.of("PARENT", "STUDENT"),
-            Set.of(studentId, parentId),
+            parentId == null ? Set.of(studentId) : Set.of(studentId, parentId),
             "/enrollments",
             null
         );

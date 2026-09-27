@@ -9,6 +9,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.Set;
 
+/**
+ * Pushes notifications from the server to connected browsers. Notifications about one person go to
+ * that person's own queue only; role topics carry only content meant for everyone in the role.
+ * Logs name destinations and ids, never notification content.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -19,40 +24,19 @@ public class RealTimeNotificationService {
     /**
      * Broadcast admin feed notification to all admin users
      */
-    public void broadcastAdminFeed(AuditEventType eventType, String summary, String details, 
+    public void broadcastAdminFeed(AuditEventType eventType, String summary, String details,
                                   String performedBy, String entityType, Long entityId) {
         try {
             RealTimeNotificationDto notification = RealTimeNotificationDto.adminFeed(
                 eventType, summary, details, performedBy, entityType, entityId
             );
-            
+
             // Send to admin-specific topic
             messagingTemplate.convertAndSend("/topic/admin-feeds", notification);
-            log.debug("Broadcast admin feed: {} - {}", summary, details);
-            
-        } catch (Exception e) {
-            log.error("Failed to broadcast admin feed notification", e);
-        }
-    }
+            log.debug("Admin feed notification sent");
 
-    /**
-     * Send notification to specific user roles
-     */
-    public void notifyUserRoles(String title, String message, String priority, Set<String> targetRoles) {
-        try {
-            RealTimeNotificationDto notification = RealTimeNotificationDto.userNotification(
-                title, message, priority, targetRoles, null
-            );
-            
-            // Send to each target role
-            for (String role : targetRoles) {
-                String destination = "/topic/notifications/" + role.toLowerCase();
-                messagingTemplate.convertAndSend(destination, notification);
-                log.debug("Sent notification to role {}: {}", role, title);
-            }
-            
         } catch (Exception e) {
-            log.error("Failed to send role-based notifications", e);
+            log.error("Realtime notification delivery failed: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -64,87 +48,37 @@ public class RealTimeNotificationService {
             RealTimeNotificationDto notification = RealTimeNotificationDto.userNotification(
                 title, message, priority, null, userIds
             );
-            
+
             // Send to each specific user
             for (Long userId : userIds) {
-                String destination = "/queue/user/" + userId + "/notifications";
-                messagingTemplate.convertAndSend(destination, notification);
-                log.debug("Sent notification to user {}: {}", userId, title);
+                sendToUser(userId, notification);
+                log.debug("Notification sent to user id={}", userId);
             }
-            
+
         } catch (Exception e) {
-            log.error("Failed to send user-specific notifications", e);
+            log.error("Realtime notification delivery failed: {}", e.getClass().getSimpleName());
         }
     }
 
     /**
-     * Broadcast system alert to admins
+     * Send an enrollment notification to the student, and to the parent when one is given
      */
-    public void broadcastSystemAlert(String title, String message, String priority) {
-        try {
-            RealTimeNotificationDto notification = RealTimeNotificationDto.systemAlert(
-                title, message, priority
-            );
-            
-            messagingTemplate.convertAndSend("/topic/system-alerts", notification);
-            log.debug("Broadcast system alert: {}", title);
-            
-        } catch (Exception e) {
-            log.error("Failed to broadcast system alert", e);
-        }
-    }
-
-    /**
-     * Send grade notification to student and parent
-     */
-    public void notifyGradePosted(String studentName, String courseName, String className, 
-                                 Double score, Long studentId, Long parentId) {
-        try {
-            RealTimeNotificationDto notification = RealTimeNotificationDto.gradeNotification(
-                studentName, courseName, className, score, studentId, parentId
-            );
-            
-            // Send to specific student and parent
-            messagingTemplate.convertAndSend("/queue/user/" + studentId + "/notifications", notification);
-            if (parentId != null) {
-                messagingTemplate.convertAndSend("/queue/user/" + parentId + "/notifications", notification);
-            }
-            
-            // Also send to parent/student general topics
-            messagingTemplate.convertAndSend("/topic/notifications/student", notification);
-            messagingTemplate.convertAndSend("/topic/notifications/parent", notification);
-            
-            log.debug("Sent grade notification for {} in {}", studentName, courseName);
-            
-        } catch (Exception e) {
-            log.error("Failed to send grade notification", e);
-        }
-    }
-
-    /**
-     * Send enrollment notification to student and parent
-     */
-    public void notifyEnrollmentChange(String studentName, String className, String action, 
+    public void notifyEnrollmentChange(String studentName, String className, String action,
                                      Long studentId, Long parentId) {
         try {
             RealTimeNotificationDto notification = RealTimeNotificationDto.enrollmentNotification(
                 studentName, className, action, studentId, parentId
             );
-            
-            // Send to specific student and parent
-            messagingTemplate.convertAndSend("/queue/user/" + studentId + "/notifications", notification);
+
+            sendToUser(studentId, notification);
+            log.debug("Enrollment notification sent to student id={}", studentId);
             if (parentId != null) {
-                messagingTemplate.convertAndSend("/queue/user/" + parentId + "/notifications", notification);
+                sendToUser(parentId, notification);
+                log.debug("Enrollment notification sent to parent id={}", parentId);
             }
-            
-            // Also send to parent/student general topics
-            messagingTemplate.convertAndSend("/topic/notifications/student", notification);
-            messagingTemplate.convertAndSend("/topic/notifications/parent", notification);
-            
-            log.debug("Sent enrollment notification: {} {} {}", studentName, action, className);
-            
+
         } catch (Exception e) {
-            log.error("Failed to send enrollment notification", e);
+            log.error("Realtime notification delivery failed: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -156,64 +90,20 @@ public class RealTimeNotificationService {
             RealTimeNotificationDto notification = RealTimeNotificationDto.announcementNotification(
                 title, content, importance, targetRoles
             );
-            
+
             // Send to each target role
             for (String role : targetRoles) {
                 String destination = "/topic/notifications/" + role.toLowerCase();
                 messagingTemplate.convertAndSend(destination, notification);
-                log.debug("Sent announcement notification to role {}: {}", role, title);
+                log.debug("Notification sent to role {}", role);
             }
-            
-            // Also send to general announcements topic
-            messagingTemplate.convertAndSend("/topic/announcements", notification);
-            
+
         } catch (Exception e) {
-            log.error("Failed to send announcement notification", e);
+            log.error("Realtime notification delivery failed: {}", e.getClass().getSimpleName());
         }
     }
 
-
-
-    /**
-     * Send connection confirmation to user
-     */
-    public void sendConnectionConfirmation(Long userId, String userRole) {
-        try {
-            RealTimeNotificationDto notification = RealTimeNotificationDto.userNotification(
-                "Connected",
-                "You are now connected to real-time notifications",
-                "LOW",
-                Set.of(userRole),
-                Set.of(userId)
-            );
-            
-            messagingTemplate.convertAndSend("/queue/user/" + userId + "/notifications", notification);
-            log.debug("Sent connection confirmation to user {} with role {}", userId, userRole);
-            
-        } catch (Exception e) {
-            log.error("Failed to send connection confirmation", e);
-        }
+    private void sendToUser(Long userId, RealTimeNotificationDto notification) {
+        messagingTemplate.convertAndSend("/queue/user/" + userId + "/notifications", notification);
     }
-
-    /**
-     * Broadcast message to all users (all roles)
-     */
-    public void broadcastToAll(String title, String message, String priority) {
-        try {
-            RealTimeNotificationDto notification = RealTimeNotificationDto.userNotification(
-                title, message, priority, Set.of("ADMIN", "TEACHER", "STUDENT", "PARENT"), null
-            );
-            
-            // Send to all role-specific topics
-            messagingTemplate.convertAndSend("/topic/notifications/admin", notification);
-            messagingTemplate.convertAndSend("/topic/notifications/teacher", notification);
-            messagingTemplate.convertAndSend("/topic/notifications/student", notification);
-            messagingTemplate.convertAndSend("/topic/notifications/parent", notification);
-            
-            log.debug("Broadcast message to all users: {}", title);
-            
-        } catch (Exception e) {
-            log.error("Failed to broadcast message to all users", e);
-        }
-    }
-} 
+}

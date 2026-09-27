@@ -152,19 +152,6 @@ export function connectWebSocket(user?: { id: number; role: string }) {
         client.subscribe(personalChannel, onMessage);
         console.log(`📡 Subscribed to ${personalChannel}`);
         
-        // Send a test message to confirm connection
-        if (client.connected) {
-          client.publish({
-            destination: '/app/test',
-            body: JSON.stringify({
-              message: 'Frontend connection test',
-              userId: user.id,
-              role: user.role,
-              timestamp: new Date().toISOString()
-            })
-          });
-        }
-        
       } catch (error) {
         console.error('❌ Failed to subscribe to WebSocket topics:', error);
       }
@@ -225,24 +212,6 @@ export function getConnectionStatus(): ConnectionStatus {
  */
 export function onConnectionStatusChange(callback: (status: ConnectionStatus) => void) {
   connectionStatusCallback = callback;
-}
-
-/**
- * Send a test message (for debugging)
- */
-export function sendTestMessage(message: string) {
-  if (!client?.connected) {
-    console.warn('⚠️ Cannot send message: WebSocket not connected');
-    return;
-  }
-  
-  client.publish({
-    destination: '/app/test',
-    body: JSON.stringify({
-      message,
-      timestamp: new Date().toISOString()
-    })
-  });
 }
 
 /**
