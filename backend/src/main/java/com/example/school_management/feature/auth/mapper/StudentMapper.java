@@ -5,6 +5,7 @@ import com.example.school_management.feature.auth.dto.StudentDto;
 import com.example.school_management.feature.auth.dto.StudentUpdateDto;
 import com.example.school_management.feature.auth.entity.Student;
 import org.mapstruct.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Mapper(componentModel = "spring")
@@ -23,7 +24,7 @@ public interface StudentMapper
             @Mapping(target = "lastName",   source = "profile.lastName"),
             @Mapping(target = "email",      source = "profile.email"),
             @Mapping(target = "telephone",  source = "profile.telephone"),
-            @Mapping(target = "birthday",   source = "profile.birthday"),
+            @Mapping(target = "birthday",   source = "profile.birthday", qualifiedByName = "birthdayAtStartOfDay"),
             @Mapping(target = "gender",     source = "profile.gender"),
             @Mapping(target = "address",    source = "profile.address"),
             @Mapping(target = "role",       constant = "STUDENT"),
@@ -39,6 +40,13 @@ public interface StudentMapper
 
     @Override
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "enrolledAt", expression = "java(dto.getEnrollmentYear() != null ? LocalDateTime.of(dto.getEnrollmentYear(), 1, 1, 0, 0) : entity.getEnrolledAt())")
     void patch(StudentUpdateDto dto, @MappingTarget Student entity);
+
+    // The generic LocalDate -> LocalDateTime conversion returns null for a date-only value.
+    @Named("birthdayAtStartOfDay")
+    default LocalDateTime birthdayAtStartOfDay(LocalDate birthday) {
+        return birthday == null ? null : birthday.atStartOfDay();
+    }
 
 }

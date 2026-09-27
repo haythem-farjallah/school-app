@@ -22,8 +22,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -61,7 +59,6 @@ public class StudentController {
             @ApiResponse(responseCode = "409", description = "Student with this email already exists")
     })
     @PostMapping
-    @CacheEvict(value = "students", allEntries = true)
     public ResponseEntity<ApiSuccessResponse<StudentDto>> create(
             @Valid @RequestBody StudentCreateDto body) {
         log.debug("POST /students {}", body);
@@ -77,7 +74,6 @@ public class StudentController {
             @ApiResponse(responseCode = "404", description = "Student not found")
     })
     @GetMapping("/{id}")
-    @Cacheable(value = "students", key = "#id")
     public ResponseEntity<ApiSuccessResponse<StudentDto>> get(@PathVariable long id) {
         log.debug("GET /students/{}", id);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", mapper.toDto(service.find(id))));
@@ -89,7 +85,6 @@ public class StudentController {
             @ApiResponse(responseCode = "200", description = "Students retrieved successfully")
     })
     @GetMapping
-    @Cacheable(value = "students", key = "#page + '_' + #size + '_' + #firstNameLike + '_' + #lastNameLike + '_' + #emailLike + '_' + #gradeLevel + '_' + #enrollmentYear + '_' + #status")
     public ResponseEntity<ApiSuccessResponse<PageDto<StudentDto>>> list(
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
