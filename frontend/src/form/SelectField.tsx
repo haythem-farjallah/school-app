@@ -10,7 +10,7 @@ interface Props {
 
 export function SelectField({ field }: Props) {
   const { setValue, watch, formState: { errors } } = useFormContext();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // value from RHF
   const value = watch(field.name) as string | number | undefined;
@@ -27,14 +27,17 @@ export function SelectField({ field }: Props) {
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium leading-none">
+      <label htmlFor={field.name} className="text-sm font-medium leading-none">
         {t(field.label)}
       </label>
       <Select
+        // Radix defaults the trigger and list to left-to-right unless given the direction.
+        // Without an initialised i18next instance (some unit tests) i18n has no dir(); Radix then uses ltr.
+        dir={i18n.dir?.()}
         value={value ? String(value) : undefined}
         onValueChange={handleValueChange}
       >
-        <SelectTrigger className={cn("h-11",
+        <SelectTrigger id={field.name} className={cn("h-11",
           err && "border-destructive/60 focus:border-destructive")}
         >
           <SelectValue placeholder={field.placeholder ? t(field.placeholder) : undefined} />

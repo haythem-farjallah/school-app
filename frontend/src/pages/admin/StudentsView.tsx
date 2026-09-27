@@ -1,299 +1,175 @@
 import * as React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Mail, Phone, Calendar, Home, GraduationCap, BookOpen, Edit } from "lucide-react";
-import toast from "react-hot-toast";
+import { ArrowLeft, Pencil } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Link, useParams } from "react-router-dom";
 
+import { PageContainer } from "@/components/Layout/PageContainer";
+import { PageHeader } from "@/components/Layout/PageHeader";
+import { ErrorState } from "@/components/Shared/ErrorState";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { useStudent } from "@/features/students/hooks/use-students";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EditStudentSheet } from "@/features/students/components/student-sheet";
+import { formatStudentDate, genderLabel, gradeLevelLabel, studentName } from "@/features/students/display";
+import { useStudent } from "@/features/students/hooks/use-students";
+import { useStudentsPath } from "@/features/students/paths";
+import { cn } from "@/lib/utils";
 
 const StudentsView = () => {
+  const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const studentId = id ? parseInt(id, 10) : undefined;
+  const studentsPath = useStudentsPath();
+  const studentId = id && /^\d+$/.test(id) ? Number(id) : undefined;
+  const { data: student, isPending, isError, error, refetch } = useStudent(studentId);
+  const [editOpen, setEditOpen] = React.useState(false);
 
-  console.log("👁️ StudentsView - Component mounted with id:", id, "parsed studentId:", studentId);
+  const back = (
+    <Link to={studentsPath} className="inline-flex items-center gap-1 hover:text-foreground">
+      <ArrowLeft className="size-4 rtl:rotate-180" aria-hidden="true" />
+      {t("students.detail.back")}
+    </Link>
+  );
+  const backButton = (
+    <Button variant="outline" asChild>
+      <Link to={studentsPath}>{t("students.detail.back")}</Link>
+    </Button>
+  );
 
-  const { data: student, isLoading, error } = useStudent(studentId);
-
-  console.log("👁️ StudentsView - Hook result:", {
-    student,
-    isLoading,
-    error: error?.message,
-    hasData: !!student
-  });
-
-  if (isLoading) {
-    console.log("👁️ StudentsView - Loading state");
+  if (studentId === undefined || (isError && error.response?.status === 404)) {
     return (
-      <div className="space-y-6">
-        <Card className="border-blue-200/60 bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/20 shadow-xl backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="animate-pulse">
-              <div className="h-8 bg-blue-200 rounded w-1/3 mb-4"></div>
-              <div className="h-4 bg-blue-200 rounded w-1/2"></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200/60 shadow-xl bg-white/95 backdrop-blur-sm">
-          <CardContent className="p-8">
-            <div className="animate-pulse space-y-4">
-              <div className="h-4 bg-slate-200 rounded w-full"></div>
-              <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-              <div className="h-4 bg-slate-200 rounded w-1/2"></div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PageContainer>
+        <PageHeader breadcrumb={back} title={t("students.detail.title")} />
+        <ErrorState
+          title={t("students.error.notFoundTitle")}
+          description={t("students.error.notFoundDescription")}
+          action={backButton}
+          className="rounded-xl border border-border bg-card"
+        />
+      </PageContainer>
     );
   }
 
-  if (error || !student) {
-    console.error("❌ StudentsView - Error or no student data:", { error, student });
+  if (isError) {
     return (
-      <div className="space-y-6">
-        <Card className="border-red-200 shadow-lg">
-          <CardContent className="pt-6">
-            <div className="text-center text-red-600">
-              Failed to load student. Please try again.
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PageContainer>
+        <PageHeader breadcrumb={back} title={t("students.detail.title")} />
+        <ErrorState
+          title={t("students.error.detailTitle")}
+          description={t("students.error.detailDescription")}
+          onRetry={() => void refetch()}
+          action={backButton}
+          className="rounded-xl border border-border bg-card"
+        />
+      </PageContainer>
     );
   }
 
-  console.log("👁️ StudentsView - Rendering student data:", student);
-  
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return "Not provided";
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return "Invalid date";
-    }
-  };
-
-  const formatGender = (gender: string | null | undefined) => {
-    if (!gender) return "Not specified";
-    switch (gender) {
-      case "M": return "Male";
-      case "F": return "Female";
-      case "O": return "Other";
-      default: return gender;
-    }
-  };
-
-  const formatEnrollmentYear = (year: number | null | undefined) => {
-    if (!year) return "Not specified";
-    return year.toString();
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="border-blue-200/60 bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/20 shadow-xl backdrop-blur-sm">
-        <CardHeader className="pb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/admin/students")}
-                className="hover:bg-blue-100 transition-colors duration-200"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Students
-              </Button>
-              <div className="space-y-2">
-                <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-700 bg-clip-text text-transparent">
-                  Student Details
-                </CardTitle>
-                <CardDescription className="text-blue-700/80 text-lg">
-                  View student information and details
-                </CardDescription>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <EditStudentSheet 
-                student={student} 
-                onSuccess={() => {
-                  console.log("✅ StudentsView - Student updated successfully");
-                  toast.success("Student updated successfully!");
-                }}
-                trigger={
-                  <Button 
-                    variant="outline" 
-                    className="hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200"
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Student
-                  </Button>
-                }
-              />
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-                <User className="h-6 w-6 text-white" />
-              </div>
+  if (isPending) {
+    return (
+      <PageContainer>
+        <PageHeader breadcrumb={back} title={t("students.detail.title")} />
+        <div role="status" aria-label={t("students.detail.loading")} className="space-y-6">
+          <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-6">
+            <Skeleton className="size-14 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-64" />
             </div>
           </div>
-        </CardHeader>
-      </Card>
-
-      {/* Student Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Personal Information */}
-          <Card className="border-slate-200/60 shadow-xl bg-white/95 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <User className="h-5 w-5 text-blue-600" />
-                Personal Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-600">First Name</label>
-                  <p className="text-lg font-semibold text-slate-900">{student?.firstName || "Not provided"}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-600">Last Name</label>
-                  <p className="text-lg font-semibold text-slate-900">{student?.lastName || "Not provided"}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                    <Mail className="h-4 w-4" />
-                    Email
-                  </label>
-                  <p className="text-lg font-semibold text-slate-900">{student?.email || "Not provided"}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                    <Phone className="h-4 w-4" />
-                    Phone
-                  </label>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {student?.telephone || "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    Birthday
-                  </label>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {formatDate(student?.birthday)}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-600">Gender</label>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {formatGender(student?.gender)}
-                  </p>
-                </div>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                  <Home className="h-4 w-4" />
-                  Address
-                </label>
-                                  <p className="text-lg font-semibold text-slate-900">
-                    {student?.address || "Not provided"}
-                  </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Academic Information */}
-          <Card className="border-slate-200/60 shadow-xl bg-white/95 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <GraduationCap className="h-5 w-5 text-green-600" />
-                Academic Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                    <GraduationCap className="h-4 w-4" />
-                    Grade Level
-                  </label>
-                  <Badge 
-                    variant="outline" 
-                    className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 hover:from-green-200 hover:to-emerald-200 border border-green-200/60 font-semibold transition-colors duration-200 mt-1"
-                  >
-                    {student?.gradeLevel || "Not specified"}
-                  </Badge>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                    <BookOpen className="h-4 w-4" />
-                    Enrollment Year
-                  </label>
-                  <Badge 
-                    variant="secondary" 
-                    className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 hover:from-purple-200 hover:to-pink-200 border border-purple-200/60 font-semibold transition-colors duration-200 mt-1"
-                  >
-                    {formatEnrollmentYear(student?.enrollmentYear)}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Skeleton className="h-64 rounded-xl lg:col-span-2" />
+            <Skeleton className="h-64 rounded-xl" />
+          </div>
         </div>
+      </PageContainer>
+    );
+  }
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Student ID */}
-          <Card className="border-slate-200/60 shadow-xl bg-white/95 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Student ID</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">#{student?.id}</div>
-            </CardContent>
-          </Card>
+  const notProvided = t("students.detail.notProvided");
+  const name = studentName(student);
+  const initials = `${student.firstName.charAt(0)}${student.lastName.charAt(0)}`.toUpperCase();
 
-          {/* Status */}
-          <Card className="border-slate-200/60 shadow-xl bg-white/95 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Badge 
-                variant="outline" 
-                className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 hover:from-green-200 hover:to-emerald-200 border border-green-200/60 font-semibold transition-colors duration-200"
-              >
-                Active
-              </Badge>
-            </CardContent>
-          </Card>
+  const personal: [string, string][] = [
+    [t("students.form.firstName.label"), student.firstName || notProvided],
+    [t("students.form.lastName.label"), student.lastName || notProvided],
+    [t("students.form.email.label"), student.email || notProvided],
+    [t("students.form.phone.label"), student.telephone?.trim() || notProvided],
+    [t("students.form.birthday.label"), formatStudentDate(t, student.birthday, i18n.language)],
+    [t("students.form.gender.label"), genderLabel(t, student.gender) ?? notProvided],
+    [t("students.form.address.label"), student.address?.trim() || notProvided],
+  ];
+  const academic: [string, string][] = [
+    [t("students.form.gradeLevel.label"), gradeLevelLabel(t, student.gradeLevel) ?? notProvided],
+    [t("students.form.enrollmentYear.label"), student.enrollmentYear != null ? String(student.enrollmentYear) : notProvided],
+    [t("students.detail.studentId"), `#${student.id}`],
+  ];
 
-          {/* Created Date */}
-          <Card className="border-slate-200/60 shadow-xl bg-white/95 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Created</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-slate-600">
-                Unknown
-              </p>
-            </CardContent>
-          </Card>
+  return (
+    <PageContainer>
+      <PageHeader
+        breadcrumb={back}
+        title={t("students.detail.title")}
+        actions={
+          <Button onClick={() => setEditOpen(true)}>
+            <Pencil aria-hidden="true" />
+            {t("students.detail.edit")}
+          </Button>
+        }
+      />
+
+      <section
+        aria-label={name}
+        className="flex items-center gap-4 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-xs"
+      >
+        <div
+          aria-hidden="true"
+          className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary-soft text-lg font-semibold text-primary"
+        >
+          {initials}
         </div>
+        <div className="min-w-0">
+          <p className="truncate text-xl font-semibold text-foreground">
+            <bdi>{name}</bdi>
+          </p>
+          <p className="truncate text-sm text-muted-foreground">
+            <bdi>{student.email}</bdi>
+          </p>
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <DetailCard title={t("students.detail.personal")} items={personal} className="lg:col-span-2" />
+        <DetailCard title={t("students.detail.academic")} items={academic} />
       </div>
-    </div>
+
+      <EditStudentSheet student={student} open={editOpen} onOpenChange={setEditOpen} />
+    </PageContainer>
   );
 };
 
-export default StudentsView; 
+function DetailCard({ title, items, className }: { title: string; items: [string, string][]; className?: string }) {
+  const titleId = React.useId();
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      className={cn("rounded-xl border border-border bg-card p-6 text-card-foreground shadow-xs", className)}
+    >
+      <h2 id={titleId} className="text-base font-semibold text-foreground">
+        {title}
+      </h2>
+      <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+        {items.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            {/* bdi keeps left-to-right data such as phone numbers and addresses intact in right-to-left pages. */}
+            <dd className="mt-0.5 break-words text-sm font-medium text-foreground">
+              <bdi>{value}</bdi>
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+export default StudentsView;

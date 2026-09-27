@@ -1,201 +1,72 @@
-import * as React from "react"
-import { Plus, User, Edit } from "lucide-react"
-import toast from "react-hot-toast"
+import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/ui/button"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
-import { AutoForm } from "@/form/AutoForm"
-import type { FormRecipe } from "@/form/types"
-import { getApiErrorMessage } from "@/lib/api-error"
-import type { Student, CreateStudentData } from "@/types/student"
-import { studentSchema, studentFields, type StudentValues } from "../studentForm.definition"
-import { useCreateStudent, useUpdateStudent } from "../hooks/use-students"
-
-interface AddStudentSheetProps {
-  onSuccess?: () => void
-}
-
-export function AddStudentSheet({ onSuccess }: AddStudentSheetProps) {
-  const [open, setOpen] = React.useState(false)
-
-  const addStudentMutation = useCreateStudent()
-
-  const addStudentRecipe: FormRecipe = {
-    schema: studentSchema,
-    fields: studentFields,
-    onSubmit: async (values: unknown) => {
-      console.log("➕ AddStudentSheet - Form submitted with values:", values);
-      const formValues = values as StudentValues;
-      const studentData: CreateStudentData = {
-        profile: {
-          firstName: formValues.firstName,
-          lastName: formValues.lastName,
-          email: formValues.email,
-          telephone: formValues.telephone,
-          birthday: formValues.birthday,
-          gender: formValues.gender,
-          address: formValues.address,
-        },
-        gradeLevel: formValues.gradeLevel.trim().toUpperCase(),
-        enrollmentYear: formValues.enrollmentYear || new Date().getFullYear(),
-      };
-      console.log("➕ AddStudentSheet - Transformed student data:", studentData);
-      await addStudentMutation.mutateAsync(studentData, {
-        onSuccess: () => {
-          toast.success("Student added successfully!")
-          setOpen(false)
-          onSuccess?.()
-        },
-        onError: (error: unknown) => {
-          console.error("❌ AddStudentSheet - Failed to create student:", error);
-          const message = getApiErrorMessage(error, "Failed to add student")
-          toast.error(message)
-        },
-      });
-    },
-  }
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Student
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-gradient-to-br from-white to-blue-50 border-l-4 border-blue-500">
-        <SheetHeader className="pb-6 border-b border-blue-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-              <User className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <SheetTitle className="text-xl font-bold bg-gradient-to-r from-blue-800 to-purple-800 bg-clip-text text-transparent">
-                Add New Student
-              </SheetTitle>
-              <SheetDescription className="text-gray-600">
-                Fill in the student information below to add them to the system.
-              </SheetDescription>
-            </div>
-          </div>
-        </SheetHeader>
-        <div className="py-6">
-          <AutoForm
-            recipe={addStudentRecipe}
-            submitLabel="Add Student"
-            submitClassName="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
-          />
-        </div>
-      </SheetContent>
-    </Sheet>
-  )
-}
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { AutoForm } from "@/form/AutoForm";
+import type { FormRecipe } from "@/form/types";
+import { getApiErrorMessage } from "@/lib/api-error";
+import type { Student } from "@/types/student";
+import { studentEditFields, studentEditSchema, type StudentEditValues } from "../studentForm.definition";
+import { useUpdateStudent } from "../hooks/use-students";
+import { studentName } from "../display";
 
 interface EditStudentSheetProps {
-  student: Student
-  trigger?: React.ReactNode
-  onSuccess?: () => void
+  /** The student being edited; the sheet renders nothing without one. */
+  student: Student | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function EditStudentSheet({ student, trigger, onSuccess }: EditStudentSheetProps) {
-  const [open, setOpen] = React.useState(false)
+/** Edits the fields PATCH /v1/students/{id} accepts: name, grade level and enrollment year. */
+export function EditStudentSheet({ student, open, onOpenChange }: EditStudentSheetProps) {
+  const { t, i18n } = useTranslation();
+  const updateStudent = useUpdateStudent();
 
-  const editStudentMutation = useUpdateStudent()
+  if (!student) return null;
 
-  const editStudentRecipe: FormRecipe = {
-    schema: studentSchema,
-    fields: studentFields,
+  const recipe: FormRecipe = {
+    schema: studentEditSchema,
+    fields: studentEditFields,
     onSubmit: async (values: unknown) => {
-      console.log("✏️ EditStudentSheet - Form submitted with values:", values);
-      const formValues = values as StudentValues;
-      const studentData: CreateStudentData & { id: number } = {
-        id: student.id,
-        profile: {
-          firstName: formValues.firstName,
-          lastName: formValues.lastName,
-          email: formValues.email,
-          telephone: formValues.telephone,
-          birthday: formValues.birthday,
-          gender: formValues.gender,
-          address: formValues.address,
+      const { firstName, lastName, gradeLevel, enrollmentYear } = values as StudentEditValues;
+      await updateStudent.mutateAsync(
+        { id: student.id, firstName, lastName, gradeLevel, enrollmentYear },
+        {
+          onSuccess: () => {
+            toast.success(t("students.edit.success"));
+            onOpenChange(false);
+          },
+          onError: (error) => toast.error(getApiErrorMessage(error, t("students.edit.error"))),
         },
-        gradeLevel: formValues.gradeLevel.trim().toUpperCase(),
-        enrollmentYear: formValues.enrollmentYear || new Date().getFullYear(),
-      };
-      console.log("✏️ EditStudentSheet - Transformed data:", studentData)
-      await editStudentMutation.mutateAsync(studentData)
+      );
     },
-  }
-
-  React.useEffect(() => {
-    if (editStudentMutation.isSuccess) {
-      console.log("✅ EditStudentSheet - Student updated successfully");
-      toast.success("Student updated successfully!")
-      setOpen(false)
-      onSuccess?.()
-    }
-  }, [editStudentMutation.isSuccess, onSuccess])
-
-  React.useEffect(() => {
-    if (editStudentMutation.isError) {
-      console.error("❌ EditStudentSheet - Update failed:", editStudentMutation.error)
-      const message = getApiErrorMessage(editStudentMutation.error, "Failed to update student")
-      toast.error(message)
-    }
-  }, [editStudentMutation.isError, editStudentMutation.error])
+  };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        {trigger || (
-          <Button variant="ghost" size="sm" className="hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200">
-            <Edit className="h-4 w-4" />
-          </Button>
-        )}
-      </SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-gradient-to-br from-white to-green-50 border-l-4 border-green-500 overflow-y-auto max-h-screen">
-        <SheetHeader className="space-y-4 pb-6 border-b border-gray-100">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg">
-              <Edit className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <SheetTitle className="text-2xl font-bold bg-gradient-to-r from-green-900 to-emerald-700 bg-clip-text text-transparent">
-                Edit Student
-              </SheetTitle>
-              <SheetDescription className="text-gray-600">
-                Update {student?.firstName || 'Student'} {student?.lastName || ''}'s information
-              </SheetDescription>
-            </div>
-          </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side={i18n.dir() === "rtl" ? "left" : "right"}
+        className="flex w-full flex-col gap-6 overflow-y-auto sm:max-w-md"
+      >
+        <SheetHeader className="space-y-1 pe-8 text-start sm:text-start">
+          <SheetTitle>{t("students.edit.title")}</SheetTitle>
+          <SheetDescription>{t("students.edit.description", { name: studentName(student) })}</SheetDescription>
         </SheetHeader>
-
-        <div className="py-6">
-          <AutoForm
-            recipe={editStudentRecipe}
-            defaultValues={{
-              firstName: student?.firstName || "",
-              lastName: student?.lastName || "",
-              email: student?.email || "",
-              telephone: student?.telephone || "",
-              birthday: student?.birthday || "",
-              gender: student?.gender || "",
-              address: student?.address || "",
-              gradeLevel: student?.gradeLevel || "",
-              enrollmentYear: student?.enrollmentYear || new Date().getFullYear(),
-            }}
-            submitLabel="Update Student"
-            submitClassName="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300"
-          />
-        </div>
+        <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{t("students.edit.profileNote")}</p>
+        <AutoForm
+          // Remount per student so the form starts from that student's values.
+          key={student.id}
+          recipe={recipe}
+          animate={false}
+          defaultValues={{
+            firstName: student.firstName,
+            lastName: student.lastName,
+            gradeLevel: student.gradeLevel ?? "",
+            enrollmentYear: student.enrollmentYear ?? undefined,
+          }}
+          submitLabel="students.edit.submit"
+        />
       </SheetContent>
     </Sheet>
-  )
-} 
+  );
+}

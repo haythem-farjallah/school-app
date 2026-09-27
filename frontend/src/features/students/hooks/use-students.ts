@@ -1,154 +1,76 @@
-import { useMutationApi } from "@/hooks/useMutationApi";
-import { usePaginated } from "@/hooks/usePaginated";
-import { api } from "@/lib/api-client";
-import type { Student, CreateStudentData } from "@/types/student";
-import type { ApiResponse } from "@/types/level";
-import { useQueryApi } from "@/hooks/useQueryApi";
-import { useQueryClient } from "@tanstack/react-query";
-import React from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AxiosError } from "axios";
+import type { Page } from "@/hooks/usePaginated";
+import type { CreateStudentData, Student, UpdateStudentData } from "@/types/student";
+import { createStudent, deleteStudent, getStudent, listStudents, searchStudents, updateStudent } from "../api";
 
-const LIST_KEY = "students";
+export const studentKeys = {
+  all: ["students"] as const,
+  lists: () => [...studentKeys.all, "list"] as const,
+  list: (params: { page: number; size: number; search: string }) => [...studentKeys.lists(), params] as const,
+  detail: (id: number) => [...studentKeys.all, "detail", id] as const,
+};
 
-/* ── 1. Paginated list with search and filters ──────────────────────────────────────────────────── */
-export function useStudents(
-  options: { page?: number; size?: number; search?: string } & Record<string, unknown> = {},
-) {
-  const { page, size = 10, search, ...filters } = options;
+/**
+ * One page of students. A non-blank `search` uses the backend search endpoint
+ * (name or email); otherwise the plain list endpoint.
+ */
+export function useStudents({ page = 0, size = 10, search = "" }: { page?: number; size?: number; search?: string } = {}) {
+  const q = search.trim();
 
-  console.log("🔍 useStudents - Called with options:", { size, search, filters });
-
-  // Map frontend column keys to backend filter parameter names
-  const apiParams = React.useMemo(() => {
-    const keyMap: Record<string, string> = {
-      firstName: "firstNameLike",
-      lastName: "lastNameLike",
-      email: "emailLike",
-      gradeLevel: "gradeLevel",
-      enrollmentYear: "enrollmentYear",
-      status: "status",
-    };
-
-    const params: Record<string, unknown> = {};
-
-    Object.entries(filters).forEach(([key, val]) => {
-      if (typeof val === "string" && val.trim()) {
-        const backendKey = keyMap[key] ?? key;
-        params[backendKey] = val.trim();
-      }
-    });
-
-    return params;
-  }, [filters]);
-
-  // Add search to filters if provided
-  const searchFilters = search ? { search, ...apiParams } : apiParams;
-
-  const result = usePaginated<Student>(
-    "/v1/students",
-    LIST_KEY,
-    size,
-    searchFilters,
-    page, // external page number
-  );
-
-  console.log("🔍 useStudents - Result:", {
-    data: result.data,
-    isLoading: result.isLoading,
-    error: result.error?.message,
-    totalElements: result.data?.totalItems,
-    totalPages: result.data?.totalPages
-  });
-
-  return result;
-}
-
-/* ── 2. Single student ──────────────────────────────────────────────────── */
-export function useStudent(id?: number) {
-  console.log("👤 useStudent - Called with id:", id);
-
-  const result = useQueryApi<Student>(
-    ["student", id],
-    async () => {
-      const response = await api.get<ApiResponse<Student>>(`/v1/students/${id}`);
-      return response.data.data;
-    },
-    { enabled: !!id },
-  );
-
-  console.log("👤 useStudent - Result:", {
-    data: result.data,
-    isLoading: result.isLoading,
-    error: result.error?.message
-  });
-
-  return result;
-}
-
-/* ── 3. Create student ──────────────────────────────────────────────────── */
-export function useCreateStudent() {
-  console.log("➕ useCreateStudent - Hook initialized");
-  
-  return useMutationApi<Student, CreateStudentData>(
-    async (studentData) => {
-      console.log("➕ useCreateStudent - Creating student:", studentData);
-      const response = await api.post<ApiResponse<Student>>("/v1/students", studentData);
-      return response.data.data;
-    }
-  );
-}
-
-/* ── 4. Update student ──────────────────────────────────────────────────── */
-export function useUpdateStudent() {
-  console.log("✏️ useUpdateStudent - Hook initialized");
-  const queryClient = useQueryClient();
-  
-  return useMutationApi<Student, CreateStudentData & { id: number }>(
-    async (studentData) => {
-      console.log("✏️ useUpdateStudent - Updating student:", studentData);
-      
-      // Extract the id and create the update payload
-      const { id, profile, ...restData } = studentData;
-      
-      // Flatten the profile data for PATCH request since backend expects flat structure
-      const updateData = {
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        email: profile.email,
-        telephone: profile.telephone,
-        birthday: profile.birthday,
-        gender: profile.gender,
-        address: profile.address,
-        ...restData // gradeLevel, enrollmentYear
+  return useQuery<Page<Student>, AxiosError>({
+    queryKey: studentKeys.list({ page, size, search: q }),
+    queryFn: async () => {
+      const dto = q ? await searchStudents({ q, page, size }) : await listStudents({ page, size });
+      return {
+        data: dto.content,
+        page: dto.page,
+        totalPages: Math.ceil(dto.totalElements / dto.size),
+        totalItems: dto.totalElements,
       };
-      
-      console.log("✏️ useUpdateStudent - Flattened data for PATCH:", updateData);
-      
-      const response = await api.patch<ApiResponse<Student>>(`/v1/students/${id}`, updateData);
-      return response.data.data;
     },
-    {
-      onSuccess: (data, variables) => {
-        console.log("✅ useUpdateStudent - Success, invalidating cache");
-        // Invalidate the students list cache to refresh the data
-        queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-        // Also invalidate the specific student query if it exists
-        queryClient.invalidateQueries({ queryKey: ["student", variables.id] });
-        // Update the cache with the new data to prevent unnecessary refetches
-        queryClient.setQueryData(["student", variables.id], data);
-      }
-    }
-  );
+    placeholderData: keepPreviousData,
+  });
 }
 
-/* ── 5. Delete student ──────────────────────────────────────────────────── */
+export function useStudent(id?: number) {
+  return useQuery<Student, AxiosError>({
+    queryKey: studentKeys.detail(id ?? 0),
+    queryFn: () => getStudent(id!),
+    enabled: id !== undefined && Number.isFinite(id),
+  });
+}
+
+export function useCreateStudent() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Student, AxiosError, CreateStudentData>({
+    mutationFn: createStudent,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: studentKeys.lists() }),
+  });
+}
+
+export function useUpdateStudent() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Student, AxiosError, UpdateStudentData>({
+    mutationFn: updateStudent,
+    onSuccess: (student) => {
+      // The PATCH response is the updated student, so the detail needs no refetch.
+      queryClient.setQueryData(studentKeys.detail(student.id), student);
+      return queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
+    },
+  });
+}
+
 export function useDeleteStudent() {
-  console.log("🗑️ useDeleteStudent - Hook initialized");
-  
-  return useMutationApi<void, number>(
-    async (studentId) => {
-      console.log("🗑️ useDeleteStudent - Deleting student:", studentId);
-      await api.delete(`/v1/students/${studentId}`);
-      console.log("🗑️ useDeleteStudent - Student deleted successfully");
-    }
-  );
-} 
+  const queryClient = useQueryClient();
+
+  return useMutation<void, AxiosError, number>({
+    mutationFn: deleteStudent,
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: studentKeys.detail(id) });
+      return queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
+    },
+  });
+}

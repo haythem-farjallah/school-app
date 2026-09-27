@@ -22,6 +22,8 @@ interface Props<R extends FormRecipe> {
   loading?: boolean;
   animate?: boolean;
   submitClassName?: string;
+  /** Layout of the field list, e.g. a responsive grid. Defaults to a single column. */
+  fieldsClassName?: string;
 }
 
 export const AutoForm = <R extends FormRecipe>({
@@ -31,6 +33,7 @@ export const AutoForm = <R extends FormRecipe>({
   submitText,
   loading,
   submitClassName,
+  fieldsClassName,
   animate = true,
 }: Props<R>) => {
   type FormValues = z.infer<R["schema"]>;
@@ -67,7 +70,7 @@ export const AutoForm = <R extends FormRecipe>({
         })}
         className="space-y-6"
       >
-        <div className="space-y-4">
+        <div className={fieldsClassName ?? "space-y-4"}>
           {recipe.fields.map(renderField)}
         </div>
 
@@ -84,8 +87,8 @@ export const AutoForm = <R extends FormRecipe>({
         >
           {(loading || mutation.isPending) ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading...
+              <Loader2 className="me-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              {t("common.states.loading.title")}
             </>
           ) : (
             submitText || t(submitLabel)

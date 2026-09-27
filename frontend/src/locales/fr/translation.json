@@ -133,5 +133,160 @@
         "scheduleManagement": "Gestion du planning",
         "roomManagement": "Gestion des salles",
         "learningSpace": "Espace d'apprentissage"
+    },
+    "students": {
+        "list": {
+            "title": "Élèves",
+            "description": "Gérez les profils des élèves et leurs informations scolaires.",
+            "add": "Ajouter un élève",
+            "loading": "Chargement des élèves…",
+            "total": "Total : {{count}}",
+            "results": "Résultats : {{count}}"
+        },
+        "search": {
+            "label": "Rechercher des élèves",
+            "placeholder": "Rechercher par nom ou e-mail…",
+            "clear": "Effacer la recherche"
+        },
+        "table": {
+            "label": "Élèves",
+            "student": "Élève",
+            "email": "E-mail",
+            "gradeLevel": "Niveau scolaire",
+            "enrollmentYear": "Année d’inscription",
+            "gender": "Genre",
+            "actions": "Actions"
+        },
+        "actions": {
+            "menu": "Actions pour {{name}}",
+            "view": "Voir les détails",
+            "edit": "Modifier",
+            "delete": "Supprimer"
+        },
+        "empty": {
+            "title": "Aucun élève pour l’instant",
+            "description": "Ajoutez votre premier élève pour commencer."
+        },
+        "noResults": {
+            "title": "Aucun élève trouvé",
+            "description": "Aucun résultat pour « {{query}} ». Essayez un autre nom ou e-mail."
+        },
+        "error": {
+            "listTitle": "Impossible de charger les élèves",
+            "listDescription": "Un problème est survenu lors du chargement de la liste. Veuillez réessayer.",
+            "detailTitle": "Impossible de charger cet élève",
+            "detailDescription": "Un problème est survenu lors du chargement de cet élève. Veuillez réessayer.",
+            "notFoundTitle": "Élève introuvable",
+            "notFoundDescription": "Cet élève n’existe pas ou a été supprimé."
+        },
+        "detail": {
+            "back": "Retour aux élèves",
+            "title": "Détails de l’élève",
+            "edit": "Modifier l’élève",
+            "loading": "Chargement de l’élève…",
+            "personal": "Informations personnelles",
+            "academic": "Informations scolaires",
+            "studentId": "Identifiant de l’élève",
+            "notProvided": "Non renseigné",
+            "invalidDate": "Date invalide"
+        },
+        "create": {
+            "title": "Ajouter un élève",
+            "description": "Créez le profil d’un élève avec ses informations personnelles et scolaires.",
+            "submit": "Créer l’élève",
+            "success": "Élève créé",
+            "error": "L’élève n’a pas pu être créé. Veuillez réessayer."
+        },
+        "edit": {
+            "title": "Modifier l’élève",
+            "description": "Modifiez le nom et les informations scolaires de {{name}}.",
+            "profileNote": "L’e-mail, le téléphone, la date de naissance, le genre et l’adresse ne peuvent pas être modifiés ici.",
+            "submit": "Enregistrer",
+            "success": "Élève mis à jour",
+            "error": "L’élève n’a pas pu être mis à jour. Veuillez réessayer."
+        },
+        "delete": {
+            "title": "Supprimer {{name}} ?",
+            "description": "L’élève sera retiré des dossiers actifs. Cette action est irréversible.",
+            "cancel": "Annuler",
+            "confirm": "Supprimer",
+            "pending": "Suppression…",
+            "success": "{{name}} a été supprimé",
+            "error": "L’élève n’a pas pu être supprimé. Veuillez réessayer."
+        },
+        "form": {
+            "firstName": {
+                "label": "Prénom",
+                "placeholder": "Saisissez le prénom"
+            },
+            "lastName": {
+                "label": "Nom",
+                "placeholder": "Saisissez le nom"
+            },
+            "email": {
+                "label": "E-mail",
+                "placeholder": "ex. nom@ecole.fr"
+            },
+            "phone": {
+                "label": "Téléphone",
+                "placeholder": "Facultatif"
+            },
+            "birthday": {
+                "label": "Date de naissance"
+            },
+            "gender": {
+                "label": "Genre",
+                "placeholder": "Sélectionnez le genre"
+            },
+            "address": {
+                "label": "Adresse",
+                "placeholder": "Facultatif"
+            },
+            "gradeLevel": {
+                "label": "Niveau scolaire",
+                "placeholder": "Sélectionnez le niveau"
+            },
+            "enrollmentYear": {
+                "label": "Année d’inscription",
+                "placeholder": "ex. 2025"
+            }
+        },
+        "gender": {
+            "male": "Masculin",
+            "female": "Féminin",
+            "other": "Autre"
+        },
+        "gradeLevel": {
+            "kindergarten": "Maternelle",
+            "elementary": "École primaire",
+            "middle": "Collège",
+            "high": "Lycée",
+            "university": "Université"
+        },
+        "validation": {
+            "firstNameRequired": "Saisissez un prénom.",
+            "firstNameTooLong": "Le prénom doit comporter 50 caractères au maximum.",
+            "lastNameRequired": "Saisissez un nom.",
+            "lastNameTooLong": "Le nom doit comporter 50 caractères au maximum.",
+            "emailRequired": "Saisissez une adresse e-mail.",
+            "emailInvalid": "Saisissez une adresse e-mail valide.",
+            "phoneInvalid": "Saisissez un numéro de téléphone valide.",
+            "birthdayInvalid": "Saisissez une date valide qui n’est pas dans le futur.",
+            "addressTooLong": "L’adresse doit comporter 255 caractères au maximum.",
+            "gradeLevelRequired": "Sélectionnez un niveau scolaire.",
+            "enrollmentYearRequired": "Saisissez l’année d’inscription.",
+            "enrollmentYearRange": "Saisissez une année comprise entre 1900 et 2100."
+        }
+    },
+    "dataTable": {
+        "pagination": {
+            "rowsPerPage": "Lignes par page",
+            "pageOf": "Page {{page}} sur {{pages}}",
+            "firstPage": "Aller à la première page",
+            "previousPage": "Aller à la page précédente",
+            "nextPage": "Aller à la page suivante",
+            "lastPage": "Aller à la dernière page",
+            "selectedRows": "{{selected}} ligne(s) sélectionnée(s) sur {{total}}"
+        }
     }
 }

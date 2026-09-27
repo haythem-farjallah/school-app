@@ -1,12 +1,5 @@
-import { StudentsTable } from '@/features/students/components/students-table';
+import { StudentsPage } from "@/features/students/components/students-page";
 
-const StaffStudents = () => {
-  return (
-    <div className="space-y-6">
-      {/* Students Table */}
-      <StudentsTable />
-    </div>
-  );
-};
+const StaffStudents = () => <StudentsPage />;
 
 export default StaffStudents;

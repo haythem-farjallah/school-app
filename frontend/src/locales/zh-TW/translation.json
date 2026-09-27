@@ -133,5 +133,160 @@
         "scheduleManagement": "時間表管理",
         "roomManagement": "教室管理",
         "learningSpace": "學習空間"
+    },
+    "students": {
+        "list": {
+            "title": "學生",
+            "description": "管理學生個人資料與學業資訊。",
+            "add": "新增學生",
+            "loading": "正在載入學生…",
+            "total": "共 {{count}} 位",
+            "results": "找到 {{count}} 位"
+        },
+        "search": {
+            "label": "搜尋學生",
+            "placeholder": "依姓名或電子郵件搜尋…",
+            "clear": "清除搜尋"
+        },
+        "table": {
+            "label": "學生",
+            "student": "學生",
+            "email": "電子郵件",
+            "gradeLevel": "學制",
+            "enrollmentYear": "入學年份",
+            "gender": "性別",
+            "actions": "操作"
+        },
+        "actions": {
+            "menu": "{{name}} 的操作",
+            "view": "檢視詳細資料",
+            "edit": "編輯",
+            "delete": "刪除"
+        },
+        "empty": {
+            "title": "尚無學生",
+            "description": "新增第一位學生即可開始。"
+        },
+        "noResults": {
+            "title": "找不到學生",
+            "description": "沒有符合「{{query}}」的結果。請改用其他姓名或電子郵件。"
+        },
+        "error": {
+            "listTitle": "無法載入學生",
+            "listDescription": "載入清單時發生問題，請再試一次。",
+            "detailTitle": "無法載入此學生",
+            "detailDescription": "載入此學生時發生問題，請再試一次。",
+            "notFoundTitle": "找不到此學生",
+            "notFoundDescription": "此學生不存在或已被移除。"
+        },
+        "detail": {
+            "back": "返回學生列表",
+            "title": "學生詳細資料",
+            "edit": "編輯學生",
+            "loading": "正在載入學生…",
+            "personal": "個人資料",
+            "academic": "學業資訊",
+            "studentId": "學生編號",
+            "notProvided": "未提供",
+            "invalidDate": "日期無效"
+        },
+        "create": {
+            "title": "新增學生",
+            "description": "建立學生檔案，填寫個人與學業資訊。",
+            "submit": "建立學生",
+            "success": "已建立學生",
+            "error": "無法建立學生，請再試一次。"
+        },
+        "edit": {
+            "title": "編輯學生",
+            "description": "更新 {{name}} 的姓名與學業資訊。",
+            "profileNote": "電子郵件、電話、生日、性別與地址無法在此變更。",
+            "submit": "儲存變更",
+            "success": "已更新學生",
+            "error": "無法更新學生，請再試一次。"
+        },
+        "delete": {
+            "title": "要刪除 {{name}} 嗎？",
+            "description": "此學生將從有效紀錄中移除。此動作無法復原。",
+            "cancel": "取消",
+            "confirm": "刪除",
+            "pending": "正在刪除…",
+            "success": "已刪除 {{name}}",
+            "error": "無法刪除學生，請再試一次。"
+        },
+        "form": {
+            "firstName": {
+                "label": "名字",
+                "placeholder": "輸入名字"
+            },
+            "lastName": {
+                "label": "姓氏",
+                "placeholder": "輸入姓氏"
+            },
+            "email": {
+                "label": "電子郵件",
+                "placeholder": "例如 name@school.edu"
+            },
+            "phone": {
+                "label": "電話",
+                "placeholder": "選填"
+            },
+            "birthday": {
+                "label": "生日"
+            },
+            "gender": {
+                "label": "性別",
+                "placeholder": "選擇性別"
+            },
+            "address": {
+                "label": "地址",
+                "placeholder": "選填"
+            },
+            "gradeLevel": {
+                "label": "學制",
+                "placeholder": "選擇學制"
+            },
+            "enrollmentYear": {
+                "label": "入學年份",
+                "placeholder": "例如 2025"
+            }
+        },
+        "gender": {
+            "male": "男",
+            "female": "女",
+            "other": "其他"
+        },
+        "gradeLevel": {
+            "kindergarten": "幼兒園",
+            "elementary": "國小",
+            "middle": "國中",
+            "high": "高中",
+            "university": "大學"
+        },
+        "validation": {
+            "firstNameRequired": "請輸入名字。",
+            "firstNameTooLong": "名字不得超過 50 個字元。",
+            "lastNameRequired": "請輸入姓氏。",
+            "lastNameTooLong": "姓氏不得超過 50 個字元。",
+            "emailRequired": "請輸入電子郵件地址。",
+            "emailInvalid": "請輸入有效的電子郵件地址。",
+            "phoneInvalid": "請輸入有效的電話號碼。",
+            "birthdayInvalid": "請輸入有效且不晚於今天的日期。",
+            "addressTooLong": "地址不得超過 255 個字元。",
+            "gradeLevelRequired": "請選擇學制。",
+            "enrollmentYearRequired": "請輸入入學年份。",
+            "enrollmentYearRange": "請輸入 1900 到 2100 之間的年份。"
+        }
+    },
+    "dataTable": {
+        "pagination": {
+            "rowsPerPage": "每頁列數",
+            "pageOf": "第 {{page}} 頁，共 {{pages}} 頁",
+            "firstPage": "前往第一頁",
+            "previousPage": "前往上一頁",
+            "nextPage": "前往下一頁",
+            "lastPage": "前往最後一頁",
+            "selectedRows": "已選取 {{selected}} 列，共 {{total}} 列"
+        }
     }
 }

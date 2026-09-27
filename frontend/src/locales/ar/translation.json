@@ -133,5 +133,160 @@
         "scheduleManagement": "إدارة الجدول الزمني",
         "roomManagement": "إدارة القاعات",
         "learningSpace": "مساحة التعلّم"
+    },
+    "students": {
+        "list": {
+            "title": "الطلاب",
+            "description": "إدارة ملفات الطلاب ومعلوماتهم الدراسية.",
+            "add": "إضافة طالب",
+            "loading": "جارٍ تحميل الطلاب…",
+            "total": "الإجمالي: {{count}}",
+            "results": "النتائج: {{count}}"
+        },
+        "search": {
+            "label": "البحث عن الطلاب",
+            "placeholder": "ابحث بالاسم أو البريد الإلكتروني…",
+            "clear": "مسح البحث"
+        },
+        "table": {
+            "label": "الطلاب",
+            "student": "الطالب",
+            "email": "البريد الإلكتروني",
+            "gradeLevel": "المرحلة الدراسية",
+            "enrollmentYear": "سنة الالتحاق",
+            "gender": "الجنس",
+            "actions": "الإجراءات"
+        },
+        "actions": {
+            "menu": "إجراءات {{name}}",
+            "view": "عرض التفاصيل",
+            "edit": "تعديل",
+            "delete": "حذف"
+        },
+        "empty": {
+            "title": "لا يوجد طلاب بعد",
+            "description": "أضف أول طالب للبدء."
+        },
+        "noResults": {
+            "title": "لم يُعثر على طلاب",
+            "description": "لا توجد نتائج مطابقة لـ «{{query}}». جرّب اسمًا أو بريدًا إلكترونيًا آخر."
+        },
+        "error": {
+            "listTitle": "تعذّر تحميل الطلاب",
+            "listDescription": "حدثت مشكلة أثناء تحميل القائمة. يُرجى المحاولة مرة أخرى.",
+            "detailTitle": "تعذّر تحميل هذا الطالب",
+            "detailDescription": "حدثت مشكلة أثناء تحميل بيانات هذا الطالب. يُرجى المحاولة مرة أخرى.",
+            "notFoundTitle": "الطالب غير موجود",
+            "notFoundDescription": "هذا الطالب غير موجود أو تمت إزالته."
+        },
+        "detail": {
+            "back": "العودة إلى الطلاب",
+            "title": "تفاصيل الطالب",
+            "edit": "تعديل الطالب",
+            "loading": "جارٍ تحميل الطالب…",
+            "personal": "المعلومات الشخصية",
+            "academic": "المعلومات الدراسية",
+            "studentId": "رقم الطالب",
+            "notProvided": "غير متوفر",
+            "invalidDate": "تاريخ غير صالح"
+        },
+        "create": {
+            "title": "إضافة طالب",
+            "description": "أنشئ ملفًا للطالب يتضمن معلوماته الشخصية والدراسية.",
+            "submit": "إنشاء الطالب",
+            "success": "تم إنشاء الطالب",
+            "error": "تعذّر إنشاء الطالب. يُرجى المحاولة مرة أخرى."
+        },
+        "edit": {
+            "title": "تعديل الطالب",
+            "description": "حدّث اسم {{name}} ومعلوماته الدراسية.",
+            "profileNote": "لا يمكن تغيير البريد الإلكتروني والهاتف وتاريخ الميلاد والجنس والعنوان من هنا.",
+            "submit": "حفظ التغييرات",
+            "success": "تم تحديث الطالب",
+            "error": "تعذّر تحديث الطالب. يُرجى المحاولة مرة أخرى."
+        },
+        "delete": {
+            "title": "حذف {{name}}؟",
+            "description": "سيؤدي ذلك إلى إزالة الطالب من السجلات النشطة. لا يمكن التراجع عن هذا الإجراء.",
+            "cancel": "إلغاء",
+            "confirm": "حذف",
+            "pending": "جارٍ الحذف…",
+            "success": "تم حذف {{name}}",
+            "error": "تعذّر حذف الطالب. يُرجى المحاولة مرة أخرى."
+        },
+        "form": {
+            "firstName": {
+                "label": "الاسم الأول",
+                "placeholder": "أدخل الاسم الأول"
+            },
+            "lastName": {
+                "label": "اسم العائلة",
+                "placeholder": "أدخل اسم العائلة"
+            },
+            "email": {
+                "label": "البريد الإلكتروني",
+                "placeholder": "مثال: name@school.edu"
+            },
+            "phone": {
+                "label": "الهاتف",
+                "placeholder": "اختياري"
+            },
+            "birthday": {
+                "label": "تاريخ الميلاد"
+            },
+            "gender": {
+                "label": "الجنس",
+                "placeholder": "اختر الجنس"
+            },
+            "address": {
+                "label": "العنوان",
+                "placeholder": "اختياري"
+            },
+            "gradeLevel": {
+                "label": "المرحلة الدراسية",
+                "placeholder": "اختر المرحلة الدراسية"
+            },
+            "enrollmentYear": {
+                "label": "سنة الالتحاق",
+                "placeholder": "مثال: 2025"
+            }
+        },
+        "gender": {
+            "male": "ذكر",
+            "female": "أنثى",
+            "other": "آخر"
+        },
+        "gradeLevel": {
+            "kindergarten": "روضة الأطفال",
+            "elementary": "المرحلة الابتدائية",
+            "middle": "المرحلة الإعدادية",
+            "high": "المرحلة الثانوية",
+            "university": "الجامعة"
+        },
+        "validation": {
+            "firstNameRequired": "أدخل الاسم الأول.",
+            "firstNameTooLong": "يجب ألا يتجاوز الاسم الأول 50 حرفًا.",
+            "lastNameRequired": "أدخل اسم العائلة.",
+            "lastNameTooLong": "يجب ألا يتجاوز اسم العائلة 50 حرفًا.",
+            "emailRequired": "أدخل عنوان البريد الإلكتروني.",
+            "emailInvalid": "أدخل عنوان بريد إلكتروني صالحًا.",
+            "phoneInvalid": "أدخل رقم هاتف صالحًا.",
+            "birthdayInvalid": "أدخل تاريخًا صالحًا لا يقع في المستقبل.",
+            "addressTooLong": "يجب ألا يتجاوز العنوان 255 حرفًا.",
+            "gradeLevelRequired": "اختر المرحلة الدراسية.",
+            "enrollmentYearRequired": "أدخل سنة الالتحاق.",
+            "enrollmentYearRange": "أدخل سنة بين 1900 و2100."
+        }
+    },
+    "dataTable": {
+        "pagination": {
+            "rowsPerPage": "عدد الصفوف في الصفحة",
+            "pageOf": "الصفحة {{page}} من {{pages}}",
+            "firstPage": "الانتقال إلى الصفحة الأولى",
+            "previousPage": "الانتقال إلى الصفحة السابقة",
+            "nextPage": "الانتقال إلى الصفحة التالية",
+            "lastPage": "الانتقال إلى الصفحة الأخيرة",
+            "selectedRows": "تم تحديد {{selected}} من {{total}} صفوف"
+        }
     }
 }

@@ -1,62 +1,36 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
 import StudentsCreate from "./StudentCreate";
 import { apiUrl, server } from "@/test/server";
-import type { Student } from "@/types/student";
+import { installDomShims, renderStudentsRoute, student } from "@/features/students/test-utils";
 
-// jsdom lacks the pointer capture and scroll APIs the Radix Select calls, and the
-// matchMedia the toaster calls.
-beforeAll(() => {
-  window.matchMedia = (query: string) =>
-    ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList;
-  Element.prototype.hasPointerCapture = () => false;
-  Element.prototype.releasePointerCapture = () => {};
-  Element.prototype.scrollIntoView = () => {};
-});
+beforeAll(installDomShims);
 
-const student: Student = {
-  id: 5,
-  firstName: "Sam",
-  lastName: "Student",
-  email: "sam@school.test",
-  gradeLevel: "HIGH",
-  enrollmentYear: new Date().getFullYear(),
-};
-
-function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/admin/students/create"]}>
-        <Routes>
-          <Route path="/admin/students/create" element={<StudentsCreate />} />
-          <Route path="/admin/students" element={<p>Students list</p>} />
-        </Routes>
-      </MemoryRouter>
-      <Toaster />
-    </QueryClientProvider>,
-  );
+function renderPage(role: "ADMIN" | "STAFF" = "ADMIN", lng: "en" | "fr" = "en") {
+  const area = role === "STAFF" ? "staff" : "admin";
+  return renderStudentsRoute(<StudentsCreate />, {
+    role,
+    lng,
+    url: `/${area}/students/create`,
+    path: `/${area}/students/create`,
+  });
 }
 
 async function fillAndSubmit() {
   const user = userEvent.setup();
-  await user.type(screen.getByLabelText("First Name"), "Sam");
-  await user.type(screen.getByLabelText("Last Name"), "Student");
-  await user.type(screen.getByLabelText("Email Address"), "sam@school.test");
-  // The select's label is not bound to its trigger, so find the trigger next to the label.
-  const gradeLevel = within(screen.getByText("Grade Level").parentElement!).getByRole("combobox");
-  await user.click(gradeLevel);
-  await user.click(await screen.findByRole("option", { name: "High School" }));
-  await user.click(screen.getByRole("button", { name: "Create Student" }));
+  await user.type(screen.getByLabelText("First name"), "Sam");
+  await user.type(screen.getByLabelText("Last name"), "Student");
+  await user.type(screen.getByLabelText("Email"), "sam@school.test");
+  await user.type(screen.getByLabelText("Birthday"), "2010-04-02");
+  await user.click(screen.getByLabelText("Grade level"));
+  await user.click(await screen.findByRole("option", { name: "High school" }));
+  await user.click(screen.getByRole("button", { name: "Create student" }));
 }
 
 describe("StudentsCreate", () => {
-  it("posts the student and returns to the students list", async () => {
+  it("posts the student, reports success and returns to the admin list", async () => {
     let body: unknown;
     server.use(
       http.post(apiUrl("/v1/students"), async ({ request }) => {
@@ -65,23 +39,38 @@ describe("StudentsCreate", () => {
       }),
     );
     renderPage();
+    expect(screen.getByRole("heading", { level: 1, name: "Add student" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to students" })).toHaveAttribute("href", "/admin/students");
 
     await fillAndSubmit();
 
-    expect(await screen.findByText("Students list")).toBeInTheDocument();
-    expect(await screen.findByText("Student created successfully!")).toBeInTheDocument();
+    expect(await screen.findByText("Student created")).toBeInTheDocument();
+    expect(await screen.findByText("Admin students list")).toBeInTheDocument();
     expect(body).toEqual({
       profile: {
         firstName: "Sam",
         lastName: "Student",
         email: "sam@school.test",
-        telephone: "",
-        birthday: "",
-        address: "",
+        telephone: null,
+        birthday: "2010-04-02",
+        gender: null,
+        address: null,
       },
       gradeLevel: "HIGH",
       enrollmentYear: new Date().getFullYear(),
     });
+  });
+
+  it("returns staff to the staff list", async () => {
+    server.use(
+      http.post(apiUrl("/v1/students"), () => HttpResponse.json({ status: "success", data: student }, { status: 201 })),
+    );
+    renderPage("STAFF");
+    expect(screen.getByRole("link", { name: "Back to students" })).toHaveAttribute("href", "/staff/students");
+
+    await fillAndSubmit();
+
+    expect(await screen.findByText("Staff students list")).toBeInTheDocument();
   });
 
   it("shows the backend error and stays on the form when creation fails", async () => {
@@ -95,7 +84,39 @@ describe("StudentsCreate", () => {
     await fillAndSubmit();
 
     expect(await screen.findByText("Email already in use")).toBeInTheDocument();
-    expect(screen.queryByText("Students list")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create Student" })).toBeInTheDocument();
+    expect(screen.queryByText("Admin students list")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("First name")).toHaveValue("Sam");
+    expect(screen.getByRole("button", { name: "Create student" })).toBeEnabled();
+  });
+
+  it("validates with translated messages before calling the backend", async () => {
+    let called = false;
+    server.use(
+      http.post(apiUrl("/v1/students"), () => {
+        called = true;
+        return HttpResponse.json({ status: "success", data: student }, { status: 201 });
+      }),
+    );
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("Email"), "not-an-email");
+    await user.click(screen.getByRole("button", { name: "Create student" }));
+
+    expect(await screen.findByText("Enter a first name.")).toBeInTheDocument();
+    expect(screen.getByText("Enter a valid email address.")).toBeInTheDocument();
+    expect(screen.getByText("Select a grade level.")).toBeInTheDocument();
+    expect(called).toBe(false);
+  });
+
+  it("is translated in French", () => {
+    const { container } = renderPage("ADMIN", "fr");
+
+    expect(screen.getByRole("heading", { level: 1, name: "Ajouter un élève" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Retour aux élèves" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Prénom")).toBeInTheDocument();
+    expect(screen.getByLabelText("Année d’inscription")).toHaveValue(new Date().getFullYear());
+    expect(screen.getByRole("button", { name: "Créer l’élève" })).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/\b(students|common)\.[a-zA-Z]/);
   });
 });

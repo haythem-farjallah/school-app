@@ -133,5 +133,160 @@
         "scheduleManagement": "Schedule Management",
         "roomManagement": "Room Management",
         "learningSpace": "Learning Space"
+    },
+    "students": {
+        "list": {
+            "title": "Students",
+            "description": "Manage student profiles and academic information.",
+            "add": "Add student",
+            "loading": "Loading students…",
+            "total": "Total: {{count}}",
+            "results": "Results: {{count}}"
+        },
+        "search": {
+            "label": "Search students",
+            "placeholder": "Search by name or email…",
+            "clear": "Clear search"
+        },
+        "table": {
+            "label": "Students",
+            "student": "Student",
+            "email": "Email",
+            "gradeLevel": "Grade level",
+            "enrollmentYear": "Enrollment year",
+            "gender": "Gender",
+            "actions": "Actions"
+        },
+        "actions": {
+            "menu": "Actions for {{name}}",
+            "view": "View details",
+            "edit": "Edit",
+            "delete": "Delete"
+        },
+        "empty": {
+            "title": "No students yet",
+            "description": "Add your first student to get started."
+        },
+        "noResults": {
+            "title": "No students found",
+            "description": "Nothing matches “{{query}}”. Try another name or email."
+        },
+        "error": {
+            "listTitle": "Students could not be loaded",
+            "listDescription": "Something went wrong while loading the list. Please try again.",
+            "detailTitle": "This student could not be loaded",
+            "detailDescription": "Something went wrong while loading this student. Please try again.",
+            "notFoundTitle": "Student not found",
+            "notFoundDescription": "This student does not exist or has been removed."
+        },
+        "detail": {
+            "back": "Back to students",
+            "title": "Student details",
+            "edit": "Edit student",
+            "loading": "Loading student…",
+            "personal": "Personal information",
+            "academic": "Academic information",
+            "studentId": "Student ID",
+            "notProvided": "Not provided",
+            "invalidDate": "Invalid date"
+        },
+        "create": {
+            "title": "Add student",
+            "description": "Create a student profile with personal and academic information.",
+            "submit": "Create student",
+            "success": "Student created",
+            "error": "The student could not be created. Please try again."
+        },
+        "edit": {
+            "title": "Edit student",
+            "description": "Update the name and academic information of {{name}}.",
+            "profileNote": "Email, phone, birthday, gender and address cannot be changed here.",
+            "submit": "Save changes",
+            "success": "Student updated",
+            "error": "The student could not be updated. Please try again."
+        },
+        "delete": {
+            "title": "Delete {{name}}?",
+            "description": "This removes the student from active records. This action cannot be undone.",
+            "cancel": "Cancel",
+            "confirm": "Delete",
+            "pending": "Deleting…",
+            "success": "{{name}} was deleted",
+            "error": "The student could not be deleted. Please try again."
+        },
+        "form": {
+            "firstName": {
+                "label": "First name",
+                "placeholder": "Enter first name"
+            },
+            "lastName": {
+                "label": "Last name",
+                "placeholder": "Enter last name"
+            },
+            "email": {
+                "label": "Email",
+                "placeholder": "e.g. name@school.edu"
+            },
+            "phone": {
+                "label": "Phone",
+                "placeholder": "Optional"
+            },
+            "birthday": {
+                "label": "Birthday"
+            },
+            "gender": {
+                "label": "Gender",
+                "placeholder": "Select gender"
+            },
+            "address": {
+                "label": "Address",
+                "placeholder": "Optional"
+            },
+            "gradeLevel": {
+                "label": "Grade level",
+                "placeholder": "Select grade level"
+            },
+            "enrollmentYear": {
+                "label": "Enrollment year",
+                "placeholder": "e.g. 2025"
+            }
+        },
+        "gender": {
+            "male": "Male",
+            "female": "Female",
+            "other": "Other"
+        },
+        "gradeLevel": {
+            "kindergarten": "Kindergarten",
+            "elementary": "Elementary school",
+            "middle": "Middle school",
+            "high": "High school",
+            "university": "University"
+        },
+        "validation": {
+            "firstNameRequired": "Enter a first name.",
+            "firstNameTooLong": "First name must be 50 characters or fewer.",
+            "lastNameRequired": "Enter a last name.",
+            "lastNameTooLong": "Last name must be 50 characters or fewer.",
+            "emailRequired": "Enter an email address.",
+            "emailInvalid": "Enter a valid email address.",
+            "phoneInvalid": "Enter a valid phone number.",
+            "birthdayInvalid": "Enter a valid date that is not in the future.",
+            "addressTooLong": "Address must be 255 characters or fewer.",
+            "gradeLevelRequired": "Select a grade level.",
+            "enrollmentYearRequired": "Enter the enrollment year.",
+            "enrollmentYearRange": "Enter a year between 1900 and 2100."
+        }
+    },
+    "dataTable": {
+        "pagination": {
+            "rowsPerPage": "Rows per page",
+            "pageOf": "Page {{page}} of {{pages}}",
+            "firstPage": "Go to first page",
+            "previousPage": "Go to previous page",
+            "nextPage": "Go to next page",
+            "lastPage": "Go to last page",
+            "selectedRows": "{{selected}} of {{total}} rows selected"
+        }
     }
 }

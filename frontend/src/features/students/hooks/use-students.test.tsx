@@ -3,34 +3,29 @@ import type { ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
-import { useCreateStudent, useDeleteStudent, useStudent, useUpdateStudent } from "./use-students";
+import {
+  studentKeys,
+  useCreateStudent,
+  useDeleteStudent,
+  useStudent,
+  useStudents,
+  useUpdateStudent,
+} from "./use-students";
 import { apiUrl, server } from "@/test/server";
-import type { CreateStudentData, Student } from "@/types/student";
+import type { CreateStudentData } from "@/types/student";
+import { pageOf, student } from "../test-utils";
 
-const student: Student = {
-  id: 5,
-  firstName: "Sam",
-  lastName: "Student",
-  email: "sam@school.test",
-  telephone: "555-0100",
-  birthday: "2010-04-02",
-  gender: "M",
-  address: "1 School Road",
-  gradeLevel: "GRADE_9",
-  enrollmentYear: 2024,
-};
-
-const studentData: CreateStudentData = {
+const createData: CreateStudentData = {
   profile: {
     firstName: "Sam",
     lastName: "Student",
     email: "sam@school.test",
-    telephone: "555-0100",
+    telephone: null,
     birthday: "2010-04-02",
     gender: "M",
-    address: "1 School Road",
+    address: null,
   },
-  gradeLevel: "GRADE_9",
+  gradeLevel: "HIGH",
   enrollmentYear: 2024,
 };
 
@@ -42,8 +37,55 @@ function setup() {
   return { queryClient, wrapper };
 }
 
+describe("useStudents", () => {
+  it("lists a page from GET /v1/students when there is no search", async () => {
+    let url: URL | undefined;
+    server.use(
+      http.get(apiUrl("/v1/students"), ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json(pageOf([student], { page: 1, size: 20, totalElements: 41 }));
+      }),
+    );
+    const { wrapper } = setup();
+
+    const { result } = renderHook(() => useStudents({ page: 1, size: 20 }), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(url?.searchParams.get("page")).toBe("1");
+    expect(url?.searchParams.get("size")).toBe("20");
+    expect(url?.searchParams.has("search")).toBe(false);
+    expect(result.current.data).toEqual({ data: [student], page: 1, totalPages: 3, totalItems: 41 });
+  });
+
+  it("searches through GET /v1/students/search?q= and never sends the query to the plain list", async () => {
+    let url: URL | undefined;
+    let listCalled = false;
+    server.use(
+      http.get(apiUrl("/v1/students/search"), ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json(pageOf([student]));
+      }),
+      http.get(apiUrl("/v1/students"), () => {
+        listCalled = true;
+        return HttpResponse.json(pageOf([]));
+      }),
+    );
+    const { wrapper } = setup();
+
+    const { result } = renderHook(() => useStudents({ page: 0, size: 10, search: "  sam@school " }), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(url?.pathname).toMatch(/\/v1\/students\/search$/);
+    expect(url?.searchParams.get("q")).toBe("sam@school");
+    expect(url?.searchParams.get("page")).toBe("0");
+    expect(url?.searchParams.get("size")).toBe("10");
+    expect(listCalled).toBe(false);
+    expect(result.current.data?.data).toEqual([student]);
+  });
+});
+
 describe("student hooks", () => {
-  it("loads a single student from the backend envelope", async () => {
+  it("loads a single student", async () => {
     server.use(http.get(apiUrl("/v1/students/5"), () => HttpResponse.json({ status: "success", data: student })));
     const { wrapper } = setup();
 
@@ -53,23 +95,25 @@ describe("student hooks", () => {
     expect(result.current.data).toEqual(student);
   });
 
-  it("creates a student and resolves the student from the backend envelope", async () => {
+  it("creates a student with the nested profile body and refreshes the lists", async () => {
     let body: unknown;
     server.use(
       http.post(apiUrl("/v1/students"), async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ status: "success", data: student });
+        return HttpResponse.json({ status: "success", data: student }, { status: 201 });
       }),
     );
-    const { wrapper } = setup();
+    const { queryClient, wrapper } = setup();
+    queryClient.setQueryData(studentKeys.list({ page: 0, size: 10, search: "" }), { data: [] });
     const { result } = renderHook(() => useCreateStudent(), { wrapper });
 
-    await expect(result.current.mutateAsync(studentData)).resolves.toEqual(student);
-    expect(body).toEqual(studentData);
+    await expect(result.current.mutateAsync(createData)).resolves.toEqual(student);
+    expect(body).toEqual(createData);
+    expect(queryClient.getQueryState(studentKeys.list({ page: 0, size: 10, search: "" }))?.isInvalidated).toBe(true);
   });
 
-  it("patches the flattened profile, resolves the updated student and caches it", async () => {
-    const updated = { ...student, address: "2 College Street" };
+  it("patches only the fields the backend update accepts, caches the result and refreshes the lists", async () => {
+    const updated = { ...student, firstName: "Samira", gradeLevel: "UNIVERSITY", enrollmentYear: 2025 };
     let body: unknown;
     server.use(
       http.patch(apiUrl("/v1/students/5"), async ({ request }) => {
@@ -78,26 +122,20 @@ describe("student hooks", () => {
       }),
     );
     const { queryClient, wrapper } = setup();
+    queryClient.setQueryData(studentKeys.detail(5), student);
+    queryClient.setQueryData(studentKeys.list({ page: 0, size: 10, search: "" }), { data: [student] });
     const { result } = renderHook(() => useUpdateStudent(), { wrapper });
 
     await expect(
-      result.current.mutateAsync({ ...studentData, profile: { ...studentData.profile, address: "2 College Street" }, id: 5 }),
+      result.current.mutateAsync({ id: 5, firstName: "Samira", lastName: "Student", gradeLevel: "UNIVERSITY", enrollmentYear: 2025 }),
     ).resolves.toEqual(updated);
-    expect(body).toEqual({
-      firstName: "Sam",
-      lastName: "Student",
-      email: "sam@school.test",
-      telephone: "555-0100",
-      birthday: "2010-04-02",
-      gender: "M",
-      address: "2 College Street",
-      gradeLevel: "GRADE_9",
-      enrollmentYear: 2024,
-    });
-    expect(queryClient.getQueryData(["student", 5])).toEqual(updated);
+
+    expect(body).toEqual({ firstName: "Samira", lastName: "Student", gradeLevel: "UNIVERSITY", enrollmentYear: 2025 });
+    expect(queryClient.getQueryData(studentKeys.detail(5))).toEqual(updated);
+    expect(queryClient.getQueryState(studentKeys.list({ page: 0, size: 10, search: "" }))?.isInvalidated).toBe(true);
   });
 
-  it("deletes a student and resolves undefined", async () => {
+  it("deletes a student, forgets its detail and refreshes the lists", async () => {
     let deleted = false;
     server.use(
       http.delete(apiUrl("/v1/students/5"), () => {
@@ -105,10 +143,14 @@ describe("student hooks", () => {
         return HttpResponse.json({ status: "success", data: null });
       }),
     );
-    const { wrapper } = setup();
+    const { queryClient, wrapper } = setup();
+    queryClient.setQueryData(studentKeys.detail(5), student);
+    queryClient.setQueryData(studentKeys.list({ page: 0, size: 10, search: "" }), { data: [student] });
     const { result } = renderHook(() => useDeleteStudent(), { wrapper });
 
     await expect(result.current.mutateAsync(5)).resolves.toBeUndefined();
     expect(deleted).toBe(true);
+    expect(queryClient.getQueryData(studentKeys.detail(5))).toBeUndefined();
+    expect(queryClient.getQueryState(studentKeys.list({ page: 0, size: 10, search: "" }))?.isInvalidated).toBe(true);
   });
 });

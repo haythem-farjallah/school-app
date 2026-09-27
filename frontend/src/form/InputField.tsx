@@ -55,7 +55,7 @@ export function InputField<K extends TextKinds = "text">({
 
       <div className="relative group">
         {Icon && (
-          <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+          <Icon className="pointer-events-none absolute start-3 top-1/2 z-10 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
         )}
         
         <Input
@@ -69,8 +69,8 @@ export function InputField<K extends TextKinds = "text">({
             "focus:border-primary/70 focus:bg-background focus:shadow-sm",
             "placeholder:text-muted-foreground placeholder:opacity-50",
             "hover:border-border/80",
-            Icon && "pl-9",
-            isPasswordField && "pr-10",
+            Icon && "ps-9",
+            isPasswordField && "pe-10",
             err && "border-destructive/60 focus:border-destructive"
           )}
         />
@@ -80,7 +80,7 @@ export function InputField<K extends TextKinds = "text">({
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 p-0 hover:bg-transparent"
+            className="absolute end-2 top-1/2 -translate-y-1/2 h-7 w-7 p-0 hover:bg-transparent"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
