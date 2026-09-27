@@ -18,7 +18,8 @@
     "common": {
         "actions": {
             "retry": "重試",
-            "goHome": "返回首頁"
+            "goHome": "返回首頁",
+            "close": "關閉"
         },
         "states": {
             "loading": {

@@ -18,7 +18,8 @@
     "common": {
         "actions": {
             "retry": "Réessayer",
-            "goHome": "Retour à l'accueil"
+            "goHome": "Retour à l'accueil",
+            "close": "Fermer"
         },
         "states": {
             "loading": {

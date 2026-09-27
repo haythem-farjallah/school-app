@@ -27,8 +27,9 @@ class RateLimitingFilterIntegrationTest {
 
     private static final String LOGIN_URI = "/api/auth/login";
 
-    // No other test uses this address, so the auth bucket starts full.
+    // No other test uses these addresses, so each auth bucket starts full.
     private static final String CLIENT_ADDRESS = "10.0.3.1";
+    private static final String SINGLE_REQUEST_CLIENT_ADDRESS = "10.0.3.2";
 
     @Autowired
     MockMvc mockMvc;
@@ -37,14 +38,23 @@ class RateLimitingFilterIntegrationTest {
     ObjectMapper objectMapper;
 
     @Test
+    void eachRequestConsumesExactlyOneToken() throws Exception {
+        // The filter runs inside the security chain only; a second servlet registration would consume twice.
+        long capacity = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
+
+        mockMvc.perform(failedLogin(SINGLE_REQUEST_CLIENT_ADDRESS))
+                .andExpect(header().string("X-Rate-Limit-Remaining", String.valueOf(capacity - 1)));
+    }
+
+    @Test
     void exhaustedBucketGetsProblemDetailWithRetryAfter() throws Exception {
         // One request more than the bucket holds is always rejected.
         long capacity = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
         for (int i = 0; i < capacity; i++) {
-            mockMvc.perform(failedLogin());
+            mockMvc.perform(failedLogin(CLIENT_ADDRESS));
         }
 
-        String body = mockMvc.perform(failedLogin())
+        String body = mockMvc.perform(failedLogin(CLIENT_ADDRESS))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(header().string("X-Rate-Limit-Remaining", "0"))
@@ -66,10 +76,10 @@ class RateLimitingFilterIntegrationTest {
         assertThat(body).doesNotContain(CLIENT_ADDRESS);
     }
 
-    private RequestBuilder failedLogin() throws Exception {
+    private RequestBuilder failedLogin(String clientAddress) throws Exception {
         return post(LOGIN_URI)
                 .with(request -> {
-                    request.setRemoteAddr(CLIENT_ADDRESS);
+                    request.setRemoteAddr(clientAddress);
                     return request;
                 })
                 .contentType(MediaType.APPLICATION_JSON)

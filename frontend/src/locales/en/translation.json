@@ -18,7 +18,8 @@
     "common": {
         "actions": {
             "retry": "Retry",
-            "goHome": "Go to home page"
+            "goHome": "Go to home page",
+            "close": "Close"
         },
         "states": {
             "loading": {

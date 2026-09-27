@@ -1,8 +1,15 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render, waitFor } from "@testing-library/react";
+import i18n from "../services/i18n";
 import { LanguageProvider } from "./LanguageProvider";
 
 describe("LanguageProvider", () => {
+  // The provider shares the application i18n instance, so each case starts from English.
+  beforeEach(async () => {
+    localStorage.clear();
+    await i18n.changeLanguage("en");
+  });
+
   afterEach(() => {
     document.documentElement.removeAttribute("lang");
     document.documentElement.removeAttribute("dir");
@@ -25,8 +32,7 @@ describe("LanguageProvider", () => {
     localStorage.setItem("lang", "de");
     render(<LanguageProvider>content</LanguageProvider>);
 
-    await waitFor(() => expect(document.documentElement.lang).not.toBe(""));
-    expect(document.documentElement.lang).not.toBe("de");
+    await waitFor(() => expect(document.documentElement.lang).toBe("en"));
     expect(document.documentElement.dir).toBe("ltr");
   });
 });
