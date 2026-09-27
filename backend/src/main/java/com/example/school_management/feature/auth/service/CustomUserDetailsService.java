@@ -1,6 +1,7 @@
 package com.example.school_management.feature.auth.service;
 
 import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.repository.*;
 import com.example.school_management.feature.auth.repository.RolePermissionRepo;
 import lombok.RequiredArgsConstructor;
@@ -49,11 +50,12 @@ public class CustomUserDetailsService implements UserDetailsService
         user.getPermissions()
                 .forEach(p -> auth.add(new SimpleGrantedAuthority(p.getCode())));
 
-        return new org.springframework.security.core.userdetails.User(
-                user.getEmail(),
-                user.getPassword(),
-                auth
-        );
+        /* 4. Only ACTIVE accounts may authenticate; DELETED rows are never loaded */
+        return org.springframework.security.core.userdetails.User.withUsername(user.getEmail())
+                .password(user.getPassword())
+                .authorities(auth)
+                .disabled(user.getStatus() != Status.ACTIVE)
+                .build();
     }
 
     /* ---------- helper ---------- */

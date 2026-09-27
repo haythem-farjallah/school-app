@@ -17,6 +17,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -67,7 +68,8 @@ public class AuthService {
 
         // Return login response with password change requirement flag
         return new LoginResponse(access, refresh, userDto, user.isPasswordChangeRequired());
-        } catch (BadCredentialsException ex) {
+        } catch (BadCredentialsException | DisabledException ex) {
+            // Suspended accounts fail exactly like bad credentials so account status is not disclosed.
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
     }
