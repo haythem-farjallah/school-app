@@ -57,7 +57,7 @@ public class EmailServiceImpl implements EmailService {
 
     @Transactional
     public EmailResponse sendEmailWithRecipientId(EmailRequest emailRequest, Long recipientId) {
-        log.info("📧 Sending email to: {} (recipientId: {})", emailRequest.getRecipientEmail(), recipientId);
+        log.info("📧 Sending email (recipientId: {})", recipientId);
 
         try {
             // Validate email
@@ -81,11 +81,11 @@ public class EmailServiceImpl implements EmailService {
             // Create communication log
             createCommunicationLog(notification, messageId, emailRequest.getRecipientEmail());
 
-            log.info("✅ Email sent successfully to: {} with messageId: {}", emailRequest.getRecipientEmail(), messageId);
+            log.info("✅ Email sent (notificationId: {})", notification.getId());
             return EmailResponse.success(notification.getId(), messageId, emailRequest.getRecipientEmail());
 
         } catch (Exception e) {
-            log.error("❌ Failed to send email to: {}", emailRequest.getRecipientEmail(), e);
+            log.error("❌ Failed to send email: {}", e.getClass().getSimpleName());
             return EmailResponse.failure(emailRequest.getRecipientEmail(), e.getMessage());
         }
     }
@@ -98,7 +98,7 @@ public class EmailServiceImpl implements EmailService {
 
     @Transactional
     public EmailResponse sendTemplatedEmailWithRecipientId(String templateName, Long recipientId, String recipientEmail, Map<String, Object> variables) {
-        log.info("📧 Sending templated email '{}' to: {} (recipientId: {})", templateName, recipientEmail, recipientId);
+        log.info("📧 Sending templated email '{}' (recipientId: {})", templateName, recipientId);
 
         try {
             // Get template
@@ -129,7 +129,7 @@ public class EmailServiceImpl implements EmailService {
             return sendEmailWithRecipientId(emailRequest, recipientId);
 
         } catch (Exception e) {
-            log.error("❌ Failed to send templated email '{}' to: {}", templateName, recipientEmail, e);
+            log.error("❌ Failed to send templated email '{}': {}", templateName, e.getClass().getSimpleName());
             return EmailResponse.failure(recipientEmail, e.getMessage());
         }
     }
@@ -196,7 +196,7 @@ public class EmailServiceImpl implements EmailService {
     @Override
     @Transactional
     public EmailResponse scheduleEmail(EmailRequest emailRequest, LocalDateTime scheduledAt) {
-        log.info("📅 Scheduling email to: {} for: {}", emailRequest.getRecipientEmail(), scheduledAt);
+        log.info("📅 Scheduling email for: {}", scheduledAt);
 
         try {
             // Create notification record with scheduled status
@@ -205,11 +205,11 @@ public class EmailServiceImpl implements EmailService {
             notification.setStatus(Notification.NotificationStatus.PENDING);
             notification = notificationRepository.save(notification);
 
-            log.info("✅ Email scheduled successfully for: {}", emailRequest.getRecipientEmail());
+            log.info("✅ Email scheduled (notificationId: {})", notification.getId());
             return EmailResponse.scheduled(notification.getId(), emailRequest.getRecipientEmail(), scheduledAt);
 
         } catch (Exception e) {
-            log.error("❌ Failed to schedule email to: {}", emailRequest.getRecipientEmail(), e);
+            log.error("❌ Failed to schedule email: {}", e.getClass().getSimpleName());
             return EmailResponse.failure(emailRequest.getRecipientEmail(), e.getMessage());
         }
     }
@@ -401,7 +401,7 @@ public class EmailServiceImpl implements EmailService {
                 return sendEmail(emailRequest);
             }
         } catch (Exception e) {
-            log.error("❌ Failed to process recipient: {}", recipient.getEmail(), e);
+            log.error("❌ Failed to process bulk email recipient: {}", e.getClass().getSimpleName());
             return EmailResponse.failure(recipient.getEmail(), e.getMessage());
         }
     }
@@ -463,7 +463,7 @@ public class EmailServiceImpl implements EmailService {
                 try {
                     message.setHeader(key, value);
                 } catch (MessagingException e) {
-                    log.warn("Failed to set custom header: {} = {}", key, value);
+                    log.warn("Failed to set custom email header: {}", e.getClass().getSimpleName());
                 }
             });
         }

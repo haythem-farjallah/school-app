@@ -73,7 +73,7 @@ public class EmailService {
             helper.setText(html, true);
 
             mailSender.send(msg);
-            log.info("📧 Email sent to {}", to);
+            log.info("📧 Email sent using template {}", templateName);
         }
         catch (MessagingException ex) {
             throw new MailPreparationException("Could not build the email", ex);
@@ -122,11 +122,10 @@ public class EmailService {
 
                 mailSender.send(msg);
                 successful.add(user.getEmail());
-                log.debug("📧 Email sent successfully to {}", user.getEmail());
                 
             } catch (MailException | MessagingException ex) {
                 failed.add(user.getEmail());
-                log.error("❌ Failed to send email to {}: {}", user.getEmail(), ex.getMessage());
+                log.error("❌ Failed to send bulk email to one recipient: {}", ex.getClass().getSimpleName());
             }
         }
         
@@ -169,11 +168,10 @@ public class EmailService {
                 
                 mailSender.send(msg);
                 successful.add(email);
-                log.debug("📧 Simple email sent successfully to {}", email);
                 
             } catch (MailException | MessagingException ex) {
                 failed.add(email);
-                log.error("❌ Failed to send simple email to {}: {}", email, ex.getMessage());
+                log.error("❌ Failed to send simple email to one recipient: {}", ex.getClass().getSimpleName());
             }
         }
         

@@ -28,6 +28,6 @@ public class UserCreatedListener {
                 ev.rawPassword()
         );
         
-        log.info("Welcome email queued for {}", u.getEmail());
+        log.info("Welcome email queued for user id={}", u.getId());
     }
 }

@@ -52,7 +52,7 @@ public class ParentService extends AbstractUserCrudService<
 
     @Override
     public Parent create(ParentCreateDto dto) {
-        log.debug("Creating parent with children emails: {}", dto.childrenEmails());
+        log.debug("Creating parent with {} children", dto.childrenEmails() == null ? 0 : dto.childrenEmails().size());
         
         // Create the parent first
         Parent parent = super.create(dto);
@@ -67,7 +67,7 @@ public class ParentService extends AbstractUserCrudService<
     
     @Override
     public Parent patch(long id, ParentUpdateDto dto) {
-        log.debug("Updating parent {} with children emails: {}", id, dto.getChildren());
+        log.debug("Updating parent {} with {} children", id, dto.getChildren() == null ? 0 : dto.getChildren().size());
         
         // Update the parent first using the parent class method
         Parent parent = super.patch(id, dto);
@@ -159,9 +159,9 @@ public class ParentService extends AbstractUserCrudService<
             studentRepository.findByEmail(email).ifPresentOrElse(
                 student -> {
                     children.add(student);
-                    log.debug("Found student with email {}: {} {}", email, student.getFirstName(), student.getLastName());
+                    log.debug("Found student id={} for parent {}", student.getId(), parent.getId());
                 },
-                () -> log.warn("Student with email {} not found", email)
+                () -> log.warn("Child student not found for parent {}", parent.getId())
             );
         }
         

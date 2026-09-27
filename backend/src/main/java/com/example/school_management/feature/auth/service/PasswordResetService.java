@@ -73,7 +73,7 @@ public class PasswordResetService {
         // Write before sending, so a failing write cannot leave an emailed code that does not exist.
         userRepo.saveAndFlush(user);
 
-        log.info("OTP generated for {}", user.getEmail());
+        log.info("Password-reset code generated");
 
         emailService.sendTemplateEmail(
                 user.getEmail(),
@@ -112,7 +112,7 @@ public class PasswordResetService {
         user.setPasswordChangeRequired(false);
         // Every access and refresh token issued before the reset stops working.
         user.setTokenVersion(user.getTokenVersion() + 1);
-        log.info("Password reset for {}", user.getEmail());
+        log.info("Password reset completed");
     }
 
     /** Returns whether the code is the account's current code; consumes or counts it either way. */

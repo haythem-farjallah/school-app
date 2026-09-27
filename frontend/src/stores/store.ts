@@ -1,4 +1,4 @@
-import { configureStore, Middleware } from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 import authReducer, { accessTokenRefreshed, resetAuth } from "@/stores/authSlice";
 import { setAccessTokenUpdatedHandler, setSessionEndedHandler } from "@/lib/session";
@@ -11,17 +11,6 @@ import notificationReducer from "./notificationSlice";
 // add more slices here as you create them
 
 /* -------------------------------------------------------------------------- */
-/*  Dev‑only logger middleware                                                */
-/* -------------------------------------------------------------------------- */
-const logger: Middleware =
-  () => (next) => (action) => {
-    if (import.meta.env.DEV) {
-      console.log("%cRedux", "color: #4e9af1", action);
-    }
-    return next(action);
-  };
-
-/* -------------------------------------------------------------------------- */
 /*  Store                                                                     */
 /* -------------------------------------------------------------------------- */
 export const store = configureStore({
@@ -30,7 +19,7 @@ export const store = configureStore({
     auth: authReducer,
   },
   middleware: (getDefault) =>
-    getDefault({ serializableCheck: false }).concat(logger),
+    getDefault({ serializableCheck: false }),
   devTools: import.meta.env.DEV,
 });
 

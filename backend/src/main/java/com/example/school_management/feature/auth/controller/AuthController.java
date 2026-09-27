@@ -121,7 +121,7 @@ public class AuthController {
         u.setPasswordChangeRequired(false);
         userRepo.save(u);
 
-        log.info("First-login password changed for {}", principal.getUsername());
+        log.info("First-login password changed");
         return ResponseEntity.ok().build();
 
     }

@@ -36,8 +36,6 @@ function onMessage(message: IMessage) {
   try {
     const notification: RealTimeNotificationDto = JSON.parse(message.body);
     
-    console.log('📨 WebSocket notification received:', notification);
-    
     const severity = mapPriorityToSeverity(notification.priority);
     const title = notification.title || 'Notification';
     const msg = notification.message || '';
@@ -78,18 +76,12 @@ function onMessage(message: IMessage) {
     
     // Dispatch custom events for specific notification types
     if (notification.type === 'ADMIN_FEED') {
-      console.log('🔧 Admin feed update:', notification);
-      console.log('🔧 Dispatching admin-feed event with detail:', notification);
       // Dispatch custom event for admin feed component
       window.dispatchEvent(new CustomEvent('admin-feed', { detail: notification }));
-    } else if (notification.type === 'SYSTEM_ALERT') {
-      console.log('🚨 System alert:', notification);
-    } else {
-      console.log('📦 Other notification type:', notification.type, notification);
     }
     
   } catch (error) {
-    console.error('❌ Failed to parse WebSocket message:', error);
+    console.error('❌ Failed to handle WebSocket message', error instanceof Error ? error.name : '');
   }
 }
 
@@ -117,10 +109,7 @@ export function connectWebSocket(user?: { id: number; role: string; email?: stri
     return;
   }
   
-  console.log('🔗 Connecting to WebSocket...', { 
-    url: WS_URL, 
-    user: { id: user.id, role: user.role, email: user.email } 
-  });
+  console.log('🔗 Connecting to WebSocket...');
   
   updateConnectionStatus({ reconnecting: true, error: undefined });
   
@@ -135,8 +124,8 @@ export function connectWebSocket(user?: { id: number; role: string; email?: stri
     heartbeatIncoming: 4000,
     heartbeatOutgoing: 4000,
     
-    onConnect: (frame) => {
-      console.log('✅ WebSocket connected:', frame);
+    onConnect: () => {
+      console.log('✅ WebSocket connected');
       updateConnectionStatus({ connected: true, reconnecting: false });
       
       if (!client) return;
@@ -181,7 +170,7 @@ export function connectWebSocket(user?: { id: number; role: string; email?: stri
     },
     
     onStompError: (frame) => {
-      console.error('❌ STOMP error:', frame);
+      console.error('❌ STOMP error');
       updateConnectionStatus({ 
         connected: false, 
         reconnecting: false, 
@@ -189,8 +178,8 @@ export function connectWebSocket(user?: { id: number; role: string; email?: stri
       });
     },
     
-    onWebSocketError: (error) => {
-      console.error('❌ WebSocket error:', error);
+    onWebSocketError: () => {
+      console.error('❌ WebSocket error');
       updateConnectionStatus({ 
         connected: false, 
         reconnecting: false, 

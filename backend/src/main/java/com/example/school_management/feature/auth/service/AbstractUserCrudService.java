@@ -71,7 +71,7 @@ public abstract class AbstractUserCrudService<
         entity.setPasswordChangeRequired(true);
         entity.setStatus(Status.ACTIVE);
         entity = repo.save(entity);
-        log.info("Created {} id={} email={}", entity.getRole(), entity.getId(), entity.getEmail());
+        log.info("Created {} id={}", entity.getRole(), entity.getId());
 
         // Create audit event for user creation
         try {
@@ -89,7 +89,7 @@ public abstract class AbstractUserCrudService<
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for user creation: {}", e.getMessage());
+            log.warn("Failed to create audit event for user creation: {}", e.getClass().getSimpleName());
         }
 
         /* domain event (async email, audit, etc.) */
@@ -115,39 +115,11 @@ public abstract class AbstractUserCrudService<
     public E patch(long id, U dto) {
         E entity = find(id);
         
-        // Log BEFORE values for updatable fields
-        log.info("🔄 PATCH REQUEST - Teacher ID: {}, BEFORE update:", id);
-        log.info("   📞 Telephone: '{}'", entity.getTelephone());
-        log.info("   🏠 Address: '{}'", entity.getAddress());
-        
-        // For Teacher-specific fields, we need to cast to access them
-        if (entity instanceof com.example.school_management.feature.auth.entity.Teacher) {
-            com.example.school_management.feature.auth.entity.Teacher teacher = (com.example.school_management.feature.auth.entity.Teacher) entity;
-            log.info("   🎓 Qualifications: '{}'", teacher.getQualifications());
-            log.info("   📚 Subjects Taught: '{}'", teacher.getSubjectsTaught());
-            log.info("   ⏰ Available Hours: {}", teacher.getWeeklyCapacity());
-            log.info("   📅 Schedule Preferences: '{}'", teacher.getSchedulePreferences());
-        }
-        
         // Store old values for audit
         String oldValues = String.format("Name: %s %s, Email: %s, Status: %s", 
             entity.getFirstName(), entity.getLastName(), entity.getEmail(), entity.getStatus());
         
         mapper.patch(dto, entity);          // MapStruct null-aware merge
-        
-        // Log AFTER values for updatable fields
-        log.info("✅ PATCH COMPLETED - Teacher ID: {}, AFTER update:", id);
-        log.info("   📞 Telephone: '{}'", entity.getTelephone());
-        log.info("   🏠 Address: '{}'", entity.getAddress());
-        
-        // For Teacher-specific fields, we need to cast to access them
-        if (entity instanceof com.example.school_management.feature.auth.entity.Teacher) {
-            com.example.school_management.feature.auth.entity.Teacher teacher = (com.example.school_management.feature.auth.entity.Teacher) entity;
-            log.info("   🎓 Qualifications: '{}'", teacher.getQualifications());
-            log.info("   📚 Subjects Taught: '{}'", teacher.getSubjectsTaught());
-            log.info("   ⏰ Available Hours: {}", teacher.getWeeklyCapacity());
-            log.info("   📅 Schedule Preferences: '{}'", teacher.getSchedulePreferences());
-        }
         
         log.info("Patched {} id={}", entity.getRole(), id);
         
@@ -168,7 +140,7 @@ public abstract class AbstractUserCrudService<
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for user update: {}", e.getMessage());
+            log.warn("Failed to create audit event for user update: {}", e.getClass().getSimpleName());
         }
         
         return entity;
@@ -199,7 +171,7 @@ public abstract class AbstractUserCrudService<
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for user deletion: {}", e.getMessage());
+            log.warn("Failed to create audit event for user deletion: {}", e.getClass().getSimpleName());
         }
     }
     
@@ -209,6 +181,6 @@ public abstract class AbstractUserCrudService<
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Current user not found: " + email));
+                .orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
 }

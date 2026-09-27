@@ -150,7 +150,7 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setPasswordChangeRequired(true);
         repo.save(user);
-        log.info("Registered {} with forced password change: {}", user.getRole(), user.getEmail());
+        log.info("Registered {} id={} with status {} and forced password change", user.getRole(), user.getId(), user.getStatus());
     }
 
 

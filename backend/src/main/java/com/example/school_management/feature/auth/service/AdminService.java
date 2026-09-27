@@ -47,7 +47,7 @@ public class AdminService {
         String studentPw = generateAndSetPassword(student);
         student.setStatus(Status.ACTIVE);
         studentRepo.save(student);
-        log.info("Created STUDENT {} (id={})", student.getEmail(), student.getId());
+        log.info("Created STUDENT id={}", student.getId());
         emailService.sendWelcomeEmail(
                 student.getId(),
                 student.getEmail(),
@@ -74,8 +74,7 @@ public class AdminService {
                 try {
                     parent.setPreferredContactMethod(ContactMethod.valueOf(pd.preferredContactMethod().toUpperCase()));
                 } catch (IllegalArgumentException e) {
-                    log.warn("Invalid preferred contact method '{}' for parent {}, defaulting to EMAIL", 
-                            pd.preferredContactMethod(), pd.profile().email());
+                    log.warn("Invalid preferred contact method for new parent, defaulting to EMAIL");
                     parent.setPreferredContactMethod(ContactMethod.EMAIL);
                 }
             } else {
@@ -86,8 +85,7 @@ public class AdminService {
             parent.getChildren().add(student);
 
             parentRepo.save(parent);
-            log.info("Created PARENT {} (id={}) and linked to STUDENT {}",
-                    parent.getEmail(), parent.getId(), student.getEmail());
+            log.info("Created PARENT id={} and linked to STUDENT id={}", parent.getId(), student.getId());
             emailService.sendWelcomeEmail(
                     parent.getId(),
                     parent.getEmail(),

@@ -14,6 +14,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -93,8 +94,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
 
+            } catch (UsernameNotFoundException ex) {
+                // The account was deleted after the token was issued: an ordinary rejected token.
+                log.debug("JWT belongs to no current account");
             } catch (Exception ex) {
-                log.error("JWT processing error: {}", ex.getMessage(), ex);
+                // The exception's message and stack trace may name the account, so only its type is logged.
+                log.error("JWT processing error: {}", ex.getClass().getSimpleName());
             }
         }
 

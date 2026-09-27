@@ -125,6 +125,32 @@ class RefreshTokenIntegrationTest {
     }
 
     @Test
+    void accessTokenOfDeletedAccountIsUnauthorized() throws Exception {
+        String email = student(false);
+        String accessToken = login(email).path("accessToken").asText();
+        setStatus(email, Status.DELETED);
+
+        String body = mockMvc.perform(profile(accessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain(email, "Exception");
+    }
+
+    @Test
+    void accessTokenOfNonexistentAccountIsUnauthorized() throws Exception {
+        String email = "nobody-" + UUID.randomUUID() + "@accounts.school.test";
+
+        String body = mockMvc.perform(profile(signed(accessTokenFor(email))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain(email, "Exception");
+    }
+
+    @Test
     void accountRequiringPasswordChangeRefreshesButStaysRestricted() throws Exception {
         String refreshToken = login(student(true)).path("refreshToken").asText();
 
