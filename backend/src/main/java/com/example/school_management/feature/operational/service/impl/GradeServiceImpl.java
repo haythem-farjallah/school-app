@@ -29,6 +29,7 @@ import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.academic.entity.TeachingAssignment;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
@@ -45,7 +46,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class GradeServiceImpl implements GradeService {
-    /** Paths accepted by GET /api/v1/grades/filter. */
+    /** Paths accepted by GET /api/v1/grades/filter; its sortable paths also bound every paged grade read. */
     private static final FilterFields FILTER_FIELDS = new FilterFields(
             Set.of("content", "score", "weight", "gradedAt",
                     "enrollment.id", "enrollment.student.id", "enrollment.classEntity.id", "assignedBy.id"),
@@ -55,6 +56,7 @@ public class GradeServiceImpl implements GradeService {
     private final EnrollmentRepository enrollmentRepository;
     private final EnhancedGradeRepository enhancedGradeRepository;
     private final TeacherRepository teacherRepository;
+    private final UserRepository userRepository;
     private final StudentRepository studentRepository;
     private final TeachingAssignmentRepository teachingAssignmentRepository;
     private final CourseRepository courseRepository;
@@ -197,18 +199,21 @@ public class GradeServiceImpl implements GradeService {
 
     @Override
     public Page<GradeResponse> getGradesByStudentId(Long studentId, Pageable pageable) {
+        FILTER_FIELDS.requireSortable(pageable.getSort());
         Page<Grade> grades = gradeRepository.findByStudentIdOrderByGradedAtDesc(studentId, pageable);
         return grades.map(this::mapGradeToResponse);
     }
 
     @Override
     public Page<GradeResponse> getGradesByClassId(Long classId, Pageable pageable) {
+        FILTER_FIELDS.requireSortable(pageable.getSort());
         Page<Grade> grades = gradeRepository.findByClassIdOrderByGradedAtDesc(classId, pageable);
         return grades.map(this::mapGradeToResponse);
     }
 
     @Override
     public Page<GradeResponse> getGradesByEnrollmentId(Long enrollmentId, Pageable pageable) {
+        FILTER_FIELDS.requireSortable(pageable.getSort());
         Page<Grade> grades = gradeRepository.findByEnrollmentIdOrderByGradedAtDesc(enrollmentId, pageable);
         return grades.map(this::mapGradeToResponse);
     }
@@ -269,11 +274,6 @@ public class GradeServiceImpl implements GradeService {
     }
 
     @Override
-    public boolean gradeExistsForEnrollmentAndContent(Long enrollmentId, String content) {
-        return gradeRepository.findByEnrollmentIdAndContent(enrollmentId, content).isPresent();
-    }
-
-    @Override
     public Page<GradeResponse> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
         FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, pageable, FILTER_FIELDS);
         Specification<Grade> spec = DynamicSpecificationBuilder.build(criteria);
@@ -283,6 +283,7 @@ public class GradeServiceImpl implements GradeService {
 
     @Override
     public Page<GradeResponse> getAllGrades(Pageable pageable, String search, Long courseId) {
+        FILTER_FIELDS.requireSortable(pageable.getSort());
         Page<Grade> grades;
         
         if (search != null && !search.trim().isEmpty() && courseId != null) {
@@ -311,11 +312,11 @@ public class GradeServiceImpl implements GradeService {
         return response;
     }
     
+    /** The authenticated account of any role; edit and delete flags are true only for the assigning teacher. */
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Teacher teacher = teacherRepository.findByEmail(email)
-            .orElseThrow(() -> new IllegalStateException("Current teacher not found"));
-        return teacher; // Teacher extends BaseUser
+        return userRepository.findByEmail(email)
+            .orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
     
     private GradeStatistics calculateGradeStatistics(List<Grade> grades, Long studentId, Long classId, Long courseId) {

@@ -43,7 +43,6 @@ public interface GradeService {
     // Validation and checks
     boolean canEditGrade(Long gradeId, Long userId);
     boolean canDeleteGrade(Long gradeId, Long userId);
-    boolean gradeExistsForEnrollmentAndContent(Long enrollmentId, String content);
     
     // Advanced filtering
     Page<GradeResponse> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap);

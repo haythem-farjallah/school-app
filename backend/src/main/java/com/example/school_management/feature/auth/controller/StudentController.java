@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 @RequestMapping("/api/v1/students")
 @RequiredArgsConstructor
+// Teachers keep the read-only directory; every change, export and bulk e-mail is administrative.
 @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
 @Tag(name = "Students", description = "Endpoints for managing students")
 @SecurityRequirement(name = "bearerAuth")
@@ -59,6 +60,7 @@ public class StudentController {
             @ApiResponse(responseCode = "409", description = "Student with this email already exists")
     })
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<StudentDto>> create(
             @Valid @RequestBody StudentCreateDto body) {
         log.debug("POST /students {}", body);
@@ -119,6 +121,7 @@ public class StudentController {
             @ApiResponse(responseCode = "400", description = "Invalid input data")
     })
     @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<StudentDto>> patch(@PathVariable long id,
                            @Valid @RequestBody StudentUpdateDto body) {
         log.debug("PATCH /students/{} {}", id, body);
@@ -133,6 +136,7 @@ public class StudentController {
             @ApiResponse(responseCode = "404", description = "Student not found")
     })
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<Void>> delete(@PathVariable long id) {
         log.debug("DELETE /students/{}", id);
         service.delete(id);
@@ -145,6 +149,7 @@ public class StudentController {
             @ApiResponse(responseCode = "200", description = "Students deleted successfully")
     })
     @DeleteMapping("/bulk")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<Void>> bulkDelete(
             @Parameter(description = "List of student IDs to delete") @RequestBody java.util.List<Long> ids) {
         log.debug("DELETE /students/bulk {}", ids);
@@ -216,6 +221,7 @@ public class StudentController {
             @ApiResponse(responseCode = "200", description = "Student statuses updated successfully")
     })
     @PatchMapping("/bulk/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<String>> bulkUpdateStatus(
             @RequestBody BulkStatusUpdateRequest request) {
         log.debug("PATCH /students/bulk/status - ids: {}, status: {}", request.ids(), request.status());
@@ -228,6 +234,7 @@ public class StudentController {
             @ApiResponse(responseCode = "200", description = "CSV export completed successfully")
     })
     @PostMapping("/export/csv")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<String> exportStudentsCSV(
             @RequestBody(required = false) ExportRequest request) throws IOException {
         log.debug("POST /students/export/csv - ids: {}", request != null ? request.ids() : "all");
@@ -250,6 +257,7 @@ public class StudentController {
             @ApiResponse(responseCode = "200", description = "Excel export completed successfully")
     })
     @PostMapping("/export/excel")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<byte[]> exportStudentsExcel(
             @RequestBody(required = false) ExportRequest request) throws IOException {
         log.debug("POST /students/export/excel - ids: {}", request != null ? request.ids() : "all");
@@ -272,6 +280,7 @@ public class StudentController {
             @ApiResponse(responseCode = "200", description = "Bulk email initiated successfully")
     })
     @PostMapping("/bulk/email")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<String>> sendBulkEmail(
             @RequestBody BulkEmailRequest request) {
         log.debug("POST /students/bulk/email - ids: {}, subject: {}", request.ids(), request.subject());

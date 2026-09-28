@@ -77,7 +77,7 @@ class FilterFieldAllowlistIntegrationTest {
     void approvedNestedIdPathFilters() throws Exception {
         long studentId = studentRepository.findByEmail(DevFixtureLoader.STUDENT_EMAIL).orElseThrow().getId();
 
-        mockMvc.perform(get("/api/v1/grades/filter").header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.TEACHER_EMAIL))
+        mockMvc.perform(get("/api/v1/grades/filter").header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL))
                         .param("enrollment.student.id_eq", String.valueOf(studentId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(0));
@@ -115,7 +115,7 @@ class FilterFieldAllowlistIntegrationTest {
 
         // "enrollment.student.id" is allowed; nothing else under it is.
         expectBadRequest(mockMvc.perform(get("/api/v1/grades/filter")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.TEACHER_EMAIL))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL))
                         .param("enrollment.student.otpCode_notnull", "true")),
                 "Unsupported filter field 'enrollment.student.otpCode'", "/api/v1/grades/filter");
     }
@@ -153,7 +153,7 @@ class FilterFieldAllowlistIntegrationTest {
                 "Unsupported sort field 'user.password'", "/api/v1/attendance/filter");
 
         expectBadRequest(mockMvc.perform(get("/api/v1/grades/filter")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.TEACHER_EMAIL))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL))
                         .param("sort", "assignedBy.email,desc")),
                 "Unsupported sort field 'assignedBy.email'", "/api/v1/grades/filter");
     }

@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface GradeRepository extends JpaRepository<Grade, Long>, JpaSpecificationExecutor<Grade> {
@@ -42,10 +41,6 @@ public interface GradeRepository extends JpaRepository<Grade, Long>, JpaSpecific
     // Find grades by date range
     @Query("SELECT g FROM Grade g WHERE g.gradedAt BETWEEN :startDate AND :endDate")
     List<Grade> findByGradedAtBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
-    
-    // Check if grade exists for enrollment and content to prevent duplicates
-    @Query("SELECT g FROM Grade g WHERE g.enrollment.id = :enrollmentId AND g.content = :content")
-    Optional<Grade> findByEnrollmentIdAndContent(@Param("enrollmentId") Long enrollmentId, @Param("content") String content);
     
     // Get average grade for student
     @Query("SELECT AVG(g.score) FROM Grade g WHERE g.enrollment.student.id = :studentId")

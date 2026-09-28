@@ -2,6 +2,7 @@ package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
+import com.example.school_management.commons.utils.FilterFields;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.auth.entity.BaseUser;
@@ -31,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
@@ -39,6 +41,9 @@ import java.util.stream.Collectors;
 @Transactional
 @RequiredArgsConstructor
 public class EnrollmentServiceImpl implements EnrollmentService {
+
+    /** Properties a paged enrollment read may be sorted by. */
+    private static final FilterFields SORT_FIELDS = new FilterFields(Set.of(), Set.of("enrolledAt", "status"));
 
     private final EnrollmentRepository enrollmentRepo;
     private final StudentRepository studentRepo;
@@ -233,6 +238,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getAllEnrollments(Pageable pageable, String search, EnrollmentStatus status) {
+        SORT_FIELDS.requireSortable(pageable.getSort());
         log.debug("Getting all enrollments with search: {}, status: {}", search, status);
         
         Page<Enrollment> enrollments;
@@ -257,24 +263,28 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getStudentEnrollments(Long studentId, Pageable pageable) {
+        SORT_FIELDS.requireSortable(pageable.getSort());
         return enrollmentRepo.findByStudentId(studentId, pageable).map(this::toDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getClassEnrollments(Long classId, Pageable pageable) {
+        SORT_FIELDS.requireSortable(pageable.getSort());
         return enrollmentRepo.findByClassId(classId, pageable).map(this::toDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getEnrollmentsByStatus(EnrollmentStatus status, Pageable pageable) {
+        SORT_FIELDS.requireSortable(pageable.getSort());
         return enrollmentRepo.findByStatus(status, pageable).map(this::toDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getEnrollmentsByDateRange(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+        SORT_FIELDS.requireSortable(pageable.getSort());
         return enrollmentRepo.findByEnrolledAtBetween(startDate, endDate, pageable).map(this::toDto);
     }
 

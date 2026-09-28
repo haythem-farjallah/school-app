@@ -37,7 +37,7 @@ public class EnrollmentController {
     private final EnrollmentService enrollmentService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Get all enrollments with optional filters")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getAllEnrollments(
             @PageableDefault(size = 20) Pageable pageable,
@@ -51,7 +51,7 @@ public class EnrollmentController {
     }
 
     @PostMapping("/enroll")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Enroll a student in a class")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> enrollStudent(
             @Valid @RequestBody EnrollStudentRequest request) {
@@ -62,7 +62,7 @@ public class EnrollmentController {
     }
 
     @PutMapping("/{enrollmentId}/transfer")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Transfer a student to another class")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> transferStudent(
             @PathVariable Long enrollmentId,
@@ -74,7 +74,7 @@ public class EnrollmentController {
     }
 
     @PutMapping("/{enrollmentId}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Update enrollment status")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> updateEnrollmentStatus(
             @PathVariable Long enrollmentId,
@@ -98,7 +98,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/{enrollmentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'STUDENT')")
     @PostAuthorize("!hasRole('STUDENT') or @securityService.isCurrentUser(returnObject.body.data.studentId)")
     @Operation(summary = "Get enrollment details by ID")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> getEnrollment(
@@ -110,7 +110,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/student/{studentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     @Operation(summary = "Get all enrollments for a student")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getStudentEnrollments(
             @PathVariable Long studentId,
@@ -123,7 +123,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/class/{classId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Get all enrollments for a class")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getClassEnrollments(
             @PathVariable Long classId,
@@ -136,7 +136,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Get enrollments by status")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getEnrollmentsByStatus(
             @PathVariable EnrollmentStatus status,
@@ -149,7 +149,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/date-range")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Get enrollments within a date range")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getEnrollmentsByDateRange(
             @Parameter(description = "Start date (yyyy-MM-dd'T'HH:mm:ss)")
@@ -165,7 +165,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/stats/class/{classId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Get enrollment statistics for a class")
     public ResponseEntity<ApiSuccessResponse<EnrollmentStatsDto>> getClassEnrollmentStats(
             @PathVariable Long classId) {
@@ -176,7 +176,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/stats/student/{studentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     @Operation(summary = "Get enrollment statistics for a student")
     public ResponseEntity<ApiSuccessResponse<EnrollmentStatsDto>> getStudentEnrollmentStats(
             @PathVariable Long studentId) {
@@ -198,7 +198,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/can-enroll")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Check if a student can be enrolled in a class")
     public ResponseEntity<ApiSuccessResponse<Boolean>> canEnrollStudent(
             @RequestParam Long studentId,
