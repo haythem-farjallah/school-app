@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+// Sends to caller-chosen recipients are administrative until communication authorization is redesigned.
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
@@ -32,7 +33,7 @@ public class CommunicationController {
     // =====================================================
 
     @PostMapping("/email/send")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<EmailResponse>> sendEmail(@Valid @RequestBody EmailRequest emailRequest) {
         log.info("📧 API: Sending email to: {}", emailRequest.getRecipientEmail());
         EmailResponse response = emailService.sendEmail(emailRequest);
@@ -40,7 +41,7 @@ public class CommunicationController {
     }
 
     @PostMapping("/email/send-templated")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<EmailResponse>> sendTemplatedEmail(
             @RequestParam String templateName,
             @RequestParam String recipientEmail,
@@ -73,7 +74,7 @@ public class CommunicationController {
     // =====================================================
 
     @PostMapping("/sms/send")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<SMSResponse>> sendSMS(@Valid @RequestBody SMSRequest smsRequest) {
         log.info("📱 API: Sending SMS to: {}", maskPhoneNumber(smsRequest.getRecipientPhone()));
         SMSResponse response = smsService.sendSMS(smsRequest);
@@ -81,7 +82,7 @@ public class CommunicationController {
     }
 
     @PostMapping("/sms/send-templated")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<SMSResponse>> sendTemplatedSMS(
             @RequestParam String templateName,
             @RequestParam String recipientPhone,
@@ -99,17 +100,6 @@ public class CommunicationController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", responses));
     }
 
-    @PostMapping("/sms/send-otp")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER', 'STUDENT', 'PARENT')")
-    public ResponseEntity<ApiSuccessResponse<SMSResponse>> sendOTP(
-            @RequestParam String recipientPhone,
-            @RequestParam String otp,
-            @RequestParam(defaultValue = "10") int expiryMinutes) {
-        log.info("📱 API: Sending OTP to: {}", maskPhoneNumber(recipientPhone));
-        SMSResponse response = smsService.sendOTP(recipientPhone, otp, expiryMinutes);
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", response));
-    }
-
     @GetMapping("/sms/analytics")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> getSMSAnalytics(
@@ -125,7 +115,7 @@ public class CommunicationController {
     // =====================================================
 
     @PostMapping("/push/send")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<PushNotificationResponse>> sendPushNotification(@Valid @RequestBody PushNotificationRequest pushRequest) {
         log.info("🔔 API: Sending push notification to: {}", pushRequest.getRecipientId());
         PushNotificationResponse response = pushNotificationService.sendPushNotification(pushRequest);
@@ -146,17 +136,6 @@ public class CommunicationController {
         log.info("📢 API: Broadcasting push notification to all users");
         List<PushNotificationResponse> responses = pushNotificationService.sendToAllUsers(pushRequest);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", responses));
-    }
-
-    @PostMapping("/push/register-device")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER', 'STUDENT', 'PARENT')")
-    public ResponseEntity<ApiSuccessResponse<String>> registerDeviceToken(
-            @RequestParam String userId,
-            @RequestParam String deviceToken,
-            @RequestParam String platform) {
-        log.info("📱 API: Registering device token for user: {} on platform: {}", userId, platform);
-        pushNotificationService.registerDeviceToken(userId, deviceToken, platform);
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "Device registered successfully"));
     }
 
     @GetMapping("/push/analytics")
@@ -196,7 +175,7 @@ public class CommunicationController {
     // =====================================================
 
     @PostMapping("/realtime/send")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<String>> sendRealTimeNotification(
             @RequestParam String userId,
             @RequestBody Map<String, Object> payload) {

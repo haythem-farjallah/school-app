@@ -61,11 +61,6 @@ public interface PushNotificationService {
     void broadcastRealTimeNotification(Map<String, Object> payload);
 
     /**
-     * Register device token for push notifications
-     */
-    void registerDeviceToken(String userId, String deviceToken, String platform);
-
-    /**
      * Unregister device token
      */
     void unregisterDeviceToken(String userId, String deviceToken);

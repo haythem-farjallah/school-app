@@ -36,11 +36,6 @@ public interface SMSService {
     SMSResponse scheduleSMS(SMSRequest smsRequest, LocalDateTime scheduledAt);
 
     /**
-     * Send OTP SMS
-     */
-    SMSResponse sendOTP(String recipientPhone, String otp, int expiryMinutes);
-
-    /**
      * Send emergency alert SMS
      */
     SMSResponse sendEmergencyAlert(String recipientPhone, String alertMessage);

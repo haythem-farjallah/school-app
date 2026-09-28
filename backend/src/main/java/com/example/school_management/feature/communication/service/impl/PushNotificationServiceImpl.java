@@ -311,19 +311,6 @@ public class PushNotificationServiceImpl implements PushNotificationService {
     }
 
     @Override
-    public void registerDeviceToken(String userId, String deviceToken, String platform) {
-        log.info("📱 Registering device token for user: {} on platform: {}", userId, platform);
-        
-        userDeviceTokens.computeIfAbsent(userId, k -> new ArrayList<>()).add(deviceToken);
-        
-        // Remove duplicates
-        List<String> tokens = userDeviceTokens.get(userId);
-        userDeviceTokens.put(userId, tokens.stream().distinct().collect(Collectors.toList()));
-        
-        log.info("✅ Device token registered successfully for user: {}", userId);
-    }
-
-    @Override
     public void unregisterDeviceToken(String userId, String deviceToken) {
         log.info("📱 Unregistering device token for user: {}", userId);
         

@@ -31,7 +31,7 @@ public class DashboardController {
     }
 
     @GetMapping("/student/{studentId}")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'TEACHER_READ_WRITE', 'PARENT_READ', 'STUDENT_READ')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     @Operation(summary = "Get student-specific dashboard data")
     public ResponseEntity<ApiSuccessResponse<Object>> getStudentDashboard(
             @PathVariable Long studentId) {
@@ -88,7 +88,7 @@ public class DashboardController {
     // Additional convenience endpoints
     
     @GetMapping("/student/summary/{studentId}")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'TEACHER_READ_WRITE', 'PARENT_READ', 'STUDENT_READ')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     @Operation(summary = "Get student summary data for quick overview")
     public ResponseEntity<ApiSuccessResponse<Object>> getStudentSummary(
             @PathVariable Long studentId) {

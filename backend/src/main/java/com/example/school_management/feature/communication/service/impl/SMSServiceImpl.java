@@ -241,16 +241,6 @@ public class SMSServiceImpl implements SMSService {
     }
 
     @Override
-    public SMSResponse sendOTP(String recipientPhone, String otp, int expiryMinutes) {
-        Map<String, Object> variables = Map.of(
-                "otp", otp,
-                "expiryMinutes", expiryMinutes,
-                "schoolName", "School Management System"
-        );
-        return sendTemplatedSMS("otp-sms", recipientPhone, variables);
-    }
-
-    @Override
     public SMSResponse sendEmergencyAlert(String recipientPhone, String alertMessage) {
         SMSRequest request = SMSRequest.builder()
                 .recipientPhone(recipientPhone)
