@@ -2,6 +2,7 @@ package com.example.school_management.feature.academic.service.impl;
 
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.commons.service.GenericFilterService;
+import com.example.school_management.commons.utils.FilterFields;
 import com.example.school_management.feature.academic.dto.CreateTeachingAssignmentDto;
 import com.example.school_management.feature.academic.dto.UpdateTeachingAssignmentDto;
 import com.example.school_management.feature.academic.entity.Course;
@@ -24,12 +25,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class TeachingAssignmentServiceImpl implements TeachingAssignmentService {
+
+    /** Paths accepted by GET /admin/teaching-assignments and its /filter. */
+    private static final FilterFields FILTER_FIELDS = new FilterFields(
+            Set.of("teacher.firstName", "teacher.lastName", "teacher.email",
+                    "course.name", "course.code", "clazz.name", "weeklyHours"),
+            Set.of("teacher.lastName", "course.name", "clazz.name", "weeklyHours"));
     
     private final TeachingAssignmentRepository assignmentRepository;
     private final TeacherRepository teacherRepository;
@@ -151,7 +159,7 @@ public class TeachingAssignmentServiceImpl implements TeachingAssignmentService 
     @Override
     @Transactional(readOnly = true)
     public Page<TeachingAssignment> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
-        Specification<TeachingAssignment> spec = genericFilterService.buildSpecificationFromParams(parameterMap);
+        Specification<TeachingAssignment> spec = genericFilterService.buildSpecificationFromParams(parameterMap, FILTER_FIELDS);
         return assignmentRepository.findAll(spec, pageable);
     }
     

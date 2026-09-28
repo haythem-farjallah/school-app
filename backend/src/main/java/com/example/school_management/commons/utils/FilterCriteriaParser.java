@@ -1,6 +1,7 @@
 package com.example.school_management.commons.utils;
 
 import com.example.school_management.commons.dto.FilterCriteria;
+import org.springframework.data.domain.Pageable;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
@@ -32,8 +33,25 @@ public class FilterCriteriaParser {
      * - field_from: range start date/datetime
      * - field_to: range end date/datetime
      * - sort: sorting (field:asc or field:desc, comma-separated)
+     *
+     * Every field and sort path must be listed in {@code fields}; any other path, or an
+     * unknown operation, is rejected with 400.
      */
-    public static FilterCriteria parseRequestParams(Map<String, String[]> parameterMap) {
+    public static FilterCriteria parseRequestParams(Map<String, String[]> parameterMap, FilterFields fields) {
+        return parse(parameterMap, fields, true);
+    }
+
+    /**
+     * For endpoints that bind a Spring {@link Pageable}: the pageable owns the "sort"
+     * parameter, so its sort is checked against {@code fields} and not parsed again here.
+     */
+    public static FilterCriteria parseRequestParams(Map<String, String[]> parameterMap, Pageable pageable,
+                                                    FilterFields fields) {
+        fields.requireSortable(pageable.getSort());
+        return parse(parameterMap, fields, false);
+    }
+
+    private static FilterCriteria parse(Map<String, String[]> parameterMap, FilterFields fields, boolean parseSort) {
         FilterCriteria.FilterCriteriaBuilder builder = FilterCriteria.builder();
 
         // Process each parameter
@@ -81,27 +99,27 @@ public class FilterCriteriaParser {
 
             // Sorting
             if ("sort".equals(paramName)) {
-                parseSorting(value, builder);
+                if (parseSort) {
+                    parseSorting(value, builder, fields);
+                }
                 continue;
             }
 
             // Field-specific filters
             if (paramName.contains("_")) {
-                parseFieldFilter(paramName, value, builder);
+                parseFieldFilter(paramName, value, builder, fields);
             }
         }
 
         return builder.build();
     }
 
-    private static void parseFieldFilter(String paramName, String value, FilterCriteria.FilterCriteriaBuilder builder) {
+    private static void parseFieldFilter(String paramName, String value, FilterCriteria.FilterCriteriaBuilder builder,
+                                         FilterFields fields) {
         String[] parts = paramName.split("_", 2);
-        if (parts.length != 2) {
-            return;
-        }
-
         String fieldName = parts[0];
         String operation = parts[1];
+        fields.requireFilterable(fieldName);
 
         switch (operation.toLowerCase()) {
             case "like", "contains" -> addTextFilter(builder, fieldName, value);
@@ -119,6 +137,7 @@ public class FilterCriteriaParser {
             case "to", "end" -> addRangeEndFilter(builder, fieldName, value);
             case "range" -> addRangeFilter(builder, fieldName, value);
             case "bool", "boolean" -> addBooleanFilter(builder, fieldName, value);
+            default -> throw FilterFields.rejected("Unsupported filter parameter '" + paramName + "'");
         }
     }
 
@@ -303,7 +322,7 @@ public class FilterCriteriaParser {
         }
     }
 
-    private static void parseSorting(String value, FilterCriteria.FilterCriteriaBuilder builder) {
+    private static void parseSorting(String value, FilterCriteria.FilterCriteriaBuilder builder, FilterFields fields) {
         List<FilterCriteria.SortCriteria> sortCriteria = new ArrayList<>();
         
         String[] sortParts = value.split(",");
@@ -312,6 +331,7 @@ public class FilterCriteriaParser {
             String[] fieldAndDirection = sortPart.split(":");
             
             String field = fieldAndDirection[0].trim();
+            fields.requireSortable(field);
             FilterCriteria.SortDirection direction = FilterCriteria.SortDirection.ASC;
             
             if (fieldAndDirection.length > 1) {

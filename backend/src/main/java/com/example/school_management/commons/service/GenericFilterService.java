@@ -3,6 +3,7 @@ package com.example.school_management.commons.service;
 import com.example.school_management.commons.dto.FilterCriteria;
 import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
 import com.example.school_management.commons.utils.FilterCriteriaParser;
+import com.example.school_management.commons.utils.FilterFields;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -21,13 +22,14 @@ public class GenericFilterService {
      * Parse request parameters and build a dynamic specification
      * 
      * @param parameterMap HTTP request parameter map
+     * @param fields the field and sort paths the endpoint accepts
      * @param <T> Entity type
      * @return JPA Specification for the entity
      */
-    public <T> Specification<T> buildSpecificationFromParams(Map<String, String[]> parameterMap) {
+    public <T> Specification<T> buildSpecificationFromParams(Map<String, String[]> parameterMap, FilterFields fields) {
         log.debug("Building specification from {} parameters", parameterMap.size());
         
-        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap);
+        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, fields);
         Specification<T> spec = DynamicSpecificationBuilder.build(criteria);
         
         log.debug("Built specification with {} filter criteria", 
@@ -60,21 +62,6 @@ public class GenericFilterService {
             
             return cb.or(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
-    }
-
-    /**
-     * Validate filter parameters and return validation errors
-     * 
-     * @param parameterMap HTTP request parameter map
-     * @return Map of field names to error messages, empty if valid
-     */
-    public Map<String, String> validateFilterParameters(Map<String, String[]> parameterMap) {
-        var errors = new java.util.HashMap<String, String>();
-        
-        // Add validation logic here
-        // For example, check date formats, number ranges, etc.
-        
-        return errors;
     }
 
     /**

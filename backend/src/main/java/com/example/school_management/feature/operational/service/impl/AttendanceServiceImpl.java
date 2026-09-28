@@ -48,6 +48,7 @@ import com.example.school_management.feature.operational.entity.enums.Enrollment
 import com.example.school_management.commons.dto.FilterCriteria;
 import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
 import com.example.school_management.commons.utils.FilterCriteriaParser;
+import com.example.school_management.commons.utils.FilterFields;
 import org.springframework.data.jpa.domain.Specification;
 
 @Slf4j
@@ -55,6 +56,11 @@ import org.springframework.data.jpa.domain.Specification;
 @Transactional
 @RequiredArgsConstructor
 public class AttendanceServiceImpl implements AttendanceService {
+
+    /** Paths accepted by GET /api/v1/attendance/filter. */
+    private static final FilterFields FILTER_FIELDS = new FilterFields(
+            Set.of("user.id", "classId", "course.id", "date", "status", "userType"),
+            Set.of("date", "status", "recordedAt"));
 
     private final AttendanceRepository attendanceRepository;
     private final BaseUserRepository<BaseUser> userRepository;
@@ -335,7 +341,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         log.debug("Finding attendance with advanced filters");
         
         // Parse request parameters into FilterCriteria
-        FilterCriteria filterCriteria = FilterCriteriaParser.parseRequestParams(requestParams);
+        FilterCriteria filterCriteria = FilterCriteriaParser.parseRequestParams(requestParams, pageable, FILTER_FIELDS);
         
         // Build JPA Specification from FilterCriteria
         Specification<Attendance> specification = DynamicSpecificationBuilder.build(filterCriteria);

@@ -11,6 +11,7 @@ import com.example.school_management.feature.operational.mapper.OperationalMappe
 import com.example.school_management.commons.dto.FilterCriteria;
 import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
 import com.example.school_management.commons.utils.FilterCriteriaParser;
+import com.example.school_management.commons.utils.FilterFields;
 import org.springframework.data.jpa.domain.Specification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class GradeServiceImpl implements GradeService {
+    /** Paths accepted by GET /api/v1/grades/filter. */
+    private static final FilterFields FILTER_FIELDS = new FilterFields(
+            Set.of("content", "score", "weight", "gradedAt",
+                    "enrollment.id", "enrollment.student.id", "enrollment.classEntity.id", "assignedBy.id"),
+            Set.of("gradedAt", "score", "content"));
+
     private final GradeRepository gradeRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final EnhancedGradeRepository enhancedGradeRepository;
@@ -261,7 +268,7 @@ public class GradeServiceImpl implements GradeService {
 
     @Override
     public Page<GradeResponse> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
-        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap);
+        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, pageable, FILTER_FIELDS);
         Specification<Grade> spec = DynamicSpecificationBuilder.build(criteria);
         Page<Grade> grades = gradeRepository.findAll(spec, pageable);
         return grades.map(this::mapGradeToResponse);

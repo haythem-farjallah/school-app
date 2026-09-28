@@ -3,6 +3,7 @@ package com.example.school_management.feature.auth.service;
 import com.example.school_management.commons.dto.FilterCriteria;
 import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
 import com.example.school_management.commons.utils.FilterCriteriaParser;
+import com.example.school_management.commons.utils.FilterFields;
 import com.example.school_management.feature.auth.dto.TeacherCreateDto;
 import com.example.school_management.feature.auth.dto.TeacherDto;
 import com.example.school_management.feature.auth.dto.TeacherUpdateDto;
@@ -24,12 +25,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Slf4j
 @Transactional
 public class TeacherService extends AbstractUserCrudService<
         Teacher, TeacherCreateDto, TeacherUpdateDto, TeacherDto> {
+
+    /** Paths accepted by GET /api/admin/teachers/filter. */
+    private static final FilterFields FILTER_FIELDS = new FilterFields(
+            Set.of("firstName", "lastName", "email", "qualifications", "subjectsTaught", "schedulePreferences"),
+            Set.of("firstName", "lastName", "email"));
 
     private final TeacherRepository teacherRepo;
 
@@ -100,7 +107,7 @@ public class TeacherService extends AbstractUserCrudService<
     
     @Transactional(readOnly = true)
     public Page<Teacher> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
-        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap);
+        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, FILTER_FIELDS);
         Specification<Teacher> spec = DynamicSpecificationBuilder.build(criteria);
         return teacherRepo.findAll(spec, pageable);
     }

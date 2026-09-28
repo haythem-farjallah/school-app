@@ -15,6 +15,7 @@ import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.commons.dto.FilterCriteria;
 import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
 import com.example.school_management.commons.utils.FilterCriteriaParser;
+import com.example.school_management.commons.utils.FilterFields;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import java.time.LocalDateTime;
@@ -36,6 +38,11 @@ import java.util.stream.Collectors;
 @Transactional
 public class StudentService extends AbstractUserCrudService<
         Student, StudentCreateDto, StudentUpdateDto, StudentDto> {
+
+    /** Paths accepted by GET /api/v1/students/filter. */
+    private static final FilterFields FILTER_FIELDS = new FilterFields(
+            Set.of("firstName", "lastName", "email", "gradeLevel", "status", "enrolledAt"),
+            Set.of("firstName", "lastName", "email", "enrolledAt"));
 
     private final StudentRepository studentRepo;
 
@@ -115,7 +122,7 @@ public class StudentService extends AbstractUserCrudService<
     
     @Transactional(readOnly = true)
     public Page<Student> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
-        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap);
+        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, FILTER_FIELDS);
         Specification<Student> spec = DynamicSpecificationBuilder.build(criteria);
         return studentRepo.findAll(spec, pageable);
     }

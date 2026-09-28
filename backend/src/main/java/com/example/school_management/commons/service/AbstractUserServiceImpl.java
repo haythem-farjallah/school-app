@@ -3,6 +3,7 @@ package com.example.school_management.commons.service;
 import com.example.school_management.commons.dto.FilterCriteria;
 import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
 import com.example.school_management.commons.utils.FilterCriteriaParser;
+import com.example.school_management.commons.utils.FilterFields;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
@@ -63,7 +64,7 @@ public abstract class AbstractUserServiceImpl<T extends BaseUser> implements Abs
     @Override
     @Transactional(readOnly = true)
     public Page<T> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
-        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap);
+        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, filterFields());
         Specification<T> spec = DynamicSpecificationBuilder.build(criteria);
         return repository.findAll(spec, pageable);
     }
@@ -110,6 +111,11 @@ public abstract class AbstractUserServiceImpl<T extends BaseUser> implements Abs
      * @return Specification for searching
      */
     protected abstract Specification<T> createSearchSpecification(String searchTerm);
+
+    /**
+     * The field and sort paths accepted by {@link #findWithAdvancedFilters}.
+     */
+    protected abstract FilterFields filterFields();
 
     /**
      * Get the entity type name for logging purposes

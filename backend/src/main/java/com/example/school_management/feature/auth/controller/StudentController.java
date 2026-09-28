@@ -186,10 +186,10 @@ public class StudentController {
                    Advanced filtering with support for:
                    - Text filters: firstName_like, lastName_like, email_like
                    - Exact matches: gradeLevel_eq, status_eq
-                   - Comparisons: enrollmentYear_gte, enrollmentYear_lte
                    - Date ranges: enrolledAt_from, enrolledAt_to
                    - Lists: gradeLevel_in (comma-separated)
-                   - Sorting: sort=firstName:asc,lastName:desc
+                   - Sorting: sort=firstName:asc,lastName:desc (firstName, lastName, email, enrolledAt)
+                   Any other field or sort path is rejected with 400.
                    - Global search: search=query
                    - Fuzzy search: fuzzy=true
                    """)

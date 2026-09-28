@@ -1,8 +1,5 @@
 package com.example.school_management.feature.auth.service;
 
-import com.example.school_management.commons.dto.FilterCriteria;
-import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
-import com.example.school_management.commons.utils.FilterCriteriaParser;
 import com.example.school_management.feature.auth.dto.StaffCreateDto;
 import com.example.school_management.feature.auth.dto.StaffDto;
 import com.example.school_management.feature.auth.dto.StaffUpdateDto;
@@ -23,8 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-
-import java.util.Map;
 
 @Service
 @Slf4j
@@ -96,15 +91,6 @@ public class StaffService extends AbstractUserCrudService<
                 cb.like(cb.lower(root.get("department")), "%" + department.toLowerCase() + "%"));
         }
         
-        return staffRepo.findAll(spec, pageable);
-    }
-
-    /* ---------- Advanced filtering method ---------- */
-    
-    @Transactional(readOnly = true)
-    public Page<Staff> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
-        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap);
-        Specification<Staff> spec = DynamicSpecificationBuilder.build(criteria);
         return staffRepo.findAll(spec, pageable);
     }
 
