@@ -43,7 +43,7 @@ class RateLimitingFilterIntegrationTest {
     @Test
     void eachRequestConsumesExactlyOneToken() throws Exception {
         // The filter runs inside the security chain only; a second servlet registration would consume twice.
-        long capacity = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
+        long capacity = RateLimitingConfig.AUTH_CONFIGURATION.getBandwidths()[0].getCapacity();
 
         mockMvc.perform(failedLogin(SINGLE_REQUEST_CLIENT_ADDRESS))
                 .andExpect(header().string("X-Rate-Limit-Remaining", String.valueOf(capacity - 1)));
@@ -52,7 +52,7 @@ class RateLimitingFilterIntegrationTest {
     @Test
     void exhaustedBucketGetsProblemDetailWithRetryAfter() throws Exception {
         // One request more than the bucket holds is always rejected.
-        long capacity = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
+        long capacity = RateLimitingConfig.AUTH_CONFIGURATION.getBandwidths()[0].getCapacity();
         for (int i = 0; i < capacity; i++) {
             mockMvc.perform(failedLogin(CLIENT_ADDRESS));
         }
@@ -81,7 +81,7 @@ class RateLimitingFilterIntegrationTest {
 
     @Test
     void untrustedClientCannotSpoofForwardedForIntoFreshBuckets() throws Exception {
-        long capacity = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
+        long capacity = RateLimitingConfig.AUTH_CONFIGURATION.getBandwidths()[0].getCapacity();
         for (int i = 0; i < capacity; i++) {
             mockMvc.perform(failedLogin(FORWARDED_FOR_SPOOFING_ADDRESS).header("X-Forwarded-For", "198.51.100." + i))
                     .andExpect(header().string("X-Rate-Limit-Remaining", String.valueOf(capacity - 1 - i)));
@@ -93,7 +93,7 @@ class RateLimitingFilterIntegrationTest {
 
     @Test
     void untrustedClientCannotSpoofRealIpIntoFreshBuckets() throws Exception {
-        long capacity = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
+        long capacity = RateLimitingConfig.AUTH_CONFIGURATION.getBandwidths()[0].getCapacity();
         for (int i = 0; i < capacity; i++) {
             mockMvc.perform(failedLogin(REAL_IP_SPOOFING_ADDRESS).header("X-Real-IP", "198.51.100." + i))
                     .andExpect(header().string("X-Rate-Limit-Remaining", String.valueOf(capacity - 1 - i)));

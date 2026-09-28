@@ -30,7 +30,7 @@ class RateLimitingTrustedProxyIntegrationTest {
     private static final String INNER_PROXY = "10.0.9.2";
     private static final String UNTRUSTED_ADDRESS = "10.0.4.1";
 
-    private static final long CAPACITY = RateLimitingConfig.RateLimits.AUTH_BANDWIDTH.getCapacity();
+    private static final long CAPACITY = RateLimitingConfig.AUTH_CONFIGURATION.getBandwidths()[0].getCapacity();
 
     @Autowired
     MockMvc mockMvc;

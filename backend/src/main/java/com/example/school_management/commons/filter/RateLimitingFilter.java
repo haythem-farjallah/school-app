@@ -2,8 +2,9 @@ package com.example.school_management.commons.filter;
 
 import com.example.school_management.commons.configs.RateLimitingConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.bucket4j.Bucket;
+import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.ConsumptionProbe;
+import io.github.bucket4j.distributed.proxy.ProxyManager;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -18,33 +20,38 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Rate limiting filter that applies different rate limits based on endpoint patterns.
  *
- * <p>Buckets live in this instance's memory, so limits are per application instance.
- * Running several backend replicas needs a shared or edge rate limiter instead.
+ * <p>Buckets live in Redis, so every backend instance shares the same limits. If Redis cannot be
+ * reached the request is refused with 503 rather than passed through unlimited.
  */
 @Slf4j
 @Component
 public class RateLimitingFilter implements Filter {
-    
-    // In-memory storage for rate limiting buckets
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+
+    static final String REDIS_KEY_PREFIX = "school-app:rate-limit:v1:";
 
     private final ObjectMapper objectMapper;
+
+    private final ProxyManager<byte[]> buckets;
 
     // Exact immediate peer addresses allowed to supply X-Forwarded-For / X-Real-IP.
     private final Set<String> trustedProxies;
 
     public RateLimitingFilter(ObjectMapper objectMapper,
+                              @Lazy ProxyManager<byte[]> buckets,
                               @Value("${app.security.trusted-proxies}") String[] trustedProxies) {
         this.objectMapper = objectMapper;
+        this.buckets = buckets;
         this.trustedProxies = Set.copyOf(List.of(trustedProxies));
     }
 
@@ -62,52 +69,80 @@ public class RateLimitingFilter implements Filter {
         
         // Create a unique key for rate limiting (IP + endpoint pattern)
         String rateLimitKey = String.format("%s:%s:%s", clientIp, method, normalizedUri);
-        
-        // Get the appropriate bucket based on endpoint pattern
-        Bucket bucket = getBucketForEndpoint(requestURI, method, rateLimitKey);
-        
-        // Try to consume a token
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
-        
-        if (probe.isConsumed()) {
-            // Request is allowed
-            httpResponse.setHeader("X-Rate-Limit-Remaining", String.valueOf(probe.getRemainingTokens()));
-            httpResponse.setHeader("X-Rate-Limit-Reset", String.valueOf(probe.getNanosToWaitForRefill() / 1_000_000_000));
-            chain.doFilter(request, response);
-        } else {
-            // Rate limit exceeded
+        BucketConfiguration configuration = getConfigurationForEndpoint(requestURI, method);
+
+        // Only the Redis round trip is guarded; failures further down the chain must propagate unchanged.
+        ConsumptionProbe probe;
+        try {
+            probe = buckets.builder()
+                    .build(redisKey(rateLimitKey), configuration)
+                    .tryConsumeAndReturnRemaining(1);
+        } catch (RuntimeException e) {
+            log.error("Rate limiter unavailable for {} {}: {}", method, normalizedUri, e.getClass().getName());
+            writeProblem(httpResponse, problem(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Rate limiting service temporarily unavailable.", requestURI));
+            return;
+        }
+
+        if (!probe.isConsumed()) {
             log.warn("Rate limit exceeded for {} {}", method, normalizedUri);
             
             long retryAfterSeconds = probe.getNanosToWaitForRefill() / 1_000_000_000;
-
-            // Runs before any controller, so GlobalExceptionHandler never sees this rejection.
-            ProblemDetail body = ProblemDetail.forStatusAndDetail(
-                    HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Please try again later.");
-            body.setInstance(URI.create(requestURI));
-            body.setProperty("retryAfter", retryAfterSeconds);
-
-            httpResponse.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            httpResponse.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
             httpResponse.setHeader("X-Rate-Limit-Remaining", "0");
             httpResponse.setHeader("X-Rate-Limit-Reset", String.valueOf(retryAfterSeconds));
-            objectMapper.writeValue(httpResponse.getOutputStream(), body);
+            ProblemDetail body = problem(HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many requests. Please try again later.", requestURI);
+            body.setProperty("retryAfter", retryAfterSeconds);
+            writeProblem(httpResponse, body);
+            return;
+        }
+
+        httpResponse.setHeader("X-Rate-Limit-Remaining", String.valueOf(probe.getRemainingTokens()));
+        httpResponse.setHeader("X-Rate-Limit-Reset", String.valueOf(probe.getNanosToWaitForRefill() / 1_000_000_000));
+        chain.doFilter(request, response);
+    }
+
+    private static ProblemDetail problem(HttpStatus status, String detail, String requestURI) {
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
+        body.setInstance(URI.create(requestURI));
+        return body;
+    }
+
+    // Runs before any controller, so GlobalExceptionHandler never sees these rejections.
+    private void writeProblem(HttpServletResponse response, ProblemDetail body) throws IOException {
+        response.setStatus(body.getStatus());
+        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+        objectMapper.writeValue(response.getOutputStream(), body);
+    }
+
+    /**
+     * Redis key for a logical rate-limit key. Hashing keeps client addresses and attacker-supplied
+     * header text out of Redis key names while staying identical on every backend instance.
+     */
+    static byte[] redisKey(String rateLimitKey) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(rateLimitKey.getBytes(StandardCharsets.UTF_8));
+            return (REDIS_KEY_PREFIX + HexFormat.of().formatHex(digest)).getBytes(StandardCharsets.UTF_8);
+        } catch (NoSuchAlgorithmException e) {
+            // Every Java platform is required to provide SHA-256.
+            throw new IllegalStateException(e);
         }
     }
 
     /**
-     * Get the appropriate bucket based on endpoint pattern
+     * Get the appropriate bucket configuration based on endpoint pattern
      */
-    private Bucket getBucketForEndpoint(String requestURI, String method, String rateLimitKey) {
+    private BucketConfiguration getConfigurationForEndpoint(String requestURI, String method) {
         // Authentication endpoints
         if (requestURI.startsWith("/api/auth/")) {
-            return buckets.computeIfAbsent(rateLimitKey, k -> RateLimitingConfig.createAuthBucket());
+            return RateLimitingConfig.AUTH_CONFIGURATION;
         }
         
         // Admin endpoints
         if (requestURI.startsWith("/api/v1/admins/") || 
             requestURI.contains("/admin") ||
             (requestURI.startsWith("/api/v1/") && method.equals("DELETE"))) {
-            return buckets.computeIfAbsent(rateLimitKey, k -> RateLimitingConfig.createAdminBucket());
+            return RateLimitingConfig.ADMIN_CONFIGURATION;
         }
         
         // Upload endpoints
@@ -115,7 +150,7 @@ public class RateLimitingFilter implements Filter {
             requestURI.contains("/export") ||
             requestURI.contains("/import") ||
             requestURI.contains("/file")) {
-            return buckets.computeIfAbsent(rateLimitKey, k -> RateLimitingConfig.createUploadBucket());
+            return RateLimitingConfig.UPLOAD_CONFIGURATION;
         }
         
         // Listing endpoints (GET requests to list resources)
@@ -129,11 +164,11 @@ public class RateLimitingFilter implements Filter {
             requestURI.startsWith("/api/v1/resources") ||
             requestURI.startsWith("/api/v1/grades") ||
             requestURI.startsWith("/api/v1/dashboard"))) {
-            return buckets.computeIfAbsent(rateLimitKey, k -> RateLimitingConfig.createListingBucket());
+            return RateLimitingConfig.LISTING_CONFIGURATION;
         }
         
         // Default API bucket for all other endpoints
-        return buckets.computeIfAbsent(rateLimitKey, k -> RateLimitingConfig.createApiBucket());
+        return RateLimitingConfig.API_CONFIGURATION;
     }
 
     /**

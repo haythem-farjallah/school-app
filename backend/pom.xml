@@ -32,6 +32,7 @@
 		<maven.compiler.target>17</maven.compiler.target>
 		<lombok.version>1.18.30</lombok.version>
 		<mapstruct.version>1.5.5.Final</mapstruct.version>
+		<bucket4j.version>8.14.0</bucket4j.version>
 		<!-- Boot 3.4.4 manages 1.20.6, which cannot talk to Docker Engine 29+ (API < 1.40). -->
 		<testcontainers.version>1.21.4</testcontainers.version>
 	</properties>
@@ -273,9 +274,14 @@
 		
 		<!-- Bucket4j for Rate Limiting -->
 		<dependency>
-			<groupId>com.github.vladimir-bukhtoyarov</groupId>
-			<artifactId>bucket4j-core</artifactId>
-			<version>7.6.0</version>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-core</artifactId>
+			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-lettuce</artifactId>
+			<version>${bucket4j.version}</version>
 		</dependency>
 	</dependencies>
 
