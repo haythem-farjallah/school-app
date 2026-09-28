@@ -3,7 +3,9 @@ package com.example.school_management.commons.configs;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.databind.cfg.MapperConfig;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -18,6 +20,9 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Redis serialization and cache configuration. The connection factory is
@@ -26,6 +31,26 @@ import java.time.Duration;
 @Configuration
 @EnableCaching
 public class RedisConfig {
+
+    /** Package whose classes may be named by a stored type id. */
+    private static final String APPLICATION_PACKAGE = "com.example.school_management.";
+
+    /** JDK collections the application values stored so far are built from. */
+    private static final Set<Class<?>> ALLOWED_JDK_TYPES = Set.of(ArrayList.class, HashSet.class);
+
+    /**
+     * Stored values name their own classes, so reading them back is restricted to an allowlist:
+     * a type id outside it fails deserialization instead of instantiating an arbitrary class.
+     */
+    private static final PolymorphicTypeValidator TYPE_VALIDATOR = BasicPolymorphicTypeValidator.builder()
+            .allowIfSubType(APPLICATION_PACKAGE)
+            .allowIfSubType(new BasicPolymorphicTypeValidator.TypeMatcher() {
+                @Override
+                public boolean match(MapperConfig<?> config, Class<?> clazz) {
+                    return ALLOWED_JDK_TYPES.contains(clazz);
+                }
+            })
+            .build();
 
     /**
      * Redis template for general operations
@@ -36,11 +61,7 @@ public class RedisConfig {
         template.setConnectionFactory(connectionFactory);
 
         // JSON serializer
-        ObjectMapper om = new ObjectMapper();
-        om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        om.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL);
-        om.registerModule(new JavaTimeModule());
-        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(om, Object.class);
+        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper(), Object.class);
 
         // String serializer
         StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
@@ -62,14 +83,7 @@ public class RedisConfig {
      */
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        // Create ObjectMapper with JavaTimeModule for cache serialization
-        ObjectMapper cacheObjectMapper = new ObjectMapper();
-        cacheObjectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        cacheObjectMapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL);
-        cacheObjectMapper.registerModule(new JavaTimeModule());
-        
-        // Create serializer with proper ObjectMapper
-        Jackson2JsonRedisSerializer<Object> cacheSerializer = new Jackson2JsonRedisSerializer<>(cacheObjectMapper, Object.class);
+        Jackson2JsonRedisSerializer<Object> cacheSerializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper(), Object.class);
         
         // Default cache configuration
         RedisCacheConfiguration defaultCacheConfig = RedisCacheConfiguration.defaultCacheConfig()
@@ -99,5 +113,14 @@ public class RedisConfig {
                 .withCacheConfiguration("resources", listingCacheConfig)
                 .withCacheConfiguration("grades", listingCacheConfig)
                 .build();
+    }
+
+    /** Shared by RedisTemplate and the cache so both apply the same type allowlist. */
+    private static ObjectMapper redisObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+        mapper.activateDefaultTyping(TYPE_VALIDATOR, ObjectMapper.DefaultTyping.NON_FINAL);
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
     }
 }

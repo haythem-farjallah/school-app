@@ -15,5 +15,6 @@ FROM nginx:1.28-alpine
 # Backend location for the /api and /ws proxy, resolved when the container starts.
 ENV BACKEND_URL=http://backend:8088
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
