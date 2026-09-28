@@ -61,7 +61,10 @@ describe("loginUser", () => {
   it("drops a leftover session when credentials are refused", async () => {
     localStorage.setItem("accessToken", "expired-access-token");
     localStorage.setItem("refreshToken", "expired-refresh-token");
-    server.use(http.post(apiUrl("/auth/login"), refusedCredentials));
+    server.use(
+      http.post(apiUrl("/auth/login"), refusedCredentials),
+      http.post(apiUrl("/auth/refresh"), () => new HttpResponse(null, { status: 401 })),
+    );
 
     const error = await loginUser({ email: "admin@fixtures.school.test", password: "wrong-pass" }).catch((e) => e);
 

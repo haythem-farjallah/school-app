@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UrlPathHelper;
 
 import java.io.IOException;
 import java.net.URI;
@@ -39,6 +40,9 @@ import java.util.Set;
 public class RateLimitingFilter implements Filter {
 
     static final String REDIS_KEY_PREFIX = "school-app:rate-limit:v1:";
+
+    // Percent-decodes the path and drops ;parameters, as Spring MVC does before matching a handler.
+    private static final UrlPathHelper PATH_HELPER = UrlPathHelper.defaultInstance;
 
     private final ObjectMapper objectMapper;
 
@@ -63,13 +67,16 @@ public class RateLimitingFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         String requestURI = httpRequest.getRequestURI();
+        // Classify and key by the decoded path Spring MVC routes on, not the raw URI: otherwise
+        // /api/auth/%6Cogin reaches the login endpoint with a fresh bucket of its own.
+        String path = PATH_HELPER.getPathWithinApplication(httpRequest);
         String method = httpRequest.getMethod();
         String clientIp = getClientIpAddress(httpRequest);
-        String normalizedUri = normalizeUri(requestURI);
+        String normalizedUri = normalizeUri(path);
         
         // Create a unique key for rate limiting (IP + endpoint pattern)
         String rateLimitKey = String.format("%s:%s:%s", clientIp, method, normalizedUri);
-        BucketConfiguration configuration = getConfigurationForEndpoint(requestURI, method);
+        BucketConfiguration configuration = getConfigurationForEndpoint(path, method);
 
         // Only the Redis round trip is guarded; failures further down the chain must propagate unchanged.
         ConsumptionProbe probe;
@@ -132,38 +139,44 @@ public class RateLimitingFilter implements Filter {
     /**
      * Get the appropriate bucket configuration based on endpoint pattern
      */
-    private BucketConfiguration getConfigurationForEndpoint(String requestURI, String method) {
+    private BucketConfiguration getConfigurationForEndpoint(String path, String method) {
+        // Token refresh has its own, larger bucket so that clients behind one address do not
+        // exhaust each other's refreshes; every other authentication endpoint keeps the strict one.
+        if (path.equals("/api/auth/refresh")) {
+            return RateLimitingConfig.REFRESH_CONFIGURATION;
+        }
+
         // Authentication endpoints
-        if (requestURI.startsWith("/api/auth/")) {
+        if (path.startsWith("/api/auth/")) {
             return RateLimitingConfig.AUTH_CONFIGURATION;
         }
         
         // Admin endpoints
-        if (requestURI.startsWith("/api/v1/admins/") || 
-            requestURI.contains("/admin") ||
-            (requestURI.startsWith("/api/v1/") && method.equals("DELETE"))) {
+        if (path.startsWith("/api/v1/admins/") || 
+            path.contains("/admin") ||
+            (path.startsWith("/api/v1/") && method.equals("DELETE"))) {
             return RateLimitingConfig.ADMIN_CONFIGURATION;
         }
         
         // Upload endpoints
-        if (requestURI.contains("/upload") || 
-            requestURI.contains("/export") ||
-            requestURI.contains("/import") ||
-            requestURI.contains("/file")) {
+        if (path.contains("/upload") || 
+            path.contains("/export") ||
+            path.contains("/import") ||
+            path.contains("/file")) {
             return RateLimitingConfig.UPLOAD_CONFIGURATION;
         }
         
         // Listing endpoints (GET requests to list resources)
         if (method.equals("GET") && (
-            requestURI.startsWith("/api/v1/students") ||
-            requestURI.startsWith("/api/v1/teachers") ||
-            requestURI.startsWith("/api/v1/classes") ||
-            requestURI.startsWith("/api/v1/courses") ||
-            requestURI.startsWith("/api/v1/timetables") ||
-            requestURI.startsWith("/api/v1/announcements") ||
-            requestURI.startsWith("/api/v1/resources") ||
-            requestURI.startsWith("/api/v1/grades") ||
-            requestURI.startsWith("/api/v1/dashboard"))) {
+            path.startsWith("/api/v1/students") ||
+            path.startsWith("/api/v1/teachers") ||
+            path.startsWith("/api/v1/classes") ||
+            path.startsWith("/api/v1/courses") ||
+            path.startsWith("/api/v1/timetables") ||
+            path.startsWith("/api/v1/announcements") ||
+            path.startsWith("/api/v1/resources") ||
+            path.startsWith("/api/v1/grades") ||
+            path.startsWith("/api/v1/dashboard"))) {
             return RateLimitingConfig.LISTING_CONFIGURATION;
         }
         

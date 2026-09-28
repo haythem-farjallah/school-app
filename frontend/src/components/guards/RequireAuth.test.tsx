@@ -37,7 +37,10 @@ describe("RequireAuth", () => {
 
   it("moves to the login page when an API request ends the session with 401", async () => {
     store.dispatch(loginSuccess({ user, accessToken: "access-token", refreshToken: "refresh-token" }));
-    server.use(http.get(apiUrl("/me/profile"), () => new HttpResponse(null, { status: 401 })));
+    server.use(
+      http.get(apiUrl("/me/profile"), () => new HttpResponse(null, { status: 401 })),
+      http.post(apiUrl("/auth/refresh"), () => new HttpResponse(null, { status: 401 })),
+    );
     renderProtectedPage();
     expect(screen.getByText("Protected page")).toBeInTheDocument();
 

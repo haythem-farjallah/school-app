@@ -104,7 +104,10 @@ describe("profile and settings API", () => {
 
   it("clears the session and rejects when the token is no longer accepted", async () => {
     token.refresh = "refresh-token";
-    server.use(http.get(apiUrl("/me/profile"), () => new HttpResponse(null, { status: 401 })));
+    server.use(
+      http.get(apiUrl("/me/profile"), () => new HttpResponse(null, { status: 401 })),
+      http.post(apiUrl("/auth/refresh"), () => new HttpResponse(null, { status: 401 })),
+    );
 
     const error = await getCurrentUserProfile().catch((e) => e);
 

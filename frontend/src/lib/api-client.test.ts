@@ -150,6 +150,52 @@ describe("api client session handling", () => {
     expectSessionEnded();
   });
 
+  it.each([
+    ["is rate limited", () => new HttpResponse(null, { status: 429 })],
+    ["fails on the server", () => new HttpResponse(null, { status: 503 })],
+    ["fails with an unexpected server error", () => new HttpResponse(null, { status: 500 })],
+    ["cannot reach the server", () => HttpResponse.error()],
+  ])("keeps the session when the refresh %s and still rejects the request", async (_outcome, respond) => {
+    serveProfileOnlyFor("never-issued");
+    const refreshes = serveRefresh(respond);
+    const dispatch = vi.spyOn(store, "dispatch");
+    queryClient.setQueryData(["userProfile"], user);
+
+    const error = await api.get("/me/profile").catch((e) => e);
+
+    expect(error).toBeInstanceOf(AxiosError);
+    expect((error as AxiosError).response?.status).toBe(401);
+    expect(refreshes).toHaveLength(1);
+    expect(resetAuthDispatches(dispatch)).toBe(0);
+    expect(token.access).toBe(accessToken);
+    expect(token.refresh).toBe(refreshToken);
+    expect(token.user).toEqual(user);
+    expect(store.getState().auth).toEqual({ user, accessToken, refreshToken });
+    expect(queryClient.getQueryData(["userProfile"])).toEqual(user);
+  });
+
+  it("shares one failed refresh between concurrent 401s and refreshes again on a later request", async () => {
+    let refreshAvailable = false;
+    const authorizations = serveProfileOnlyFor("renewed-access");
+    const refreshes = serveRefresh(() =>
+      refreshAvailable ? refreshed("renewed-access") : new HttpResponse(null, { status: 503 }),
+    );
+
+    const results = await Promise.allSettled([api.get("/me/profile"), api.get("/me/profile"), api.get("/me/profile")]);
+
+    expect(results.map((result) => result.status)).toEqual(["rejected", "rejected", "rejected"]);
+    expect(refreshes).toHaveLength(1);
+    expect(token.access).toBe(accessToken);
+
+    refreshAvailable = true;
+    const response = await api.get("/me/profile");
+
+    expect(response.status).toBe(200);
+    expect(refreshes).toHaveLength(2);
+    expect(authorizations.at(-1)).toBe("Bearer renewed-access");
+    expect(store.getState().auth).toEqual({ user, accessToken: "renewed-access", refreshToken });
+  });
+
   it("ends the session once when concurrent requests all return 401 and the refresh is rejected", async () => {
     serveProfileOnlyFor("never-issued");
     const refreshes = serveRefresh(() => new HttpResponse(null, { status: 401 }));

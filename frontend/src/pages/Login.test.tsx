@@ -120,7 +120,7 @@ describe("LoginPage", () => {
   it("stays on the login page and drops a leftover session when credentials are refused", async () => {
     localStorage.setItem("accessToken", "expired-access-token");
     localStorage.setItem("refreshToken", "expired-refresh-token");
-    server.use(refusedCredentials());
+    server.use(refusedCredentials(), http.post(apiUrl("/auth/refresh"), () => new HttpResponse(null, { status: 401 })));
     renderLoginPage();
 
     await submitCredentials("admin@fixtures.school.test", "wrong-pass");

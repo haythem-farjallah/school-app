@@ -36,6 +36,17 @@ public class RateLimitingConfig {
             .addLimit(Bandwidth.builder().capacity(10).refillIntervally(10, Duration.ofMinutes(1)).build())
             .build();
 
+    /*
+     * Token refresh, per client address. A whole school usually shares one NAT address, and every
+     * signed-in browser refreshes about once per access-token lifetime (15 minutes), with bursts when
+     * a class resumes after a break. 300 per minute absorbs such a burst from a few hundred clients.
+     * A refresh token is a signed JWT, so it cannot be guessed by retrying; this bucket only bounds
+     * the verification and account lookup work, which the login limit would throttle far too early.
+     */
+    public static final BucketConfiguration REFRESH_CONFIGURATION = BucketConfiguration.builder()
+            .addLimit(Bandwidth.builder().capacity(300).refillIntervally(300, Duration.ofMinutes(1)).build())
+            .build();
+
     // General API endpoints - moderate limits
     public static final BucketConfiguration API_CONFIGURATION = BucketConfiguration.builder()
             .addLimit(Bandwidth.builder().capacity(100).refillIntervally(100, Duration.ofMinutes(1)).build())
