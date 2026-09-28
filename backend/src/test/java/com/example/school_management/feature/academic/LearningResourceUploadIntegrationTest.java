@@ -93,6 +93,16 @@ class LearningResourceUploadIntegrationTest {
                 "File validation failed: File claims to be PDF but content doesn't match");
     }
 
+    /** SVG can run script in the application's origin, whatever content type the client declares. */
+    @ParameterizedTest
+    @ValueSource(strings = {"image/svg+xml", "image/gif", "image/png"})
+    void svgUploadIs400(String declaredType) throws Exception {
+        byte[] svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>"
+                .getBytes(StandardCharsets.UTF_8);
+        expectRejected(upload(new MockMultipartFile("file", "diagram.svg", declaredType, svg)),
+                "File validation failed: File extension 'svg' is not allowed for security reasons");
+    }
+
     private MockMultipartFile pdf() {
         return new MockMultipartFile("file", "notes.pdf", "application/pdf", PDF);
     }

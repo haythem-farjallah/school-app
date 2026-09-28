@@ -51,10 +51,11 @@ public class FileSecurityService {
         )
     );
 
-    // Dangerous file extensions that should never be allowed
+    // Dangerous file extensions that should never be allowed. SVG can carry script that runs in
+    // the application's origin when the file is opened, so it is not accepted as an image.
     private static final Set<String> DANGEROUS_EXTENSIONS = Set.of(
         "exe", "bat", "cmd", "com", "pif", "scr", "vbs", "js", "jar", "app", "deb", "pkg", "dmg",
-        "sh", "bash", "ps1", "dll", "sys", "msi", "reg", "lnk", "inf"
+        "sh", "bash", "ps1", "dll", "sys", "msi", "reg", "lnk", "inf", "svg", "svgz"
     );
 
     // File signatures (magic bytes) for validation

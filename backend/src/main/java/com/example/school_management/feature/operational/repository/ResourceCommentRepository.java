@@ -14,11 +14,16 @@ import java.util.List;
 @Repository
 public interface ResourceCommentRepository extends JpaRepository<ResourceComment, Long>, JpaSpecificationExecutor<ResourceComment> {
 
-    @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.id = :resourceId ORDER BY rc.createdAt DESC")
-    Page<ResourceComment> findByResourceId(@Param("resourceId") Long resourceId, Pageable pageable);
+    // publicOnly = true limits each listing below to comments on public learning resources.
 
-    @Query("SELECT rc FROM ResourceComment rc WHERE rc.commentedBy.id = :userId ORDER BY rc.createdAt DESC")
-    Page<ResourceComment> findByCommentedByUserId(@Param("userId") Long userId, Pageable pageable);
+    @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.id = :resourceId AND (:publicOnly = false OR rc.onResource.isPublic = true) ORDER BY rc.createdAt DESC")
+    Page<ResourceComment> findByResourceId(@Param("resourceId") Long resourceId, @Param("publicOnly") boolean publicOnly, Pageable pageable);
+
+    @Query("SELECT rc FROM ResourceComment rc WHERE rc.commentedBy.id = :userId AND (:publicOnly = false OR rc.onResource.isPublic = true) ORDER BY rc.createdAt DESC")
+    Page<ResourceComment> findByCommentedByUserId(@Param("userId") Long userId, @Param("publicOnly") boolean publicOnly, Pageable pageable);
+
+    @Query("SELECT rc FROM ResourceComment rc WHERE :publicOnly = false OR rc.onResource.isPublic = true")
+    Page<ResourceComment> findAllVisible(@Param("publicOnly") boolean publicOnly, Pageable pageable);
 
     @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.id = :resourceId ORDER BY rc.createdAt ASC")
     List<ResourceComment> findAllByResourceIdOrderByCreatedAtAsc(@Param("resourceId") Long resourceId);

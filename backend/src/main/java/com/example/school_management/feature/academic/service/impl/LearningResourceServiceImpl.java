@@ -28,6 +28,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -36,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -74,6 +76,8 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public LearningResourceDto create(CreateLearningResourceRequest request) {
         log.debug("Creating learning resource: {}", request);
         
+        requireNotManagedFileUrl(request.getUrl());
+
         LearningResource resource = new LearningResource();
         resource.setTitle(request.getTitle());
         resource.setDescription(request.getDescription());
@@ -238,6 +242,10 @@ public class LearningResourceServiceImpl implements LearningResourceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + id));
         
         requireCreatorOrAdmin(resource, "You can only update resources you created");
+        // Resending the resource's own URL is not a change; any other managed URL is refused.
+        if (request.getUrl() != null && !request.getUrl().equals(resource.getUrl())) {
+            requireNotManagedFileUrl(request.getUrl());
+        }
         
         if (request.getTitle() != null) resource.setTitle(request.getTitle());
         if (request.getDescription() != null) resource.setDescription(request.getDescription());
@@ -284,8 +292,10 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         
         requireCreatorOrAdmin(resource, "You can only delete resources you created");
         
-        // Delete associated file if it exists
-        if (resource.getUrl() != null && resource.getUrl().startsWith(FILE_URL_PREFIX)) {
+        // Delete the uploaded file, unless another resource still refers to it (rows stored before
+        // managed URLs were reserved to the upload pipeline may share one).
+        if (resource.getUrl() != null && resource.getUrl().startsWith(FILE_URL_PREFIX)
+                && repository.findByUrl(resource.getUrl()).size() == 1) {
             String filename = resource.getUrl().substring(resource.getUrl().lastIndexOf('/') + 1);
             deleteFile(filename);
         }
@@ -462,6 +472,18 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         repository.save(resource);
     }
 
+    /**
+     * URLs under {@link #FILE_URL_PREFIX} name files stored by the upload pipeline, and deleting a
+     * resource deletes the file its managed URL names. Only an upload assigns such a URL, so a
+     * resource can never be pointed at, and then delete, a file another resource uploaded.
+     */
+    private static void requireNotManagedFileUrl(String url) {
+        if (url != null && url.startsWith(FILE_URL_PREFIX)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "url: uploaded file URLs are assigned by the upload endpoint");
+        }
+    }
+
     /** A resource may be changed by an administrator or by a teacher who created it. */
     private void requireCreatorOrAdmin(LearningResource resource, String deniedMessage) {
         BaseUser currentUser = getCurrentUser();
@@ -479,7 +501,9 @@ public class LearningResourceServiceImpl implements LearningResourceService {
      * Teachers and administrators see every resource. Anyone else sees public resources only,
      * until class and course targeting is backed by canonical enrollment.
      */
-    private boolean seesPrivateResources() {
+    @Override
+    @Transactional(readOnly = true)
+    public boolean seesPrivateResources() {
         UserRole role = getCurrentUser().getRole();
         return role == UserRole.TEACHER || role == UserRole.ADMIN;
     }
@@ -532,7 +556,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         }
         
         // Image files
-        if (ext.matches("jpg|jpeg|png|gif|bmp|svg|webp")) {
+        if (ext.matches("jpg|jpeg|png|gif|bmp|webp")) {
             return ResourceType.IMAGE;
         }
         
@@ -558,49 +582,17 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     @Override
     @Transactional
     public void incrementViewCount(String filename) {
-        log.info("=== INCREMENTING VIEW COUNT ===");
-        log.info("Looking for filename: {}", filename);
-        
-        // Debug: Let's see what URLs we have in the database
-        var allResources = repository.findAll();
-        log.info("Total resources in database: {}", allResources.size());
-        for (LearningResource res : allResources) {
-            log.info("Resource {}: URL = {}", res.getId(), res.getUrl());
-        }
-        
-        var resourceOpt = repository.findByFilename(filename);
-        if (resourceOpt.isPresent()) {
-            LearningResource resource = resourceOpt.get();
-            Long oldCount = resource.getViewCount();
+        // Exact match: an unrelated URL that merely contains the file name is not the file's resource.
+        for (LearningResource resource : repository.findByUrl(FILE_URL_PREFIX + filename)) {
             resource.setViewCount(resource.getViewCount() + 1);
-            LearningResource saved = repository.save(resource);
-            repository.flush(); // Force immediate database write
-            log.info("✅ View count incremented for resource {} ({}). Old count: {}, New count: {}", 
-                saved.getId(), saved.getTitle(), oldCount, saved.getViewCount());
-        } else {
-            log.warn("❌ No resource found with filename: {}", filename);
-            log.warn("Available URLs in database:");
-            allResources.forEach(res -> log.warn("  - {}", res.getUrl()));
         }
     }
     
     @Override
     @Transactional
     public void incrementDownloadCount(String filename) {
-        log.info("=== INCREMENTING DOWNLOAD COUNT ===");
-        log.info("Looking for filename: {}", filename);
-        
-        var resourceOpt = repository.findByFilename(filename);
-        if (resourceOpt.isPresent()) {
-            LearningResource resource = resourceOpt.get();
-            Long oldCount = resource.getDownloadCount();
+        for (LearningResource resource : repository.findByUrl(FILE_URL_PREFIX + filename)) {
             resource.setDownloadCount(resource.getDownloadCount() + 1);
-            LearningResource saved = repository.save(resource);
-            repository.flush(); // Force immediate database write
-            log.info("✅ Download count incremented for resource {} ({}). Old count: {}, New count: {}", 
-                saved.getId(), saved.getTitle(), oldCount, saved.getDownloadCount());
-        } else {
-            log.warn("❌ No resource found with filename: {}", filename);
         }
     }
 }

@@ -72,7 +72,7 @@ const getResourceTypeFromFile = (file: File): ResourceType => {
   if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'aac', 'flac'].includes(extension || '')) {
     return ResourceType.AUDIO;
   }
-  if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(extension || '')) {
+  if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension || '')) {
     return ResourceType.IMAGE;
   }
   if (['ppt', 'pptx', 'odp'].includes(extension || '')) {

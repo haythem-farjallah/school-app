@@ -3,6 +3,7 @@ package com.example.school_management.feature.operational.service.impl;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.academic.entity.LearningResource;
 import com.example.school_management.feature.academic.repository.LearningResourceRepository;
+import com.example.school_management.feature.academic.service.LearningResourceService;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.operational.dto.CreateResourceCommentRequest;
@@ -26,8 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ResourceCommentServiceImpl implements ResourceCommentService {
 
+    private static final String NOT_AVAILABLE = "This learning resource is not available to you";
+
     private final ResourceCommentRepository repository;
     private final LearningResourceRepository learningResourceRepository;
+    private final LearningResourceService learningResourceService;
     private final UserRepository userRepository;
 
     @Override
@@ -40,6 +44,7 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
         // Get learning resource
         LearningResource resource = learningResourceRepository.findById(request.getResourceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + request.getResourceId()));
+        requireVisible(resource);
         
         // Create comment
         ResourceComment comment = new ResourceComment();
@@ -58,6 +63,7 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
         
         ResourceComment comment = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Resource comment not found with id: " + id));
+        requireVisible(comment.getOnResource());
         
         return mapToDto(comment);
     }
@@ -82,19 +88,33 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
     @Override
     @Transactional(readOnly = true)
     public Page<ResourceCommentDto> findByResourceId(Long resourceId, Pageable pageable) {
-        return repository.findByResourceId(resourceId, pageable).map(this::mapToDto);
+        return repository.findByResourceId(resourceId, publicOnly(), pageable).map(this::mapToDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ResourceCommentDto> findByUserId(Long userId, Pageable pageable) {
-        return repository.findByCommentedByUserId(userId, pageable).map(this::mapToDto);
+        return repository.findByCommentedByUserId(userId, publicOnly(), pageable).map(this::mapToDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ResourceCommentDto> list(Pageable pageable) {
-        return repository.findAll(pageable).map(this::mapToDto);
+        return repository.findAllVisible(publicOnly(), pageable).map(this::mapToDto);
+    }
+
+    /*
+     * A comment is visible exactly when its learning resource is: callers who see public resources
+     * only never read, list or add comments on a private one, nor learn its title from a comment.
+     */
+    private void requireVisible(LearningResource resource) {
+        if (!resource.isPublic() && !learningResourceService.seesPrivateResources()) {
+            throw new AccessDeniedException(NOT_AVAILABLE);
+        }
+    }
+
+    private boolean publicOnly() {
+        return !learningResourceService.seesPrivateResources();
     }
 
     private BaseUser getCurrentUser() {

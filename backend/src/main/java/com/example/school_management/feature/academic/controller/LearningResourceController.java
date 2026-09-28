@@ -125,7 +125,7 @@ public class LearningResourceController {
             // Determine content type
             String contentType = determineContentType(filename);
             
-            return ResponseEntity.ok()
+            return fileResponse()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                     .header(HttpHeaders.CACHE_CONTROL, "max-age=3600") // Cache for 1 hour
@@ -159,7 +159,7 @@ public class LearningResourceController {
             String contentType = determineContentType(filename);
             
             // For preview, always use inline disposition
-            return ResponseEntity.ok()
+            return fileResponse()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                     .header(HttpHeaders.CACHE_CONTROL, "max-age=3600") // Cache for 1 hour
@@ -190,7 +190,7 @@ public class LearningResourceController {
                 return ResponseEntity.badRequest().build();
             }
             
-            return ResponseEntity.ok()
+            return fileResponse()
                     .contentType(MediaType.parseMediaType("video/mp4"))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                     .header(HttpHeaders.ACCEPT_RANGES, "bytes")
@@ -331,6 +331,17 @@ public class LearningResourceController {
     // Helper methods
 
     /**
+     * Uploaded files are untrusted content served from the API origin. The browser must not sniff
+     * another type than the one declared, and a file opened as a document runs no script and loads
+     * nothing else.
+     */
+    private static ResponseEntity.BodyBuilder fileResponse() {
+        return ResponseEntity.ok()
+                .header("X-Content-Type-Options", "nosniff")
+                .header("Content-Security-Policy", "default-src 'none'; sandbox");
+    }
+
+    /**
      * A missing or blank field means no ids. Anything else must be a JSON array
      * of integer ids: null, non-arrays, null or non-integer elements (such as
      * "1" or 1.5) and trailing content are rejected rather than coerced.
@@ -391,7 +402,6 @@ public class LearningResourceController {
             case "png": return "image/png";
             case "gif": return "image/gif";
             case "bmp": return "image/bmp";
-            case "svg": return "image/svg+xml";
             case "webp": return "image/webp";
             
             // Audio
@@ -403,11 +413,6 @@ public class LearningResourceController {
             
             default: return "application/octet-stream";
         }
-    }
-
-    private boolean isInlineViewable(String filename) {
-        String extension = getFileExtension(filename).toLowerCase();
-        return extension.matches("pdf|jpg|jpeg|png|gif|bmp|svg|webp|mp4|webm|mov");
     }
 
     private boolean isVideoFile(String filename) {

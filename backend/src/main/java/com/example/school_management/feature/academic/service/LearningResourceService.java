@@ -24,6 +24,12 @@ public interface LearningResourceService {
 
     /** The stored file behind {@code filename}, once a resource referencing it is readable by the caller. */
     Path resolveReadableFile(String filename);
+
+    /**
+     * Whether the caller may see private resources and everything attached to them, such as
+     * comments. Otherwise only public resources are visible.
+     */
+    boolean seesPrivateResources();
     
     Page<LearningResourceDto> list(Pageable pageable);
     

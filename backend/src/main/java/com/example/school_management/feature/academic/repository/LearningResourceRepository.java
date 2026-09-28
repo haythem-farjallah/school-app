@@ -11,7 +11,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 @Repository
@@ -40,9 +39,6 @@ public interface LearningResourceRepository extends JpaRepository<LearningResour
 
     @Query("SELECT lr FROM LearningResource lr JOIN lr.createdBy t WHERE t.id IN :teacherIds ORDER BY lr.createdAt DESC, lr.id DESC")
     List<LearningResource> findByTeacherIds(@Param("teacherIds") Set<Long> teacherIds);
-    
-    @Query("SELECT lr FROM LearningResource lr WHERE lr.url LIKE CONCAT('%', :filename, '%')")
-    Optional<LearningResource> findByFilename(@Param("filename") String filename);
     
     @Query("SELECT lr FROM LearningResource lr WHERE (:publicOnly = false OR lr.isPublic = true) ORDER BY lr.createdAt DESC, lr.id DESC")
     Page<LearningResource> findAllSorted(@Param("publicOnly") boolean publicOnly, Pageable pageable);

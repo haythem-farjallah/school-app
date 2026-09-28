@@ -1,6 +1,7 @@
 package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.feature.academic.repository.LearningResourceRepository;
+import com.example.school_management.feature.academic.service.LearningResourceService;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.Teacher;
@@ -36,7 +37,8 @@ class ResourceCommentServiceImplTest {
     private final ResourceCommentRepository comments = mock(ResourceCommentRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final ResourceCommentServiceImpl service =
-            new ResourceCommentServiceImpl(comments, mock(LearningResourceRepository.class), users);
+            new ResourceCommentServiceImpl(comments, mock(LearningResourceRepository.class),
+                    mock(LearningResourceService.class), users);
 
     private final BaseUser author = user(new Student(), 1L, UserRole.STUDENT, "author@school.test");
 
