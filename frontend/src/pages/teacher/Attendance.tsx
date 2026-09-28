@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, BarChart3, Users, Table } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Calendar, BarChart3 } from 'lucide-react';
 import { TeacherAttendanceMarking } from '@/features/attendance/components/teacher-attendance-marking';
-import { ClassAttendanceMarking } from '@/features/attendance/components/class-attendance-marking';
 import { TeacherAttendanceDashboard } from '@/features/attendance/components/teacher-attendance-dashboard';
-import { AttendanceTable } from '@/features/attendance/components/attendance-table';
 import { useAuth } from '@/hooks/useAuth';
 
 const TeacherAttendance = () => {
@@ -48,19 +46,11 @@ const TeacherAttendance = () => {
       </div>
 
       {/* Main Content */}
-      <Tabs defaultValue="quick-marking" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="quick-marking" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Quick Mark
-          </TabsTrigger>
+      <Tabs defaultValue="marking" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="marking" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Schedule
-          </TabsTrigger>
-          <TabsTrigger value="records" className="flex items-center gap-2">
-            <Table className="h-4 w-4" />
-            Records
           </TabsTrigger>
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -68,19 +58,11 @@ const TeacherAttendance = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="quick-marking" className="mt-6">
-          <ClassAttendanceMarking />
-        </TabsContent>
-
         <TabsContent value="marking" className="mt-6">
           <TeacherAttendanceMarking 
             teacherId={teacherId} 
             selectedDate={selectedDate}
           />
-        </TabsContent>
-
-        <TabsContent value="records" className="mt-6">
-          <AttendanceTable />
         </TabsContent>
 
         <TabsContent value="dashboard" className="mt-6">

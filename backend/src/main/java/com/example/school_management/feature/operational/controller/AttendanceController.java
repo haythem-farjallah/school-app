@@ -36,7 +36,7 @@ public class AttendanceController {
 
     @PostMapping
     @Operation(summary = "Record attendance for a single user")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<AttendanceDto>> recordAttendance(
             @Valid @RequestBody AttendanceDto attendanceDto) {
         log.debug("Recording attendance for user: {}", attendanceDto.getUserId());
@@ -48,7 +48,7 @@ public class AttendanceController {
 
     @PostMapping("/batch")
     @Operation(summary = "Record attendance for multiple users")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> recordBatchAttendance(
             @Valid @RequestBody List<AttendanceDto> attendanceDtos) {
         log.debug("Recording batch attendance for {} users", attendanceDtos.size());
@@ -60,7 +60,7 @@ public class AttendanceController {
 
     @GetMapping("/user/{userId}")
     @Operation(summary = "Get attendance for a specific user in date range")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#userId))")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasAnyRole('STUDENT', 'TEACHER') and @securityService.isCurrentUser(#userId))")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getUserAttendance(
             @PathVariable Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -73,7 +73,7 @@ public class AttendanceController {
 
     @GetMapping("/class/{classId}")
     @Operation(summary = "Get attendance for a specific class on a date")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getClassAttendance(
             @PathVariable Long classId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -85,7 +85,7 @@ public class AttendanceController {
 
     @GetMapping("/course/{courseId}")
     @Operation(summary = "Get attendance for a specific course on a date")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getCourseAttendance(
             @PathVariable Long courseId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -97,7 +97,7 @@ public class AttendanceController {
 
     @GetMapping("/statistics")
     @Operation(summary = "Get general attendance statistics")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<AttendanceStatisticsDto>> getAttendanceStatistics(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
@@ -109,7 +109,7 @@ public class AttendanceController {
 
     @GetMapping("/statistics/user/{userId}")
     @Operation(summary = "Get attendance statistics for a user")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#userId))")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasAnyRole('STUDENT', 'TEACHER') and @securityService.isCurrentUser(#userId))")
     public ResponseEntity<ApiSuccessResponse<AttendanceStatisticsDto>> getUserAttendanceStatistics(
             @PathVariable Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -122,7 +122,7 @@ public class AttendanceController {
 
     @GetMapping("/statistics/class/{classId}")
     @Operation(summary = "Get attendance statistics for a class")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceStatisticsDto>>> getClassAttendanceStatistics(
             @PathVariable Long classId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -135,7 +135,7 @@ public class AttendanceController {
 
     @PutMapping("/{attendanceId}")
     @Operation(summary = "Update attendance record")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<AttendanceDto>> updateAttendance(
             @PathVariable Long attendanceId,
             @Valid @RequestBody AttendanceDto attendanceDto) {
@@ -157,7 +157,7 @@ public class AttendanceController {
 
     @GetMapping("/type/{userType}")
     @Operation(summary = "Get attendance by user type with pagination")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<Page<AttendanceDto>>> getAttendanceByUserType(
             @PathVariable UserType userType,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -171,7 +171,7 @@ public class AttendanceController {
 
     @PatchMapping("/{attendanceId}/excuse")
     @Operation(summary = "Mark attendance as excused")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<AttendanceDto>> markAsExcused(
             @PathVariable Long attendanceId,
             @RequestParam String excuse) {
@@ -183,7 +183,7 @@ public class AttendanceController {
 
     @PatchMapping("/{attendanceId}/late")
     @Operation(summary = "Mark attendance as late")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<AttendanceDto>> markAsLate(
             @PathVariable Long attendanceId,
             @RequestParam String remarks) {
@@ -195,7 +195,7 @@ public class AttendanceController {
 
     @GetMapping("/filter")
     @Operation(summary = "Advanced filtering for attendance records")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<PageDto<AttendanceDto>>> filterAttendance(
             @PageableDefault(size = 20) Pageable pageable,
             jakarta.servlet.http.HttpServletRequest request) {
@@ -210,7 +210,7 @@ public class AttendanceController {
 
     @GetMapping("/teacher/{teacherId}/today")
     @Operation(summary = "Get teacher's today schedule with attendance status")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('TEACHER') and @securityService.isCurrentUser(#teacherId))")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getTeacherTodaySchedule(
             @PathVariable Long teacherId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -223,7 +223,7 @@ public class AttendanceController {
 
     @GetMapping("/teacher/{teacherId}/absent-students")
     @Operation(summary = "Get absent students for teacher today")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('TEACHER') and @securityService.isCurrentUser(#teacherId))")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getAbsentStudentsForTeacher(
             @PathVariable Long teacherId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -236,7 +236,7 @@ public class AttendanceController {
 
     @GetMapping("/teacher/{teacherId}/weekly-summary")
     @Operation(summary = "Get teacher's weekly attendance summary")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('TEACHER') and @securityService.isCurrentUser(#teacherId))")
     public ResponseEntity<ApiSuccessResponse<Map<String, List<AttendanceDto>>>> getTeacherWeeklySummary(
             @PathVariable Long teacherId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startOfWeek) {
@@ -246,6 +246,7 @@ public class AttendanceController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", summary));
     }
 
+    // A teacher may use only their own slots; the service enforces it.
     @GetMapping("/slot/{slotId}/students")
     @Operation(summary = "Get students for a timetable slot with attendance status")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
@@ -259,6 +260,7 @@ public class AttendanceController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", students));
     }
 
+    // A teacher may mark only their own slot, on its day, for its class's students; the service enforces it.
     @PostMapping("/slot/{slotId}/mark")
     @Operation(summary = "Mark attendance for all students in a timetable slot")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
@@ -276,7 +278,7 @@ public class AttendanceController {
 
     @GetMapping("/teacher/{teacherId}/can-mark/{slotId}")
     @Operation(summary = "Check if teacher can mark attendance for a specific slot")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('TEACHER') and @securityService.isCurrentUser(#teacherId))")
     public ResponseEntity<ApiSuccessResponse<Boolean>> canTeacherMarkAttendance(
             @PathVariable Long teacherId,
             @PathVariable Long slotId,
@@ -290,7 +292,7 @@ public class AttendanceController {
 
     @GetMapping("/class/{classId}/students")
     @Operation(summary = "Get students for a class with attendance status")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getStudentsForClass(
             @PathVariable Long classId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -304,7 +306,7 @@ public class AttendanceController {
 
     @GetMapping("/class/{classId}/students-simple")
     @Operation(summary = "Get all students in a class (simple list)")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getStudentsForClassSimple(@PathVariable Long classId) {
         log.debug("Getting students for class {} (simple)", classId);
         
@@ -323,7 +325,7 @@ public class AttendanceController {
 
     @GetMapping("/teacher/{teacherId}/class/{classId}/course/{courseId}")
     @Operation(summary = "Get teacher attendance class view (similar to grade system)")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('TEACHER') and @securityService.isCurrentUser(#teacherId))")
     public ResponseEntity<ApiSuccessResponse<TeacherAttendanceClassView>> getTeacherAttendanceClass(
             @PathVariable Long teacherId, @PathVariable Long classId, @PathVariable Long courseId) {
         TeacherAttendanceClassView classView = attendanceService.getTeacherAttendanceClass(teacherId, classId, courseId);
@@ -332,7 +334,7 @@ public class AttendanceController {
 
     @PostMapping("/class/{classId}/mark")
     @Operation(summary = "Mark attendance for all students in a class")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> markAttendanceForClass(
             @PathVariable Long classId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,

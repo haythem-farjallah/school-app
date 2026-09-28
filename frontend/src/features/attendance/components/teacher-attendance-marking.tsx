@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Clock, Users, CheckCircle, XCircle, AlertCircle, User, BookOpen } from 'lucide-react';
 import { AttendanceStatus, UserType } from '@/types/attendance';
 import { 
   useTeacherAbsentStudents, 
   useStudentsForSlot,
-  useStudentsForClass,
   useMarkAttendanceForSlot,
-  useMarkAttendanceForClass,
   useCanTeacherMarkAttendance 
 } from '../hooks/use-attendance';
-import { useAllTeacherClasses } from '@/hooks/useTeacherClasses';
+import { useTeacherSchedule } from '@/features/schedule/hooks/use-schedule';
+import type { DayOfWeek } from '@/types/timetable';
 import { AttendanceStatusBadge } from './attendance-status-badge';
 import toast from 'react-hot-toast';
 
@@ -30,17 +28,22 @@ interface StudentAttendanceRow {
   excuse?: string;
 }
 
+const DAYS: DayOfWeek[] = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
 export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAttendanceMarkingProps) {
-  const [currentDate] = useState(selectedDate || new Date().toISOString().split('T')[0]);
+  const currentDate = selectedDate || new Date().toISOString().split('T')[0];
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
-  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [studentAttendance, setStudentAttendance] = useState<StudentAttendanceRow[]>([]);
 
-  // Fetch teacher's classes
+  // Attendance is taken per timetable slot: the teacher's own slots on the selected day.
   const { 
-    data: teacherClasses, 
-    isLoading: classesLoading
-  } = useAllTeacherClasses();
+    data: teacherSlots, 
+    isLoading: slotsLoading
+  } = useTeacherSchedule(teacherId);
+  const dayOfWeek = DAYS[new Date(`${currentDate}T00:00:00`).getDay()];
+  const daySlots = (teacherSlots ?? [])
+    .filter(slot => slot.dayOfWeek === dayOfWeek)
+    .sort((a, b) => (a.period?.index ?? 0) - (b.period?.index ?? 0));
 
   // Fetch absent students
   const { 
@@ -48,35 +51,22 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
     isLoading: absentLoading 
   } = useTeacherAbsentStudents(teacherId, currentDate);
 
-  // Fetch students for selected slot (only for real slots, not virtual ones)
   const { 
     data: slotStudents, 
     isLoading: studentsLoading,
     refetch: refetchStudents 
-  } = useStudentsForSlot(selectedSlot && selectedSlot > 0 ? selectedSlot : 0, currentDate);
+  } = useStudentsForSlot(selectedSlot ?? 0, currentDate);
 
-  // Fetch students for class if it's a virtual slot or selected class
-  const { 
-    data: classStudents, 
-    isLoading: classStudentsLoading,
-    refetch: refetchClassStudents 
-  } = useStudentsForClass(selectedClassId || 0, currentDate);
-
-  // Check if teacher can mark attendance (only for real slots, not class-based)
   const { 
     data: canMarkAttendance 
-  } = useCanTeacherMarkAttendance(teacherId, selectedSlot && selectedSlot > 0 ? selectedSlot : 0, currentDate);
+  } = useCanTeacherMarkAttendance(teacherId, selectedSlot ?? 0, currentDate);
 
-  // Mark attendance mutations
   const markAttendanceMutation = useMarkAttendanceForSlot();
-  const markClassAttendanceMutation = useMarkAttendanceForClass();
 
-  // Update student attendance when slot students or class students change
   useEffect(() => {
-    const students = selectedClassId ? classStudents : slotStudents;
-    if (students) {
+    if (slotStudents) {
       setStudentAttendance(
-        students.map(student => ({
+        slotStudents.map(student => ({
           userId: student.userId,
           userName: student.userName,
           status: student.status,
@@ -85,12 +75,7 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
         }))
       );
     }
-  }, [slotStudents, classStudents, selectedClassId]);
-
-  const handleClassSelect = (classId: number) => {
-    setSelectedClassId(classId);
-    setSelectedSlot(-1); // Use virtual slot for class-based attendance
-  };
+  }, [slotStudents]);
 
   const handleStatusChange = (userId: number, status: AttendanceStatus) => {
     setStudentAttendance(prev =>
@@ -121,11 +106,11 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
   };
 
   const handleSaveAttendance = async () => {
-    if (!selectedSlot && !selectedClassId) return;
+    if (!selectedSlot) return;
 
     const attendanceList = studentAttendance.map(student => ({
       userId: student.userId,
-      timetableSlotId: selectedClassId ? -1 : (selectedSlot || undefined),
+      timetableSlotId: selectedSlot,
       date: currentDate,
       status: student.status,
       userType: UserType.STUDENT,
@@ -134,29 +119,14 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
     }));
 
     try {
-      if (selectedClassId) {
-        // Use class-based attendance marking for class selection
-        await markClassAttendanceMutation.mutateAsync({
-          classId: selectedClassId,
-          date: currentDate,
-          attendanceList,
-        });
-      } else if (selectedSlot) {
-        // Use slot-based attendance marking for real slots
-        await markAttendanceMutation.mutateAsync({
-          slotId: selectedSlot,
-          date: currentDate,
-          attendanceList,
-        });
-      }
+      await markAttendanceMutation.mutateAsync({
+        slotId: selectedSlot,
+        date: currentDate,
+        attendanceList,
+      });
       
       setSelectedSlot(null);
-      setSelectedClassId(null);
-      if (selectedClassId) {
-        refetchClassStudents();
-      } else {
-        refetchStudents();
-      }
+      refetchStudents();
       toast.success('Attendance saved successfully!');
     } catch (error) {
       console.error('Failed to save attendance:', error);
@@ -193,7 +163,7 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
 
       <Tabs defaultValue="schedule" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="schedule">Your Classes</TabsTrigger>
+          <TabsTrigger value="schedule">Your Slots</TabsTrigger>
           <TabsTrigger value="absent">Absent Students</TabsTrigger>
           <TabsTrigger value="marking">Mark Attendance</TabsTrigger>
         </TabsList>
@@ -204,54 +174,49 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5" />
-                Your Classes
+                Your Slots
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {classesLoading ? (
+              {slotsLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-gray-600">Loading classes...</p>
+                  <p className="text-gray-600">Loading your timetable...</p>
                 </div>
-              ) : !teacherClasses || teacherClasses.length === 0 ? (
+              ) : daySlots.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No classes assigned to you</p>
-                  <p className="text-sm mt-2">Contact your administrator to get classes assigned.</p>
+                  <p>No timetable slots on this day</p>
+                  <p className="text-sm mt-2">Attendance is taken for the slots you teach.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {teacherClasses.map((cls) => (
+                  {daySlots.map((slot) => (
                     <div
-                      key={cls.id}
+                      key={slot.id}
                       className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors ${
-                        selectedClassId === cls.id ? 'bg-blue-50 border-blue-200' : ''
+                        selectedSlot === slot.id ? 'bg-blue-50 border-blue-200' : ''
                       }`}
-                      onClick={() => handleClassSelect(cls.id)}
+                      onClick={() => setSelectedSlot(slot.id)}
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                           <BookOpen className="h-5 w-5 text-blue-600" />
                         </div>
                         <div>
-                          <p className="font-medium">{cls.name}</p>
+                          <p className="font-medium">{slot.forClass?.name ?? 'Unassigned class'}</p>
                           <p className="text-sm text-gray-600">
-                            {cls.enrolled || 0} students enrolled
+                            {slot.forCourse?.name}
+                            {slot.period && ` · Period ${slot.period.index} (${slot.period.startTime} - ${slot.period.endTime})`}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">
-                          <Users className="h-3 w-3 mr-1" />
-                          {cls.enrolled || 0} Students
-                        </Badge>
-                        <Button 
-                          variant={selectedClassId === cls.id ? "default" : "outline"} 
-                          size="sm"
-                        >
-                          {selectedClassId === cls.id ? "Selected" : "Mark Attendance"}
-                        </Button>
-                      </div>
+                      <Button 
+                        variant={selectedSlot === slot.id ? "default" : "outline"} 
+                        size="sm"
+                      >
+                        {selectedSlot === slot.id ? "Selected" : "Mark Attendance"}
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -299,11 +264,11 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
 
         {/* Mark Attendance Tab */}
         <TabsContent value="marking" className="space-y-4">
-          {!selectedSlot && !selectedClassId ? (
+          {!selectedSlot ? (
             <Card>
               <CardContent className="p-6 text-center">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-gray-600">Select a class from "Your Classes" to mark attendance</p>
+                <p className="text-gray-600">Select a slot from "Your Slots" to mark attendance</p>
               </CardContent>
             </Card>
           ) : (
@@ -325,9 +290,9 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {(studentsLoading || classStudentsLoading) ? (
+                {studentsLoading ? (
                   <div className="text-center py-4">Loading students...</div>
-                ) : !canMarkAttendance && selectedSlot && selectedSlot > 0 && !selectedClassId ? (
+                ) : canMarkAttendance === false ? (
                   <div className="text-center py-8 text-red-600">
                     <XCircle className="h-12 w-12 mx-auto mb-4" />
                     <p>You cannot mark attendance for this slot</p>
@@ -367,18 +332,15 @@ export function TeacherAttendanceMarking({ teacherId, selectedDate }: TeacherAtt
                     <div className="flex justify-end gap-2 pt-4 border-t">
                       <Button 
                         variant="outline" 
-                        onClick={() => {
-                          setSelectedSlot(null);
-                          setSelectedClassId(null);
-                        }}
+                        onClick={() => setSelectedSlot(null)}
                       >
                         Cancel
                       </Button>
                       <Button 
                         onClick={handleSaveAttendance}
-                        disabled={markAttendanceMutation.isPending || markClassAttendanceMutation.isPending}
+                        disabled={markAttendanceMutation.isPending}
                       >
-                        {(markAttendanceMutation.isPending || markClassAttendanceMutation.isPending) ? 'Saving...' : 'Save Attendance'}
+                        {markAttendanceMutation.isPending ? 'Saving...' : 'Save Attendance'}
                       </Button>
                     </div>
                   </div>

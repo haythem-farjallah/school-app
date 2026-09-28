@@ -17,24 +17,23 @@ import java.util.Set;
 @Repository
 public interface LearningResourceRepository extends JpaRepository<LearningResource, Long>, JpaSpecificationExecutor<LearningResource> {
 
-    @Query("SELECT lr FROM LearningResource lr WHERE lr.isPublic = true ORDER BY lr.createdAt DESC, lr.id DESC")
-    Page<LearningResource> findPublicResources(Pageable pageable);
+    // publicOnly = true limits every listing below to public resources.
 
-    @Query("SELECT lr FROM LearningResource lr WHERE lr.type = :type ORDER BY lr.createdAt DESC, lr.id DESC")
-    Page<LearningResource> findByType(@Param("type") ResourceType type, Pageable pageable);
+    @Query("SELECT lr FROM LearningResource lr WHERE lr.type = :type AND (:publicOnly = false OR lr.isPublic = true) ORDER BY lr.createdAt DESC, lr.id DESC")
+    Page<LearningResource> findByType(@Param("type") ResourceType type, @Param("publicOnly") boolean publicOnly, Pageable pageable);
 
-    @Query("SELECT lr FROM LearningResource lr JOIN lr.createdBy t WHERE t.id = :teacherId ORDER BY lr.createdAt DESC, lr.id DESC")
-    Page<LearningResource> findByTeacherId(@Param("teacherId") Long teacherId, Pageable pageable);
+    @Query("SELECT lr FROM LearningResource lr JOIN lr.createdBy t WHERE t.id = :teacherId AND (:publicOnly = false OR lr.isPublic = true) ORDER BY lr.createdAt DESC, lr.id DESC")
+    Page<LearningResource> findByTeacherId(@Param("teacherId") Long teacherId, @Param("publicOnly") boolean publicOnly, Pageable pageable);
 
-    @Query("SELECT lr FROM LearningResource lr JOIN lr.targetClasses c WHERE c.id = :classId ORDER BY lr.createdAt DESC, lr.id DESC")
-    Page<LearningResource> findByClassId(@Param("classId") Long classId, Pageable pageable);
+    @Query("SELECT lr FROM LearningResource lr JOIN lr.targetClasses c WHERE c.id = :classId AND (:publicOnly = false OR lr.isPublic = true) ORDER BY lr.createdAt DESC, lr.id DESC")
+    Page<LearningResource> findByClassId(@Param("classId") Long classId, @Param("publicOnly") boolean publicOnly, Pageable pageable);
 
-    @Query("SELECT lr FROM LearningResource lr JOIN lr.targetCourses c WHERE c.id = :courseId ORDER BY lr.createdAt DESC, lr.id DESC")
-    Page<LearningResource> findByCourseId(@Param("courseId") Long courseId, Pageable pageable);
+    @Query("SELECT lr FROM LearningResource lr JOIN lr.targetCourses c WHERE c.id = :courseId AND (:publicOnly = false OR lr.isPublic = true) ORDER BY lr.createdAt DESC, lr.id DESC")
+    Page<LearningResource> findByCourseId(@Param("courseId") Long courseId, @Param("publicOnly") boolean publicOnly, Pageable pageable);
 
-    @Query("SELECT lr FROM LearningResource lr WHERE LOWER(lr.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR lr.description LIKE CONCAT('%', :searchTerm, '%') ORDER BY lr.createdAt DESC, lr.id DESC")
-    Page<LearningResource> searchByTitleOrDescription(@Param("searchTerm") String searchTerm, 
-                                                     Pageable pageable);
+    @Query("SELECT lr FROM LearningResource lr WHERE (LOWER(lr.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR lr.description LIKE CONCAT('%', :searchTerm, '%')) AND (:publicOnly = false OR lr.isPublic = true) ORDER BY lr.createdAt DESC, lr.id DESC")
+    Page<LearningResource> searchByTitleOrDescription(@Param("searchTerm") String searchTerm,
+                                                     @Param("publicOnly") boolean publicOnly, Pageable pageable);
 
     @Query("SELECT lr FROM LearningResource lr WHERE lr.status = :status ORDER BY lr.createdAt DESC, lr.id DESC")
     List<LearningResource> findByStatus(@Param("status") String status);
@@ -45,6 +44,9 @@ public interface LearningResourceRepository extends JpaRepository<LearningResour
     @Query("SELECT lr FROM LearningResource lr WHERE lr.url LIKE CONCAT('%', :filename, '%')")
     Optional<LearningResource> findByFilename(@Param("filename") String filename);
     
-    @Query("SELECT lr FROM LearningResource lr ORDER BY lr.createdAt DESC, lr.id DESC")
-    Page<LearningResource> findAllSorted(Pageable pageable);
+    @Query("SELECT lr FROM LearningResource lr WHERE (:publicOnly = false OR lr.isPublic = true) ORDER BY lr.createdAt DESC, lr.id DESC")
+    Page<LearningResource> findAllSorted(@Param("publicOnly") boolean publicOnly, Pageable pageable);
+
+    /** Resources whose stored file is served under exactly this URL. */
+    List<LearningResource> findByUrl(String url);
 } 

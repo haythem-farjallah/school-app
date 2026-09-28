@@ -1,6 +1,7 @@
 package com.example.school_management.feature.operational.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
+import com.example.school_management.commons.security.SecurityService;
 import com.example.school_management.feature.operational.dto.TeacherAttendanceRequest;
 import com.example.school_management.feature.operational.dto.TeacherAttendanceResponse;
 import com.example.school_management.feature.operational.dto.TeacherAttendanceStatistics;
@@ -14,6 +15,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -27,6 +29,7 @@ import java.util.List;
 public class TeacherAttendanceController {
     
     private final TeacherAttendanceService teacherAttendanceService;
+    private final SecurityService securityService;
     
     @PostMapping
     @Operation(summary = "Create teacher attendance record")
@@ -42,11 +45,18 @@ public class TeacherAttendanceController {
     
     @GetMapping
     @Operation(summary = "Get teacher attendance records with optional filters")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('TEACHER') and (#teacherId == null or @securityService.isCurrentUser(#teacherId)))")
     public ResponseEntity<ApiSuccessResponse<List<TeacherAttendanceResponse>>> getTeacherAttendance(
             @RequestParam(required = false) Long teacherId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            Authentication authentication) {
+        // A teacher who names no teacher reads their own records, never everyone's.
+        boolean teacher = authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_TEACHER".equals(authority.getAuthority()));
+        if (teacher && teacherId == null) {
+            teacherId = securityService.currentUserId().orElseThrow();
+        }
         log.debug("Getting teacher attendance records with filters - teacherId: {}, startDate: {}, endDate: {}", 
                 teacherId, startDate, endDate);
         
@@ -67,7 +77,7 @@ public class TeacherAttendanceController {
     
     @GetMapping("/statistics/{teacherId}")
     @Operation(summary = "Get teacher attendance statistics")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('TEACHER') and @securityService.isCurrentUser(#teacherId))")
     public ResponseEntity<ApiSuccessResponse<TeacherAttendanceStatistics>> getTeacherAttendanceStatistics(
             @PathVariable Long teacherId) {
         log.debug("Getting teacher attendance statistics for teacher: {}", teacherId);

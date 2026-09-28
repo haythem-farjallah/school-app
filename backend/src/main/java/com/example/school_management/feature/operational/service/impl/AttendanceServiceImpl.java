@@ -2,6 +2,7 @@ package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
@@ -33,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -57,7 +59,7 @@ import org.springframework.data.jpa.domain.Specification;
 @RequiredArgsConstructor
 public class AttendanceServiceImpl implements AttendanceService {
 
-    /** Paths accepted by GET /api/v1/attendance/filter. */
+    /** Paths accepted by GET /api/v1/attendance/filter; its sortable paths also bound GET /type/{userType}. */
     private static final FilterFields FILTER_FIELDS = new FilterFields(
             Set.of("user.id", "classId", "course.id", "date", "status", "userType"),
             Set.of("date", "status", "recordedAt"));
@@ -302,6 +304,7 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     @Override
     public Page<AttendanceDto> getAttendanceByUserType(UserType userType, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+        FILTER_FIELDS.requireSortable(pageable.getSort());
         log.debug("Getting attendance by user type {} from {} to {}", userType, startDate, endDate);
         
         Page<Attendance> attendances = attendanceRepository.findByUserTypeAndDateBetween(userType, startDate, endDate, pageable);
@@ -474,6 +477,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         
         TimetableSlot slot = timetableSlotRepository.findById(timetableSlotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
+        requireOwnSlotForTeacher(slot, getCurrentUser());
         
         if (slot.getForClass() == null) {
             throw new IllegalArgumentException("Timetable slot must have an associated class");
@@ -521,6 +525,13 @@ public class AttendanceServiceImpl implements AttendanceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
         
         BaseUser currentUser = getCurrentUser();
+        if (currentUser.getRole() == UserRole.TEACHER) {
+            requireOwnSlotForTeacher(slot, currentUser);
+            if (!canTeacherMarkAttendance(currentUser.getId(), timetableSlotId, date)) {
+                throw new AccessDeniedException("Attendance for this slot can only be marked on its scheduled day");
+            }
+            requireSlotRoster(slot, attendanceList);
+        }
         List<AttendanceDto> result = new ArrayList<>();
         
         for (AttendanceDto attendanceDto : attendanceList) {
@@ -621,6 +632,28 @@ public class AttendanceServiceImpl implements AttendanceService {
         return absentStudents.stream()
                 .map(mapper::toAttendanceDto)
                 .collect(Collectors.toList());
+    }
+
+    /*
+     * Temporary guards for the teacher slot workflow only, until attendance is authorized through
+     * canonical TeachingAssignment and Enrollment: they rely on the slot's recorded teacher and its
+     * class's student list, and are not an ownership rule for any other feature.
+     */
+    private void requireOwnSlotForTeacher(TimetableSlot slot, BaseUser caller) {
+        if (caller.getRole() == UserRole.TEACHER
+                && (slot.getTeacher() == null || !slot.getTeacher().getId().equals(caller.getId()))) {
+            throw new AccessDeniedException("You can only take attendance for your own timetable slots");
+        }
+    }
+
+    private void requireSlotRoster(TimetableSlot slot, List<AttendanceDto> attendanceList) {
+        Set<Long> roster = slot.getForClass() == null ? Set.of()
+                : slot.getForClass().getStudents().stream().map(Student::getId).collect(Collectors.toSet());
+        for (AttendanceDto attendance : attendanceList) {
+            if (!roster.contains(attendance.getUserId())) {
+                throw new AccessDeniedException("Attendance can only be marked for students of this slot's class");
+            }
+        }
     }
 
     // Helper method to convert Java DayOfWeek to our custom enum

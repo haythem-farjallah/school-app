@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
@@ -33,7 +32,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -49,9 +47,6 @@ public class LearningResourceController {
     private final LearningResourceService service;
     private final LearningResourceServiceImpl serviceImpl;
     private final ObjectMapper objectMapper;
-    
-    @Value("${app.file.upload.path:uploads/learning-resources}")
-    private String uploadPath;
 
     @Operation(summary = "Create a new learning resource")
     @PostMapping
@@ -113,8 +108,8 @@ public class LearningResourceController {
     @GetMapping("/files/{filename}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
     public ResponseEntity<Resource> downloadFile(@PathVariable String filename) {
+        Path filePath = service.resolveReadableFile(filename);
         try {
-            Path filePath = Paths.get(uploadPath).resolve(filename).normalize();
             log.debug("Attempting to serve file: {} from path: {}", filename, filePath.toAbsolutePath());
             Resource resource = new FileSystemResource(filePath.toFile());
             
@@ -146,8 +141,8 @@ public class LearningResourceController {
     @GetMapping("/preview/{filename}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
     public ResponseEntity<Resource> previewFile(@PathVariable String filename) {
+        Path filePath = service.resolveReadableFile(filename);
         try {
-            Path filePath = Paths.get(uploadPath).resolve(filename).normalize();
             log.debug("Attempting to preview file: {} from path: {}", filename, filePath.toAbsolutePath());
             Resource resource = new FileSystemResource(filePath.toFile());
             
@@ -180,8 +175,8 @@ public class LearningResourceController {
     @GetMapping("/stream/{filename}")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
     public ResponseEntity<Resource> streamVideo(@PathVariable String filename) {
+        Path filePath = service.resolveReadableFile(filename);
         try {
-            Path filePath = Paths.get(uploadPath).resolve(filename).normalize();
             log.debug("Attempting to stream file: {} from path: {}", filename, filePath.toAbsolutePath());
             Resource resource = new FileSystemResource(filePath.toFile());
             

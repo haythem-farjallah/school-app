@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
@@ -20,6 +21,9 @@ public interface LearningResourceService {
     void delete(Long id);
     
     LearningResourceDto get(Long id);
+
+    /** The stored file behind {@code filename}, once a resource referencing it is readable by the caller. */
+    Path resolveReadableFile(String filename);
     
     Page<LearningResourceDto> list(Pageable pageable);
     
