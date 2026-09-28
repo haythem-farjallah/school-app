@@ -14,8 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * With the default configuration only a detail-free health endpoint is public; other Actuator
- * endpoints and the API documentation are not served.
+ * With the default configuration only the detail-free health endpoints are public; Prometheus
+ * requires an ADMIN token, and other Actuator endpoints and the API documentation are not served.
  */
 @IntegrationTest
 class OperationalEndpointExposureIntegrationTest {
