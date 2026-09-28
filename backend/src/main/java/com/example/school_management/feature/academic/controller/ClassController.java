@@ -233,7 +233,7 @@ public class ClassController {
     @Operation(summary = "Get classes a student is enrolled in")
     @Parameter(name = "studentId", description = "ID of the student", required = true)
     @GetMapping("/student/{studentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'PARENT', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> getStudentClasses(
             @PathVariable Long studentId,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,

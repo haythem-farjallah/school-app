@@ -696,6 +696,8 @@ public class GradeServiceImpl implements GradeService {
     @Transactional
     public void approveGrades(ApproveGradesRequest request) {
         log.debug("Approving grades for {} students in semester {}", request.getStudentIds().size(), request.getSemester());
+        // The approver is the authenticated account, recorded by its e-mail.
+        String approvedBy = SecurityContextHolder.getContext().getAuthentication().getName();
         
         for (Long studentId : request.getStudentIds()) {
             List<EnhancedGrade> studentGrades = enhancedGradeRepository.findByStudentIdAndSemester(studentId, request.getSemester());
@@ -703,7 +705,7 @@ public class GradeServiceImpl implements GradeService {
             for (EnhancedGrade grade : studentGrades) {
                 grade.setIsApproved(true);
                 grade.setApprovedAt(LocalDateTime.now());
-                grade.setApprovedBy(request.getApprovedBy());
+                grade.setApprovedBy(approvedBy);
             }
             
             enhancedGradeRepository.saveAll(studentGrades);

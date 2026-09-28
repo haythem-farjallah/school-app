@@ -60,7 +60,7 @@ public class AttendanceController {
 
     @GetMapping("/user/{userId}")
     @Operation(summary = "Get attendance for a specific user in date range")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#userId))")
     public ResponseEntity<ApiSuccessResponse<List<AttendanceDto>>> getUserAttendance(
             @PathVariable Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -109,7 +109,7 @@ public class AttendanceController {
 
     @GetMapping("/statistics/user/{userId}")
     @Operation(summary = "Get attendance statistics for a user")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#userId))")
     public ResponseEntity<ApiSuccessResponse<AttendanceStatisticsDto>> getUserAttendanceStatistics(
             @PathVariable Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

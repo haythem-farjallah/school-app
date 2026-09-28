@@ -28,7 +28,7 @@ public class TranscriptController {
 
     @GetMapping("/{studentId}")
     @Operation(summary = "Generate complete transcript for a student")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or @securityService.isCurrentUser(#studentId)")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<TranscriptDto> generateTranscript(@PathVariable Long studentId) {
         log.debug("Generating transcript for student: {}", studentId);
         
@@ -38,7 +38,7 @@ public class TranscriptController {
 
     @GetMapping("/{studentId}/period")
     @Operation(summary = "Generate transcript for a specific period")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or @securityService.isCurrentUser(#studentId)")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<TranscriptDto> generateTranscriptForPeriod(
             @PathVariable Long studentId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -51,7 +51,7 @@ public class TranscriptController {
 
     @GetMapping("/{studentId}/summary")
     @Operation(summary = "Generate transcript summary (overview)")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or @securityService.isCurrentUser(#studentId)")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<TranscriptSummaryDto> generateTranscriptSummary(@PathVariable Long studentId) {
         log.debug("Generating transcript summary for student: {}", studentId);
         
@@ -61,7 +61,7 @@ public class TranscriptController {
 
     @GetMapping("/{studentId}/pdf")
     @Operation(summary = "Export transcript as PDF")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or @securityService.isCurrentUser(#studentId)")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<byte[]> exportTranscriptAsPdf(@PathVariable Long studentId) {
         log.debug("Exporting transcript as PDF for student: {}", studentId);
         
@@ -77,7 +77,7 @@ public class TranscriptController {
 
     @GetMapping("/{studentId}/pdf/period")
     @Operation(summary = "Export transcript as PDF for a specific period")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or @securityService.isCurrentUser(#studentId)")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<byte[]> exportTranscriptAsPdfForPeriod(
             @PathVariable Long studentId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

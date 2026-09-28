@@ -268,7 +268,7 @@ public class GradeController {
     
     // Student Grade Sheet
     @GetMapping("/student/{studentId}/sheet")
-    @PreAuthorize("hasAnyRole('TEACHER', 'STUDENT', 'PARENT', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'PARENT', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<ApiSuccessResponse<StudentGradeSheet>> getStudentGradeSheet(
             @PathVariable Long studentId, 
             @RequestParam CreateEnhancedGradeRequest.Semester semester) {
@@ -277,7 +277,7 @@ public class GradeController {
     }
     
     @GetMapping("/student/{studentId}/export")
-    @PreAuthorize("hasAnyRole('TEACHER', 'STUDENT', 'PARENT', 'ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'PARENT', 'ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<byte[]> exportStudentGradeSheet(
             @PathVariable Long studentId, 
             @RequestParam CreateEnhancedGradeRequest.Semester semester) {

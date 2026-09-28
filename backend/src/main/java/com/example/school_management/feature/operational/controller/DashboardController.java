@@ -21,7 +21,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/current-user")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'TEACHER_READ_WRITE', 'PARENT_READ', 'STUDENT_READ') or hasRole('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Get dashboard data for current authenticated user")
     public ResponseEntity<ApiSuccessResponse<Object>> getCurrentUserDashboard() {
         log.debug("Fetching dashboard for current user");
@@ -75,7 +75,7 @@ public class DashboardController {
     }
 
     @GetMapping("/base/{userId}")
-    @PreAuthorize("hasAnyAuthority('ADMIN_READ_WRITE', 'TEACHER_READ_WRITE', 'PARENT_READ', 'STUDENT_READ')")
+    @PreAuthorize("hasRole('ADMIN') or @securityService.isCurrentUser(#userId)")
     @Operation(summary = "Get base dashboard information (common across all roles)")
     public ResponseEntity<ApiSuccessResponse<DashboardDto>> getBaseDashboardInfo(
             @PathVariable Long userId) {

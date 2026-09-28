@@ -45,7 +45,7 @@ describe("grade review and grade sheet hooks", () => {
       }),
     );
     const { result } = renderHook(() => useApproveGrades(), { wrapper });
-    const approval = { studentIds: [5], semester: Semester.FIRST, approvedBy: "Ada Admin" };
+    const approval = { studentIds: [5], semester: Semester.FIRST };
 
     await expect(result.current.mutateAsync(approval)).resolves.toBeUndefined();
     expect(body).toEqual(approval);

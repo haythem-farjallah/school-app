@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -98,6 +99,7 @@ public class EnrollmentController {
 
     @GetMapping("/{enrollmentId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT', 'STUDENT')")
+    @PostAuthorize("!hasRole('STUDENT') or @securityService.isCurrentUser(returnObject.body.data.studentId)")
     @Operation(summary = "Get enrollment details by ID")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> getEnrollment(
             @PathVariable Long enrollmentId) {
@@ -108,7 +110,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/student/{studentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     @Operation(summary = "Get all enrollments for a student")
     public ResponseEntity<ApiSuccessResponse<PageDto<EnrollmentDto>>> getStudentEnrollments(
             @PathVariable Long studentId,
@@ -174,7 +176,7 @@ public class EnrollmentController {
     }
 
     @GetMapping("/stats/student/{studentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT', 'STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'PARENT') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     @Operation(summary = "Get enrollment statistics for a student")
     public ResponseEntity<ApiSuccessResponse<EnrollmentStatsDto>> getStudentEnrollmentStats(
             @PathVariable Long studentId) {

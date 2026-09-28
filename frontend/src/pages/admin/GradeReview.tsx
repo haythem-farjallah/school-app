@@ -22,7 +22,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-import { useAuth } from '@/lib/auth';
 import { 
   useStaffGradeReviews,
   useApproveGrades,
@@ -38,8 +37,6 @@ import {
 import toast from 'react-hot-toast';
 
 const StaffGradeReview = () => {
-  const { user } = useAuth();
-  
   // State management
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [selectedSemester, setSelectedSemester] = useState<Semester>(Semester.FIRST);
@@ -72,7 +69,6 @@ const StaffGradeReview = () => {
       await approveGradesMutation.mutateAsync({
         studentIds: selectedStudents,
         semester: selectedSemester,
-        approvedBy: `${user?.firstName} ${user?.lastName}`
       });
       
       toast.success(`Approved grades for ${selectedStudents.length} students`);

@@ -44,7 +44,7 @@ export function useStaffGradeReviews(classId?: number, semester?: Semester) {
 }
 
 export function useApproveGrades() {
-  return useMutationApi<void, { studentIds: number[]; semester: Semester; approvedBy: string }>(
+  return useMutationApi<void, { studentIds: number[]; semester: Semester }>(
     async (approvalData) => {
       await api.post("/v1/grades/approve", approvalData);
     }

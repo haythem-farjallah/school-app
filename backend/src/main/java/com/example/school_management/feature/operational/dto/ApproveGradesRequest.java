@@ -13,7 +13,4 @@ public class ApproveGradesRequest {
     
     @NotNull(message = "Semester is required")
     private CreateEnhancedGradeRequest.Semester semester;
-    
-    @NotNull(message = "Approved by is required")
-    private String approvedBy;
 }
