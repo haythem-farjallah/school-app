@@ -33,6 +33,7 @@ import com.example.school_management.feature.academic.entity.TeachingAssignment;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 
@@ -97,6 +98,10 @@ public class GradeServiceImpl implements GradeService {
     public void updateGrade(Long gradeId, UpdateGradeRequest request) {
         Grade grade = gradeRepository.findById(gradeId)
             .orElseThrow(() -> new ResourceNotFoundException("Grade not found with id: " + gradeId));
+        BaseUser currentUser = getCurrentUser();
+        if (!canEditGrade(gradeId, currentUser.getId())) {
+            throw new AccessDeniedException("You can only update grades you assigned");
+        }
         
         String oldValues = String.format("Score: %.2f, Weight: %.2f, Content: %s", 
             grade.getScore(), grade.getWeight(), grade.getContent());
@@ -112,7 +117,6 @@ public class GradeServiceImpl implements GradeService {
         gradeRepository.save(grade);
         
         // Create audit event
-        BaseUser currentUser = getCurrentUser();
         String auditDetails = String.format("Grade updated. Old values: %s. New values: %s. Reason: %s", 
             oldValues, newValues, request.getUpdateReason());
         auditService.createGradeAuditEvent(AuditEventType.GRADE_UPDATED, gradeId, 
@@ -126,13 +130,16 @@ public class GradeServiceImpl implements GradeService {
     public void deleteGrade(Long gradeId, DeleteGradeRequest request) {
         Grade grade = gradeRepository.findById(gradeId)
             .orElseThrow(() -> new ResourceNotFoundException("Grade not found with id: " + gradeId));
+        BaseUser currentUser = getCurrentUser();
+        if (!canDeleteGrade(gradeId, currentUser.getId())) {
+            throw new AccessDeniedException("You can only delete grades you assigned in the last 24 hours");
+        }
         
         String gradeDetails = String.format("Student: %s %s, Score: %.2f, Content: %s", 
             grade.getEnrollment().getStudent().getFirstName(),
             grade.getEnrollment().getStudent().getLastName(),
             grade.getScore(), grade.getContent());
         
-        BaseUser currentUser = getCurrentUser();
         String auditDetails = String.format("Grade deleted. Details: %s. Reason: %s. Notes: %s", 
             gradeDetails, request.getReason(), request.getAdditionalNotes());
         auditService.createGradeAuditEvent(AuditEventType.GRADE_DELETED, gradeId, 

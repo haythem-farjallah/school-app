@@ -15,6 +15,7 @@ import com.example.school_management.feature.academic.repository.LearningResourc
 import com.example.school_management.feature.academic.service.LearningResourceService;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Teacher;
+import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.service.AuditService;
@@ -349,6 +350,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         
         LearningResource resource = repository.findById(resourceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        requireCreatorOrAdmin(resource);
         
         classIds.forEach(classId -> {
             ClassEntity classEntity = classRepository.findById(classId)
@@ -365,6 +367,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         
         LearningResource resource = repository.findById(resourceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        requireCreatorOrAdmin(resource);
         
         classIds.forEach(classId -> {
             ClassEntity classEntity = classRepository.findById(classId)
@@ -381,6 +384,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         
         LearningResource resource = repository.findById(resourceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        requireCreatorOrAdmin(resource);
         
         courseIds.forEach(courseId -> {
             Course course = courseRepository.findById(courseId)
@@ -397,6 +401,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         
         LearningResource resource = repository.findById(resourceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        requireCreatorOrAdmin(resource);
         
         courseIds.forEach(courseId -> {
             Course course = courseRepository.findById(courseId)
@@ -437,6 +442,19 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         });
         
         repository.save(resource);
+    }
+
+    /** Targets may be changed by an administrator or by a teacher who created the resource. */
+    private void requireCreatorOrAdmin(LearningResource resource) {
+        BaseUser currentUser = getCurrentUser();
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
+        boolean creator = resource.getCreatedBy().stream()
+                .anyMatch(teacher -> teacher.getId().equals(currentUser.getId()));
+        if (!creator) {
+            throw new AccessDeniedException("You can only change the targets of resources you created");
+        }
     }
 
     private Teacher getCurrentTeacher() {

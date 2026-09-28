@@ -7,6 +7,7 @@ import com.example.school_management.feature.auth.entity.Staff;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.Parent;
+import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StaffRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
@@ -34,6 +35,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -164,6 +166,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         
         Announcement entity = announcementRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + id));
+        requireTeacherIsCreator(entity, "update");
 
         // Validate dates
         if (req.startDate() != null && req.endDate() != null && req.startDate().isAfter(req.endDate())) {
@@ -219,6 +222,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         // Get announcement details before deletion for audit
         Announcement entity = announcementRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + id));
+        requireTeacherIsCreator(entity, "delete");
         String title = entity.getTitle();
         
         announcementRepo.deleteById(id);
@@ -562,6 +566,15 @@ public class AnnouncementServiceImpl implements AnnouncementService {
                 return classInfo;
             })
             .collect(Collectors.toList());
+    }
+
+    /** A teacher may change only announcements they created; administrators and staff are not limited. */
+    private void requireTeacherIsCreator(Announcement announcement, String action) {
+        BaseUser currentUser = getCurrentUser();
+        if (currentUser.getRole() == UserRole.TEACHER
+                && !currentUser.getId().equals(announcement.getCreatedById())) {
+            throw new AccessDeniedException("You can only " + action + " announcements you created");
+        }
     }
 
     /**
