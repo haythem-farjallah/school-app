@@ -11,6 +11,8 @@ import com.example.school_management.feature.auth.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -26,13 +28,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Accounts flagged passwordChangeRequired can log in, but their token only authenticates the
- * change of their own password until it is done. Runs through the real security filter chain;
- * every request uses its own client address so tests do not share rate-limit buckets.
+ * change of their own password until it is done. A successful change revokes every token issued
+ * before it. Runs through the real security filter chain; every request uses its own client
+ * address so tests do not share rate-limit buckets.
  */
 @IntegrationTest
 class PasswordChangeRequiredIntegrationTest {
@@ -79,7 +83,8 @@ class PasswordChangeRequiredIntegrationTest {
         String email = student(true);
         String token = accessToken(email);
 
-        login(email, token).andExpect(status().isOk());
+        mockMvc.perform(withToken(loginRequest(email, DevFixtureLoader.PASSWORD), token))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -99,6 +104,8 @@ class PasswordChangeRequiredIntegrationTest {
         String token = accessToken(emailA);
         String passwordA = user(emailA).getPassword();
         String passwordB = user(emailB).getPassword();
+        int tokenVersionA = user(emailA).getTokenVersion();
+        int tokenVersionB = user(emailB).getTokenVersion();
 
         mockMvc.perform(changePassword(token, emailB, DevFixtureLoader.PASSWORD, newPassword()))
                 .andExpect(status().isForbidden());
@@ -107,28 +114,81 @@ class PasswordChangeRequiredIntegrationTest {
         BaseUser b = user(emailB);
         assertThat(b.getPassword()).isEqualTo(passwordB);
         assertThat(b.isPasswordChangeRequired()).isTrue();
+        assertThat(b.getTokenVersion()).isEqualTo(tokenVersionB);
         assertThat(a.getPassword()).isEqualTo(passwordA);
         assertThat(a.isPasswordChangeRequired()).isTrue();
+        assertThat(a.getTokenVersion()).isEqualTo(tokenVersionA);
     }
 
-    @Test
-    void changingOwnPasswordUnlocksTheSameToken() throws Exception {
-        String email = student(true);
-        String token = accessToken(email);
-        String newPassword = newPassword();
+    /** Covers the forced first-login change and a later change from the profile. */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void successfulChangeRevokesEarlierSessions(boolean passwordChangeRequired) throws Exception {
+        String email = student(passwordChangeRequired);
+        JsonNode oldTokens = loginTokens(email, DevFixtureLoader.PASSWORD);
+        String oldAccess = oldTokens.path("accessToken").asText();
+        String oldRefresh = oldTokens.path("refreshToken").asText();
         int tokenVersion = user(email).getTokenVersion();
+        String newPassword = newPassword();
 
-        mockMvc.perform(changePassword(token, email, DevFixtureLoader.PASSWORD, newPassword))
-                .andExpect(status().isOk());
+        mockMvc.perform(changePassword(oldAccess, email, DevFixtureLoader.PASSWORD, newPassword))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
 
         BaseUser changed = user(email);
         assertThat(changed.isPasswordChangeRequired()).isFalse();
         assertThat(passwordEncoder.matches(newPassword, changed.getPassword())).isTrue();
-        assertThat(changed.getTokenVersion()).isEqualTo(tokenVersion);
+        assertThat(changed.getTokenVersion()).isEqualTo(tokenVersion + 1);
 
-        mockMvc.perform(profile(token))
+        mockMvc.perform(profile(oldAccess)).andExpect(status().isUnauthorized());
+        mockMvc.perform(refresh(oldRefresh))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token"));
+        login(email, DevFixtureLoader.PASSWORD).andExpect(status().isUnauthorized());
+
+        JsonNode newTokens = loginTokens(email, newPassword);
+        assertThat(newTokens.path("passwordChangeRequired").asBoolean()).isFalse();
+        mockMvc.perform(profile(newTokens.path("accessToken").asText()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(email));
+        mockMvc.perform(refresh(newTokens.path("refreshToken").asText()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").isString());
+    }
+
+    @Test
+    void wrongCurrentPasswordKeepsEarlierSessions() throws Exception {
+        String email = student(true);
+        JsonNode tokens = loginTokens(email, DevFixtureLoader.PASSWORD);
+        String access = tokens.path("accessToken").asText();
+        String password = user(email).getPassword();
+        int tokenVersion = user(email).getTokenVersion();
+
+        mockMvc.perform(changePassword(access, email, "not-the-current-password", newPassword()))
+                .andExpect(status().isBadRequest());
+
+        BaseUser unchanged = user(email);
+        assertThat(unchanged.getPassword()).isEqualTo(password);
+        assertThat(unchanged.isPasswordChangeRequired()).isTrue();
+        assertThat(unchanged.getTokenVersion()).isEqualTo(tokenVersion);
+        mockMvc.perform(refresh(tokens.path("refreshToken").asText())).andExpect(status().isOk());
+        mockMvc.perform(changePassword(access, email, DevFixtureLoader.PASSWORD, newPassword()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void invalidRequestKeepsEarlierSessions() throws Exception {
+        String email = student(false);
+        JsonNode tokens = loginTokens(email, DevFixtureLoader.PASSWORD);
+        String access = tokens.path("accessToken").asText();
+        int tokenVersion = user(email).getTokenVersion();
+
+        mockMvc.perform(changePassword(access, email, DevFixtureLoader.PASSWORD, ""))
+                .andExpect(status().isBadRequest());
+
+        assertThat(user(email).getTokenVersion()).isEqualTo(tokenVersion);
+        mockMvc.perform(profile(access)).andExpect(status().isOk());
+        mockMvc.perform(refresh(tokens.path("refreshToken").asText())).andExpect(status().isOk());
     }
 
     @Test
@@ -186,24 +246,38 @@ class PasswordChangeRequiredIntegrationTest {
     }
 
     private String accessToken(String email) throws Exception {
-        String body = login(email)
+        return loginTokens(email, DevFixtureLoader.PASSWORD).path("accessToken").asText();
+    }
+
+    /** Logs in and returns the login response data (access token, refresh token, user). */
+    private JsonNode loginTokens(String email, String password) throws Exception {
+        String body = login(email, password)
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        JsonNode token = objectMapper.readTree(body).path("data").path("accessToken");
-        assertThat(token.isTextual()).isTrue();
-        return token.asText();
+        JsonNode data = objectMapper.readTree(body).path("data");
+        assertThat(data.path("accessToken").isTextual()).isTrue();
+        assertThat(data.path("refreshToken").isTextual()).isTrue();
+        return data;
     }
 
     private ResultActions login(String email) throws Exception {
-        return login(email, null);
+        return login(email, DevFixtureLoader.PASSWORD);
     }
 
-    private ResultActions login(String email, String token) throws Exception {
-        MockHttpServletRequestBuilder request = withClientAddress(post("/api/auth/login"))
+    private ResultActions login(String email, String password) throws Exception {
+        return mockMvc.perform(loginRequest(email, password));
+    }
+
+    private MockHttpServletRequestBuilder loginRequest(String email, String password) throws Exception {
+        return withClientAddress(post("/api/auth/login"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(
-                        Map.of("email", email, "password", DevFixtureLoader.PASSWORD)));
-        return mockMvc.perform(withToken(request, token));
+                .content(objectMapper.writeValueAsString(Map.of("email", email, "password", password)));
+    }
+
+    private MockHttpServletRequestBuilder refresh(String refreshToken) throws Exception {
+        return withClientAddress(post("/api/auth/refresh"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken)));
     }
 
     private MockHttpServletRequestBuilder changePassword(String token, String email, String oldPassword,

@@ -3,9 +3,11 @@ import { useMutationApi } from "@/hooks/useMutationApi";
 import { changePassword, ChangePasswordRequest } from "@/features/auth/changePassword";
 import toast from "react-hot-toast";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { terminateSession } from "@/lib/session";
 
 /**
- * Hook for changing password after first login
+ * Hook for changing the password, on first login or from the profile. A successful change
+ * revokes every token of the account, so the session ends and the user signs in again.
  */
 export const useChangePassword = () => {
   const navigate = useNavigate();
@@ -14,9 +16,9 @@ export const useChangePassword = () => {
     changePassword,
     {
       onSuccess: () => {
-        toast.success("Your password has been successfully changed. You can now access the system.");
-        // Redirect to dashboard after successful password change
-        navigate("/", { replace: true });
+        toast.success("Password changed successfully. Please sign in again.");
+        terminateSession();
+        navigate("/login", { replace: true });
       },
       onError: (error) => {
         toast.error(getApiErrorMessage(error, "Failed to change password. Please try again."));

@@ -20,18 +20,19 @@ account's sessions are revoked. The CSP below reduces the chance of XSS; it does
 - Production CSP with `script-src 'self'` (no inline or eval scripts), served by the frontend nginx.
 - No `dangerouslySetInnerHTML`, `eval` or `new Function` in application code.
 - Short access token lifetime (15 minutes) and a 24-hour absolute refresh lifetime.
-- Server-side `tokenVersion`: a password reset (e-mailed code) invalidates every issued access
-  and refresh token.
+- Server-side `tokenVersion`: a successful password reset (e-mailed code) or authenticated
+  password change (`/api/auth/change-password`) increments it, which invalidates every access
+  and refresh token issued before it. Failed attempts leave it unchanged.
 - Every request, refresh and WebSocket CONNECT reloads the account: tokens of suspended or
-  deleted accounts, or issued before a password reset, are rejected.
+  deleted accounts, or issued before a password reset or change, are rejected.
+- After an authenticated password change, on first login or from the profile, the frontend
+  terminates the current local session and requires a fresh login with the new password.
 - WebSocket sessions authenticate on CONNECT; after a suspension, deletion or `tokenVersion`
   change, their later frames and message deliveries are refused.
 
 Limits of these mitigations:
 
 - Logout clears browser storage only; it does not revoke the tokens server-side.
-- Changing the password while signed in (`/api/auth/change-password`) does not change
-  `tokenVersion`, so tokens issued before it stay valid.
 - A stolen refresh token stays usable for up to 24 hours unless `tokenVersion` changes.
 
 ### Future direction

@@ -101,8 +101,10 @@ public class AuthController {
     }
 
     /**
-     * “First-login” change-password endpoint (old→new). Changes only the caller's own password;
-     * the email in the body must be the authenticated account's.
+     * Change-password endpoint (old→new), used on first login and from the profile. Changes only
+     * the caller's own password; the email in the body must be the authenticated account's.
+     * A successful change revokes every access and refresh token issued before it, including
+     * the one used for this request.
      */
     @PostMapping("/change-password")
     @SecurityRequirement(name = "bearerAuth")
@@ -119,9 +121,10 @@ public class AuthController {
 
         u.setPassword(passwordEncoder.encode(rq.getNewPassword()));
         u.setPasswordChangeRequired(false);
+        u.setTokenVersion(u.getTokenVersion() + 1);
         userRepo.save(u);
 
-        log.info("First-login password changed");
+        log.info("Password changed; earlier sessions revoked");
         return ResponseEntity.ok().build();
 
     }
