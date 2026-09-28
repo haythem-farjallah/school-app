@@ -124,7 +124,7 @@ public class GradeServiceImpl implements GradeService {
         auditService.createGradeAuditEvent(AuditEventType.GRADE_UPDATED, gradeId, 
             "Grade updated", auditDetails, currentUser);
         
-        log.info("Grade {} updated by user {}", gradeId, currentUser.getEmail());
+        log.info("Grade {} updated by user {}", gradeId, currentUser.getId());
     }
 
     @Override
@@ -149,7 +149,7 @@ public class GradeServiceImpl implements GradeService {
         
         gradeRepository.delete(grade);
         
-        log.info("Grade {} deleted by user {} for reason: {}", gradeId, currentUser.getEmail(), request.getReason());
+        log.info("Grade {} deleted by user {}", gradeId, currentUser.getId());
     }
 
     @Override

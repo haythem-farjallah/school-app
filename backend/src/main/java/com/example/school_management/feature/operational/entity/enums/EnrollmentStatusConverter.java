@@ -2,10 +2,12 @@ package com.example.school_management.feature.operational.entity.enums;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * JPA Converter for EnrollmentStatus enum to handle PostgreSQL enum type conversion
  */
+@Slf4j
 @Converter(autoApply = true)
 public class EnrollmentStatusConverter implements AttributeConverter<EnrollmentStatus, String> {
 
@@ -26,8 +28,7 @@ public class EnrollmentStatusConverter implements AttributeConverter<EnrollmentS
         try {
             return EnrollmentStatus.valueOf(dbData.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            // Log the error and return a default value
-            System.err.println("Invalid enrollment status value in database: " + dbData + ". Using PENDING as default.");
+            log.warn("Invalid enrollment status value in database: {}. Using PENDING as default.", dbData);
             return EnrollmentStatus.PENDING;
         }
     }

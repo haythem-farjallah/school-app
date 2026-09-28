@@ -74,8 +74,6 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     @Override
     public LearningResourceDto create(CreateLearningResourceRequest request) {
-        log.debug("Creating learning resource: {}", request);
-        
         requireNotManagedFileUrl(request.getUrl());
 
         LearningResource resource = new LearningResource();
@@ -127,7 +125,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for resource creation: {}", e.getMessage());
+            log.warn("Failed to create audit event for resource creation: {}", e.getClass().getSimpleName());
         }
         
         return mapper.toDto(saved);
@@ -139,8 +137,6 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     }
 
     public LearningResourceDto uploadResourceWithVisibility(MultipartFile file, CreateLearningResourceRequest request, Boolean isPublic) {
-        log.debug("Uploading learning resource file: {}", file.getOriginalFilename());
-        
         // Determine resource type first
         ResourceType resourceType = determineResourceType(StringUtils.getFilenameExtension(file.getOriginalFilename()));
         
@@ -228,7 +224,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
                 currentUser
             );
         } catch (Exception e) {
-            log.warn("Failed to create audit event for resource upload: {}", e.getMessage());
+            log.warn("Failed to create audit event for resource upload: {}", e.getClass().getSimpleName());
         }
         
         return mapper.toDto(saved);
@@ -236,7 +232,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
 
     @Override
     public LearningResourceDto update(Long id, UpdateLearningResourceRequest request) {
-        log.debug("Updating learning resource {} with {}", id, request);
+        log.debug("Updating learning resource {}", id);
         
         LearningResource resource = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + id));
@@ -529,14 +525,11 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         String typeString = resourceType.name();
         FileSecurityService.FileValidationResult result = fileSecurityService.validateFile(file, typeString);
         
+        // FileSecurityService logs the rejected rule.
         if (!result.isValid()) {
-            log.warn("File validation failed: {}", result.getErrorMessage());
             throw new FileSecurityException("File validation failed: " + result.getErrorMessage());
         }
-        
-        log.info("File validation successful for: {} (hash: {})", 
-            result.getSanitizedFilename(), result.getFileHash());
-        
+
         return result;
     }
 

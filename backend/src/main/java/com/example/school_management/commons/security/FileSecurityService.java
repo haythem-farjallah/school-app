@@ -86,8 +86,7 @@ public class FileSecurityService {
      * Comprehensive file validation
      */
     public FileValidationResult validateFile(MultipartFile file, String resourceType) {
-        log.debug("Validating file: {} (size: {}, type: {})", 
-            file.getOriginalFilename(), file.getSize(), file.getContentType());
+        log.debug("Validating {} upload ({} bytes)", resourceType, file.getSize());
 
         try {
             // 1. Basic file validation
@@ -112,11 +111,10 @@ public class FileSecurityService {
             // 7. Generate file hash for integrity
             String fileHash = generateFileHash(file);
 
-            log.info("File validation successful: {} (hash: {})", sanitizedFilename, fileHash);
             return FileValidationResult.success(sanitizedFilename, fileHash);
 
         } catch (FileSecurityException e) {
-            log.warn("File validation failed for {}: {}", file.getOriginalFilename(), e.getMessage());
+            log.warn("Upload rejected: {}", e.getMessage());
             return FileValidationResult.failure(e.getMessage());
         }
     }

@@ -97,24 +97,7 @@ public class TeacherController {
     @PatchMapping("/{id}")
     public ResponseEntity<ApiSuccessResponse<TeacherDto>> patch(@PathVariable long id,
                             @Valid @RequestBody TeacherUpdateDto body) {
-        log.info("📥 PATCH /admin/teachers/{} - Received update request:", id);
-        log.info("   📞 Telephone: '{}'", body.telephone());
-        log.info("   🏠 Address: '{}'", body.address());
-        log.info("   🎓 Qualifications: '{}'", body.qualifications());
-        log.info("   📚 Subjects Taught: '{}'", body.subjectsTaught());
-        log.info("   ⏰ Available Hours: {}", body.availableHours());
-        log.info("   📅 Schedule Preferences: '{}'", body.schedulePreferences());
-        
         TeacherDto result = mapper.toDto(service.patch(id, body));
-        
-        log.info("📤 PATCH /admin/teachers/{} - Returning updated teacher:", id);
-        log.info("   📞 Telephone: '{}'", result.telephone());
-        log.info("   🏠 Address: '{}'", result.address());
-        log.info("   🎓 Qualifications: '{}'", result.qualifications());
-        log.info("   📚 Subjects Taught: '{}'", result.subjectsTaught());
-        log.info("   ⏰ Available Hours: {}", result.availableHours());
-        log.info("   📅 Schedule Preferences: '{}'", result.schedulePreferences());
-        
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", result));
     }
 

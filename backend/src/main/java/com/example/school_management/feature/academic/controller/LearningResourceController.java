@@ -53,7 +53,6 @@ public class LearningResourceController {
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<ApiSuccessResponse<LearningResourceDto>> create(
             @Valid @RequestBody CreateLearningResourceRequest request) {
-        log.debug("POST /learning-resources {}", request);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.create(request)));
     }
 
@@ -71,9 +70,6 @@ public class LearningResourceController {
             @RequestParam(value = "classIds", required = false) String classIdsJson,
             @RequestParam(value = "courseIds", required = false) String courseIdsJson,
             @RequestParam(value = "tags", required = false) String tagsJson) {
-        
-        log.debug("POST /learning-resources/upload with file: {} ({})", file.getOriginalFilename(), file.getSize());
-        
         // Validate file
         if (file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File cannot be empty");
@@ -99,7 +95,7 @@ public class LearningResourceController {
         
         // Use the custom method that accepts isPublic parameter
         LearningResourceDto result = serviceImpl.uploadResourceWithVisibility(file, request, isPublic);
-        log.info("Successfully uploaded resource: {} with ID: {}", result.getTitle(), result.getId());
+        log.info("Learning resource {} uploaded ({} bytes, type {})", result.getId(), file.getSize(), result.getType());
         
         return ResponseEntity.ok(new ApiSuccessResponse<>("File uploaded successfully", result));
     }
@@ -110,16 +106,14 @@ public class LearningResourceController {
     public ResponseEntity<Resource> downloadFile(@PathVariable String filename) {
         Path filePath = service.resolveReadableFile(filename);
         try {
-            log.debug("Attempting to serve file: {} from path: {}", filename, filePath.toAbsolutePath());
             Resource resource = new FileSystemResource(filePath.toFile());
-            
+
             if (!resource.exists() || !resource.isReadable()) {
-                log.warn("File not found or not readable: {} at path: {}", filename, filePath.toAbsolutePath());
+                log.warn("Stored file missing or unreadable: {}", filename);
                 return ResponseEntity.notFound().build();
             }
-            
+
             // Increment download count
-            log.info("Incrementing download count for filename: {}", filename);
             service.incrementDownloadCount(filename);
             
             // Determine content type
@@ -143,16 +137,14 @@ public class LearningResourceController {
     public ResponseEntity<Resource> previewFile(@PathVariable String filename) {
         Path filePath = service.resolveReadableFile(filename);
         try {
-            log.debug("Attempting to preview file: {} from path: {}", filename, filePath.toAbsolutePath());
             Resource resource = new FileSystemResource(filePath.toFile());
-            
+
             if (!resource.exists() || !resource.isReadable()) {
-                log.warn("File not found or not readable: {} at path: {}", filename, filePath.toAbsolutePath());
+                log.warn("Stored file missing or unreadable: {}", filename);
                 return ResponseEntity.notFound().build();
             }
-            
+
             // Increment view count
-            log.info("Incrementing view count for filename: {}", filename);
             service.incrementViewCount(filename);
             
             // Determine content type
@@ -177,11 +169,10 @@ public class LearningResourceController {
     public ResponseEntity<Resource> streamVideo(@PathVariable String filename) {
         Path filePath = service.resolveReadableFile(filename);
         try {
-            log.debug("Attempting to stream file: {} from path: {}", filename, filePath.toAbsolutePath());
             Resource resource = new FileSystemResource(filePath.toFile());
-            
+
             if (!resource.exists() || !resource.isReadable()) {
-                log.warn("Video file not found or not readable: {} at path: {}", filename, filePath.toAbsolutePath());
+                log.warn("Stored file missing or unreadable: {}", filename);
                 return ResponseEntity.notFound().build();
             }
             

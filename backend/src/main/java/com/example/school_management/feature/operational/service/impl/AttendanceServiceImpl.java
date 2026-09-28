@@ -380,26 +380,18 @@ public class AttendanceServiceImpl implements AttendanceService {
         // Get teacher's timetable slots for today
         com.example.school_management.feature.operational.entity.enums.DayOfWeek dayOfWeek = convertToDayOfWeek(date.getDayOfWeek());
         List<TimetableSlot> allSlots = timetableSlotRepository.findByTeacherId(teacherId);
-        log.info("Found {} total timetable slots for teacher {}", allSlots.size(), teacherId);
-        
-        // Log all slots for debugging
-        for (TimetableSlot slot : allSlots) {
-            log.info("Slot {}: day={}, class={}, course={}", slot.getId(), slot.getDayOfWeek(), 
-                    slot.getForClass() != null ? slot.getForClass().getName() : "null",
-                    slot.getForCourse() != null ? slot.getForCourse().getName() : "null");
-        }
-        
+
         List<TimetableSlot> todaySlots = allSlots.stream()
                 .filter(slot -> slot.getDayOfWeek() == dayOfWeek)
                 .collect(Collectors.toList());
-        
-        log.info("Found {} timetable slots for teacher {} on {} (day: {})", todaySlots.size(), teacherId, date, dayOfWeek);
+
+        log.debug("Found {} of {} timetable slots for teacher {} on {}", todaySlots.size(), allSlots.size(), teacherId, dayOfWeek);
         
         List<AttendanceDto> result = new ArrayList<>();
         
         // If no timetable slots exist, create virtual slots from teacher's assigned classes
         if (todaySlots.isEmpty()) {
-            log.info("No timetable slots found for teacher {} on {}, creating virtual slots from assigned classes", teacherId, date);
+            log.debug("No timetable slots for teacher {} on {}, creating virtual slots from assigned classes", teacherId, date);
             
             // Get teacher's assigned classes through teaching assignments
             List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacherId);
@@ -426,10 +418,9 @@ public class AttendanceServiceImpl implements AttendanceService {
                 virtualSlot.setTeacherId(teacherId);
                 virtualSlot.setTeacherName(teacher.getFirstName() + " " + teacher.getLastName());
                 result.add(virtualSlot);
-                log.debug("Created virtual slot for class {} and course {}", assignment.getClazz().getName(), assignment.getCourse().getName());
             }
-            
-            log.info("Created {} virtual slots for teacher {} on {}", result.size(), teacherId, date);
+
+            log.debug("Created {} virtual slots for teacher {} on {}", result.size(), teacherId, date);
         } else {
             // Process existing timetable slots
             for (TimetableSlot slot : todaySlots) {
@@ -469,7 +460,6 @@ public class AttendanceServiceImpl implements AttendanceService {
         
         // Handle virtual slots (when timetableSlotId is -1)
         if (timetableSlotId == -1L) {
-            log.info("Handling virtual timetable slot for date {}", date);
             // For virtual slots, we need to get the class and course from the request context
             // This is a simplified approach - in a real scenario, you might pass class/course info
             throw new IllegalArgumentException("Virtual slots require additional context. Please use class-based attendance marking.");
@@ -717,12 +707,11 @@ public class AttendanceServiceImpl implements AttendanceService {
                 );
             }
             
-            log.info("Sent absence notifications for student {} to {} parents", 
-                studentName, parents.size());
-                
+            log.info("Sent absence notifications for student {} to {} parents",
+                student.getId(), parents.size());
+
         } catch (Exception e) {
-            log.error("Failed to send absence notifications for student {}: {}", 
-                student.getId(), e.getMessage(), e);
+            log.error("Failed to send absence notifications for student {}", student.getId(), e);
         }
     }
     
@@ -794,25 +783,13 @@ public class AttendanceServiceImpl implements AttendanceService {
         ClassEntity classEntity = classRepository.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
         
-        log.info("🔍 Class found: {} (ID: {})", classEntity.getName(), classId);
-        
         // Get all students in the class through enrollments (the correct way)
         List<Student> students = studentRepository.findByClassIds(List.of(classId));
-        log.info("🔍 Found {} students for class {} through enrollments", students.size(), classId);
-        
-        // Also check direct relationship for comparison
-        List<Student> directStudents = new ArrayList<>(classEntity.getStudents());
-        log.info("🔍 Direct class.students relationship has {} students", directStudents.size());
-        
-        // Check enrollments directly
-        List<Enrollment> enrollments = enrollmentRepository.findByClassIdAndStatus(classId, EnrollmentStatus.ACTIVE);
-        log.info("🔍 Found {} active enrollments for class {}", enrollments.size(), classId);
-        
+
         // Convert to AttendanceDto format for consistency
         List<AttendanceDto> result = new ArrayList<>();
-        
+
         for (Student student : students) {
-            log.debug("🔍 Processing student: {} {} (ID: {})", student.getFirstName(), student.getLastName(), student.getId());
             AttendanceDto dto = new AttendanceDto();
             dto.setUserId(student.getId());
             dto.setTimetableSlotId(-1L); // Virtual slot
@@ -824,8 +801,6 @@ public class AttendanceServiceImpl implements AttendanceService {
             dto.setUserName(student.getFirstName() + " " + student.getLastName());
             result.add(dto);
         }
-        
-        log.info("🔍 Returning {} attendance records for class {}", result.size(), classId);
         return result;
     }
 

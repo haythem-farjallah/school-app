@@ -48,16 +48,10 @@ public class StaffController {
     @PostMapping
     public ResponseEntity<ApiSuccessResponse<StaffDto>> create(
             @Valid @RequestBody StaffCreateDto body) {
-        log.info("Creating staff member with data: {}", body);
-        try {
-            var result = service.create(body);
-            log.info("Staff member created successfully with ID: {}", result.getId());
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(new ApiSuccessResponse<>("Staff member created successfully", mapper.toDto(result)));
-        } catch (Exception e) {
-            log.error("Failed to create staff member: {}", e.getMessage(), e);
-            throw e;
-        }
+        var result = service.create(body);
+        log.info("Created STAFF id={}", result.getId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiSuccessResponse<>("Staff member created successfully", mapper.toDto(result)));
     }
 
     @Operation(summary = "Get staff member by ID")

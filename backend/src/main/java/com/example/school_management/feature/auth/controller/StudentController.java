@@ -63,7 +63,6 @@ public class StudentController {
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<StudentDto>> create(
             @Valid @RequestBody StudentCreateDto body) {
-        log.debug("POST /students {}", body);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiSuccessResponse<>("success", mapper.toDto(service.create(body))));
     }
@@ -124,7 +123,7 @@ public class StudentController {
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<StudentDto>> patch(@PathVariable long id,
                            @Valid @RequestBody StudentUpdateDto body) {
-        log.debug("PATCH /students/{} {}", id, body);
+        log.debug("PATCH /students/{}", id);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", mapper.toDto(service.patch(id, body))));
     }
 

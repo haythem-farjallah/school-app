@@ -300,7 +300,6 @@ public class AttendanceController {
         log.debug("Getting students for class {} on date {}", classId, targetDate);
         
         List<AttendanceDto> students = attendanceService.getStudentsForClass(classId, targetDate);
-        log.info("Controller returning {} students for class {} on date {}", students.size(), classId, targetDate);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", students));
     }
 
@@ -311,15 +310,6 @@ public class AttendanceController {
         log.debug("Getting students for class {} (simple)", classId);
         
         List<AttendanceDto> students = attendanceService.getStudentsForClassSimple(classId);
-        log.info("🔍 Controller returning {} students for class {}", students.size(), classId);
-        
-        // Log first few students for debugging
-        if (!students.isEmpty()) {
-            log.info("🔍 First student: {}", students.get(0).getUserName());
-        } else {
-            log.warn("🔍 No students found for class {}", classId);
-        }
-        
         return ResponseEntity.ok(new ApiSuccessResponse<>("Students retrieved successfully", students));
     }
 

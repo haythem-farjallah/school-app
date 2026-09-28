@@ -56,15 +56,8 @@ public class TeacherClassServiceImpl implements TeacherClassService {
     
     @Override
     public List<TeacherClassDto> getAllTeacherClasses(String teacherEmail, String search) {
-        log.info("🔍 Getting all classes for teacher: {}, search: {}", teacherEmail, search);
-        
         Teacher teacher = findTeacherByEmail(teacherEmail);
-        log.info("🔍 Found teacher: {} (ID: {})", teacher.getEmail(), teacher.getId());
-        
-        List<TeacherClassDto> classes = buildTeacherClassDtos(teacher, search);
-        log.info("🔍 Built {} class DTOs for teacher {}", classes.size(), teacherEmail);
-        
-        return classes;
+        return buildTeacherClassDtos(teacher, search);
     }
     
     @Override
@@ -105,51 +98,33 @@ public class TeacherClassServiceImpl implements TeacherClassService {
     }
     
     private List<TeacherClassDto> buildTeacherClassDtos(Teacher teacher, String search) {
-        log.info("🔍 Building class DTOs for teacher: {} (ID: {})", teacher.getEmail(), teacher.getId());
-        
         // Get all teaching assignments for this teacher
         List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacher.getId());
-        log.info("🔍 Found {} teaching assignments for teacher {}", assignments.size(), teacher.getId());
         
         // Also get classes directly assigned to teacher (many-to-many relationship)
         // We need to fetch this fresh from the database to avoid lazy loading issues
         Teacher freshTeacher = teacherRepository.findById(teacher.getId()).orElse(teacher);
         Set<ClassEntity> directClasses = freshTeacher.getClasses();
-        log.info("🔍 Found {} direct class assignments for teacher {}", 
-                directClasses != null ? directClasses.size() : 0, teacher.getId());
         
         // Also check using a direct query to the class_teachers junction table
         List<ClassEntity> classesFromJunction = classRepository.findByTeacherId(teacher.getId());
-        log.info("🔍 Found {} classes from junction table query for teacher {}", 
-                classesFromJunction.size(), teacher.getId());
         
         // Combine all approaches
         Set<Long> allClassIds = new HashSet<>();
         
         // Add classes from teaching assignments
-        assignments.forEach(ta -> {
-            allClassIds.add(ta.getClazz().getId());
-            log.info("🔍 Added class {} from teaching assignment", ta.getClazz().getId());
-        });
+        assignments.forEach(ta -> allClassIds.add(ta.getClazz().getId()));
         
         // Add direct class assignments
         if (directClasses != null) {
-            directClasses.forEach(clazz -> {
-                allClassIds.add(clazz.getId());
-                log.info("🔍 Added class {} from direct assignment", clazz.getId());
-            });
+            directClasses.forEach(clazz -> allClassIds.add(clazz.getId()));
         }
         
         // Add classes from junction table query
-        classesFromJunction.forEach(clazz -> {
-            allClassIds.add(clazz.getId());
-            log.info("🔍 Added class {} from junction table query", clazz.getId());
-        });
-        
-        log.info("🔍 Total unique classes for teacher {}: {}", teacher.getId(), allClassIds.size());
+        classesFromJunction.forEach(clazz -> allClassIds.add(clazz.getId()));
         
         if (allClassIds.isEmpty()) {
-            log.warn("❌ No classes found for teacher {} ({})", teacher.getEmail(), teacher.getId());
+            log.debug("No classes found for teacher {}", teacher.getId());
             return new ArrayList<>();
         }
         
