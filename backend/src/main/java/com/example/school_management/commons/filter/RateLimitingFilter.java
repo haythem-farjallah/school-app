@@ -33,13 +33,18 @@ import java.util.Set;
  * Rate limiting filter that applies different rate limits based on endpoint patterns.
  *
  * <p>Buckets live in Redis, so every backend instance shares the same limits. If Redis cannot be
- * reached the request is refused with 503 rather than passed through unlimited.
+ * reached the request is refused with 503 rather than passed through unlimited. The liveness probe
+ * is the one path that is never limited.
  */
 @Slf4j
 @Component
 public class RateLimitingFilter implements Filter {
 
     static final String REDIS_KEY_PREFIX = "school-app:rate-limit:v1:";
+
+    // Liveness only reports that the process runs and does no I/O. Limiting it would make a Redis
+    // outage (503 from this filter) look like a dead process and get a healthy instance restarted.
+    static final String LIVENESS_PATH = "/actuator/health/liveness";
 
     // Percent-decodes the path and drops ;parameters, as Spring MVC does before matching a handler.
     private static final UrlPathHelper PATH_HELPER = UrlPathHelper.defaultInstance;
@@ -70,6 +75,10 @@ public class RateLimitingFilter implements Filter {
         // Classify and key by the decoded path Spring MVC routes on, not the raw URI: otherwise
         // /api/auth/%6Cogin reaches the login endpoint with a fresh bucket of its own.
         String path = PATH_HELPER.getPathWithinApplication(httpRequest);
+        if (path.equals(LIVENESS_PATH)) {
+            chain.doFilter(request, response);
+            return;
+        }
         String method = httpRequest.getMethod();
         String clientIp = getClientIpAddress(httpRequest);
         String normalizedUri = normalizeUri(path);

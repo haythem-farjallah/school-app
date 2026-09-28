@@ -84,6 +84,31 @@ class RateLimitingFilterTest {
         assertThat(response.getContentAsString()).isEmpty();
     }
 
+    @Test
+    void livenessProbeIsServedWhileRedisIsDown() throws Exception {
+        when(bucket.tryConsumeAndReturnRemaining(1)).thenThrow(new RedisConnectionException("Unable to connect"));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/actuator/health/liveness");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain, times(1)).doFilter(request, response);
+        verifyNoInteractions(bucket);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader("X-Rate-Limit-Remaining")).isNull();
+    }
+
+    @Test
+    void readinessProbeFailsClosedWhileRedisIsDown() throws Exception {
+        when(bucket.tryConsumeAndReturnRemaining(1)).thenThrow(new RedisConnectionException("Unable to connect"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(new MockHttpServletRequest("GET", "/actuator/health/readiness"), response, chain);
+
+        verifyNoInteractions(chain);
+        assertThat(response.getStatus()).isEqualTo(503);
+    }
+
     private static MockHttpServletRequest loginRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
         request.setRemoteAddr(CLIENT_ADDRESS);
