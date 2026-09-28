@@ -6,10 +6,12 @@ import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
+import com.example.school_management.feature.auth.entity.Staff;
 import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
+import com.example.school_management.feature.auth.repository.StaffRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.dto.TeacherAttendanceRequest;
@@ -70,6 +72,7 @@ class AttendanceQuarantineIntegrationTest {
 
     private static final LocalDate MONDAY = LocalDate.of(2030, 1, 7);
     private static final LocalDate TUESDAY = MONDAY.plusDays(1);
+    private static final String SCHEDULED_DAY_ONLY = "Attendance for this slot can only be taken on its scheduled day";
 
     @Autowired
     MockMvc mockMvc;
@@ -106,6 +109,9 @@ class AttendanceQuarantineIntegrationTest {
 
     @Autowired
     PasswordEncoder passwordEncoder;
+
+    @Autowired
+    StaffRepository staffRepository;
 
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
@@ -241,6 +247,44 @@ class AttendanceQuarantineIntegrationTest {
     }
 
     @Test
+    void aTeacherReadsTheirOwnSlotOnlyOnItsScheduledDay() throws Exception {
+        String teacher = bearer(DevFixtureLoader.TEACHER_EMAIL);
+
+        mockMvc.perform(get("/api/v1/attendance/slot/{id}/students", slotA.getId()).param("date", MONDAY.toString())
+                        .header(HttpHeaders.AUTHORIZATION, teacher))
+                .andExpect(status().isOk());
+        expectForbidden(mockMvc.perform(get("/api/v1/attendance/slot/{id}/students", slotA.getId()).param("date", TUESDAY.toString())
+                .header(HttpHeaders.AUTHORIZATION, teacher)), SCHEDULED_DAY_ONLY);
+        expectForbidden(mockMvc.perform(get("/api/v1/attendance/slot/{id}/students", slotB.getId()).param("date", TUESDAY.toString())
+                .header(HttpHeaders.AUTHORIZATION, teacher)), "You can only take attendance for your own timetable slots");
+
+        assertThat(slotAttendance()).isEmpty();
+    }
+
+    @Test
+    void administratorsAndStaffReadAnySlotOnAnyDay() throws Exception {
+        Staff st = new Staff();
+        st.setRole(UserRole.STAFF);
+        st.setEmail("staff-" + UUID.randomUUID() + "@fixtures.school.test");
+        st.setFirstName("Sara");
+        st.setLastName("Staff");
+        st.setPassword(passwordEncoder.encode(DevFixtureLoader.PASSWORD));
+        st.setStatus(Status.ACTIVE);
+        st.setIsEmailVerified(true);
+        Staff staff = staffRepository.save(st);
+        try {
+            for (String caller : List.of(DevFixtureLoader.ADMIN_EMAIL, staff.getEmail())) {
+                mockMvc.perform(get("/api/v1/attendance/slot/{id}/students", slotB.getId()).param("date", TUESDAY.toString())
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caller)))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.data[*].userId").value(hasItem(studentA.getId().intValue())));
+            }
+        } finally {
+            staffRepository.deleteById(staff.getId());
+        }
+    }
+
+    @Test
     void aTeacherMarksTheirOwnSlotOnItsDay() throws Exception {
         mockMvc.perform(markSlot(slotA, MONDAY, studentA).header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.TEACHER_EMAIL)))
                 .andExpect(status().isCreated())
@@ -260,7 +304,7 @@ class AttendanceQuarantineIntegrationTest {
         expectForbidden(mockMvc.perform(markSlot(slotB, MONDAY, studentA).header(HttpHeaders.AUTHORIZATION, teacher)),
                 "You can only take attendance for your own timetable slots");
         expectForbidden(mockMvc.perform(markSlot(slotA, TUESDAY, studentA).header(HttpHeaders.AUTHORIZATION, teacher)),
-                "Attendance for this slot can only be marked on its scheduled day");
+                SCHEDULED_DAY_ONLY);
 
         assertThat(slotAttendance()).isEmpty();
     }

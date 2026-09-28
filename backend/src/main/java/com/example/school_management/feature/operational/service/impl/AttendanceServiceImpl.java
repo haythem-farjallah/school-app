@@ -477,7 +477,9 @@ public class AttendanceServiceImpl implements AttendanceService {
         
         TimetableSlot slot = timetableSlotRepository.findById(timetableSlotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
-        requireOwnSlotForTeacher(slot, getCurrentUser());
+        BaseUser currentUser = getCurrentUser();
+        requireOwnSlotForTeacher(slot, currentUser);
+        requireScheduledDayForTeacher(slot, date, currentUser);
         
         if (slot.getForClass() == null) {
             throw new IllegalArgumentException("Timetable slot must have an associated class");
@@ -527,9 +529,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         BaseUser currentUser = getCurrentUser();
         if (currentUser.getRole() == UserRole.TEACHER) {
             requireOwnSlotForTeacher(slot, currentUser);
-            if (!canTeacherMarkAttendance(currentUser.getId(), timetableSlotId, date)) {
-                throw new AccessDeniedException("Attendance for this slot can only be marked on its scheduled day");
-            }
+            requireScheduledDayForTeacher(slot, date, currentUser);
             requireSlotRoster(slot, attendanceList);
         }
         List<AttendanceDto> result = new ArrayList<>();
@@ -643,6 +643,13 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (caller.getRole() == UserRole.TEACHER
                 && (slot.getTeacher() == null || !slot.getTeacher().getId().equals(caller.getId()))) {
             throw new AccessDeniedException("You can only take attendance for your own timetable slots");
+        }
+    }
+
+    // A teacher reads and marks a slot's attendance only for a date on the slot's weekday.
+    private void requireScheduledDayForTeacher(TimetableSlot slot, LocalDate date, BaseUser caller) {
+        if (caller.getRole() == UserRole.TEACHER && slot.getDayOfWeek() != convertToDayOfWeek(date.getDayOfWeek())) {
+            throw new AccessDeniedException("Attendance for this slot can only be taken on its scheduled day");
         }
     }
 

@@ -28,6 +28,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/classes")
 @RequiredArgsConstructor
+// Class listings and details expose each class's student, course and teacher ids. Until
+// teachers and students are authorized through canonical Enrollment and TeachingAssignment,
+// they only reach their own classes through the self-scoped routes at the end of this class.
 @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 @Tag(name = "Classes", description = "Endpoints for managing classes and their enrolments")
 @SecurityRequirement(name = "bearerAuth")
@@ -60,7 +63,6 @@ public class ClassController {
     @Operation(summary = "Get class details by ID")
     @Parameter(name = "id", description = "ID of the class to retrieve", required = true)
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<ClassDto>> get(@PathVariable Long id) {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.get(id)));
     }
@@ -75,7 +77,6 @@ public class ClassController {
 
     @Operation(summary = "List classes with pagination and optional filters")
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> list(
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
@@ -144,7 +145,6 @@ public class ClassController {
 
 
     @GetMapping("/new")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<MappingJacksonValue> list(
             QueryParams qp  // automatically resolved by your ArgumentResolver
     ) {
@@ -174,7 +174,6 @@ public class ClassController {
                    ready for a grid / cards UI.
                    """)
     @GetMapping("/cards")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<MappingJacksonValue> listCards(QueryParams qp) {
 
         var page     = service.listCards(qp);
@@ -195,7 +194,6 @@ public class ClassController {
                    Perfect for a details-&-sidebar page.
                    """)
     @GetMapping("/{id}/details")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<MappingJacksonValue> details(@PathVariable Long id,
                                                        QueryParams qp) {
         ClassViewDto dto = service.getDetails(id);
@@ -233,7 +231,7 @@ public class ClassController {
     @Operation(summary = "Get classes a student is enrolled in")
     @Parameter(name = "studentId", description = "ID of the student", required = true)
     @GetMapping("/student/{studentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF') or (hasRole('STUDENT') and @securityService.isCurrentUser(#studentId))")
     public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> getStudentClasses(
             @PathVariable Long studentId,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
