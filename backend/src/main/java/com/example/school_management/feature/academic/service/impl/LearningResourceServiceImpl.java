@@ -69,9 +69,6 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     @Value("${app.file.upload.path:uploads/learning-resources}")
     private String uploadPath;
 
-    @Value("${app.file.upload.max-size:10485760}") // 10MB default
-    private long maxFileSize;
-
     @Override
     public LearningResourceDto create(CreateLearningResourceRequest request) {
         requireNotManagedFileUrl(request.getUrl());

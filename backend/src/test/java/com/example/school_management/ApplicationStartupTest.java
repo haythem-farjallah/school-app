@@ -7,13 +7,18 @@ import org.flywaydb.core.api.MigrationState;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.testcontainers.containers.GenericContainer;
+import org.thymeleaf.context.Context;
+import org.thymeleaf.spring6.SpringTemplateEngine;
+import org.thymeleaf.templateresolver.AbstractConfigurableTemplateResolver;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -40,6 +45,12 @@ class ApplicationStartupTest {
     @Autowired
     @Qualifier("requestMappingHandlerMapping")
     RequestMappingHandlerMapping handlerMapping;
+
+    @Autowired
+    ConfigurableApplicationContext context;
+
+    @Autowired
+    SpringTemplateEngine templateEngine;
 
     @Test
     void flywayAppliesEveryMigrationToAnEmptyDatabase() {
@@ -92,5 +103,28 @@ class ApplicationStartupTest {
         assertThat(patterns)
                 .contains("/api/v1/announcements/teacher-classes")
                 .doesNotContain("/api/v1/announcements/create-test-assignments");
+    }
+
+    @Test
+    void duplicateBeanDefinitionsFailStartup() {
+        DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getBeanFactory();
+
+        assertThat(beanFactory.isAllowBeanDefinitionOverriding()).isFalse();
+    }
+
+    @Test
+    void emailTemplatesAreCachedAndRender() {
+        assertThat(templateEngine.getTemplateResolvers())
+                .isNotEmpty()
+                .allSatisfy(resolver -> assertThat(resolver)
+                        .isInstanceOfSatisfying(AbstractConfigurableTemplateResolver.class,
+                                configurable -> assertThat(configurable.isCacheable()).isTrue()));
+
+        Context variables = new Context();
+        variables.setVariable("subject", "Your code");
+        variables.setVariable("name", "Ada");
+        variables.setVariable("code", "482913");
+
+        assertThat(templateEngine.process("otp", variables)).contains("Hello, Ada!", "482913");
     }
 }

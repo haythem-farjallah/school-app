@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -15,8 +16,9 @@ import java.util.*;
 @Service
 public class FileSecurityService {
 
-    @Value("${app.file.upload.max-size:104857600}")
-    private long maxFileSize;
+    // The same limit the servlet container enforces on multipart uploads.
+    @Value("${spring.servlet.multipart.max-file-size}")
+    private DataSize maxFileSize;
 
     // Allowed MIME types for each resource type
     private static final Map<String, Set<String>> ALLOWED_MIME_TYPES = Map.of(
@@ -74,10 +76,9 @@ public class FileSecurityService {
         "JAVA_CLASS", new byte[]{(byte)0xCA, (byte)0xFE, (byte)0xBA, (byte)0xBE}
     );
 
-    // File size limits per type (in bytes)
+    // Per-type limits below the global upload limit (in bytes); videos may use the full limit.
     private static final Map<String, Long> TYPE_SIZE_LIMITS = Map.of(
         "DOCUMENT", 50L * 1024 * 1024, // 50MB
-        "VIDEO", 200L * 1024 * 1024,   // 200MB
         "IMAGE", 10L * 1024 * 1024,    // 10MB
         "AUDIO", 50L * 1024 * 1024     // 50MB
     );
@@ -124,10 +125,10 @@ public class FileSecurityService {
             throw new FileSecurityException("File cannot be null or empty");
         }
 
-        if (file.getSize() > maxFileSize) {
+        if (file.getSize() > maxFileSize.toBytes()) {
             throw new FileSecurityException(String.format(
                 "File size (%d bytes) exceeds maximum allowed size (%d bytes)", 
-                file.getSize(), maxFileSize));
+                file.getSize(), maxFileSize.toBytes()));
         }
 
         if (file.getOriginalFilename() == null || file.getOriginalFilename().trim().isEmpty()) {
