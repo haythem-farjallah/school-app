@@ -9,6 +9,8 @@ import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.CourseRepository;
 import com.example.school_management.feature.academic.service.CourseService;
+import com.example.school_management.feature.school.entity.School;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
@@ -22,6 +24,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.util.Base64;
+
 import static com.example.school_management.feature.academic.utils.EnrollmentUtils.fetch;
 
 @Slf4j
@@ -30,11 +35,14 @@ import static com.example.school_management.feature.academic.utils.EnrollmentUti
 @RequiredArgsConstructor
 public class CourseServiceImpl implements CourseService {
 
+    private static final SecureRandom CODE_RANDOM = new SecureRandom();
+
     private final CourseRepository  courseRepo;
     private final TeacherRepository teacherRepo;
     private final AcademicMapper    mapper;
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
+    private final CurrentSchoolResolver currentSchool;
 
     /* ─────────────────── CRUD ─────────────────── */
 
@@ -42,14 +50,16 @@ public class CourseServiceImpl implements CourseService {
     public CourseDto create(CreateCourseRequest r) {
         log.debug("Creating course {}", r);
 
-        /* Optional: tighten duplicate-name rule across teacher scope */
-        if (courseRepo.existsByNameIgnoreCase(r.name())) {
+        School school = currentSchool.resolve();
+        if (courseRepo.existsBySchoolIdAndNameIgnoreCase(school.getId(), r.name())) {
             log.warn("Course '{}' already exists", r.name());
             throw new ConflictException("Course name already exists");
         }
 
         Course entity = new Course();
+        entity.setSchool(school);
         fill(entity, r);
+        entity.setCode(generateCourseCode());
 
         Course savedEntity = courseRepo.save(entity);
         CourseDto dto = mapper.toCourseDto(savedEntity);
@@ -171,6 +181,13 @@ public class CourseServiceImpl implements CourseService {
     }
 
     /* ─────────────────── helper ─────────────────── */
+
+    private static String generateCourseCode() {
+        // 96 random bits fit in 16 URL-safe characters, leaving four for the prefix.
+        byte[] random = new byte[12];
+        CODE_RANDOM.nextBytes(random);
+        return "CRS-" + Base64.getUrlEncoder().withoutPadding().encodeToString(random);
+    }
 
     private void fill(Course c, CreateCourseRequest r) {
         c.setName(r.name());

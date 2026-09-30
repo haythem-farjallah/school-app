@@ -1,11 +1,14 @@
 package com.example.school_management.feature.operational.entity;
 
 import com.example.school_management.feature.academic.entity.ClassEntity;
+import com.example.school_management.feature.school.entity.School;
 import com.example.school_management.feature.operational.entity.enums.RoomType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.hibernate.annotations.ColumnTransformer;
 
 import java.util.HashSet;
@@ -20,6 +23,13 @@ public class Room {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "school_id", nullable = false)
+    @JsonIgnore
+    @ToString.Exclude
+    private School school;
 
     @EqualsAndHashCode.Include
     private String name;
@@ -39,4 +49,4 @@ public class Room {
     @ManyToMany(mappedBy = "rooms")
     @JsonIgnore
     private Set<Timetable> timetables = new HashSet<>();
-} 
+}

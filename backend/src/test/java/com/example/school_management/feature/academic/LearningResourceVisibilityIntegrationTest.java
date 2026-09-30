@@ -1,6 +1,7 @@
 package com.example.school_management.feature.academic;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
@@ -88,6 +89,9 @@ class LearningResourceVisibilityIntegrationTest {
     CourseRepository courseRepository;
 
     @Autowired
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
     PasswordEncoder passwordEncoder;
 
     @Value("${app.file.upload.path:uploads/learning-resources}")
@@ -124,6 +128,7 @@ class LearningResourceVisibilityIntegrationTest {
         c.setName("Visibility " + UUID.randomUUID());
         schoolClass = classRepository.save(c);
         Course k = new Course();
+        k.setSchool(currentSchool.resolve());
         k.setName("Visibility course");
         k.setCode("VI-" + UUID.randomUUID().toString().substring(0, 8));
         course = courseRepository.save(k);

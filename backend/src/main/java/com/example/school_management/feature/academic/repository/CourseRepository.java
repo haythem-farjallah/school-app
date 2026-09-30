@@ -6,4 +6,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecificationExecutor<Course> {
     boolean existsByNameIgnoreCase(String name);
+
+    boolean existsBySchoolIdAndNameIgnoreCase(Long schoolId, String name);
+
+    boolean existsBySchoolIdAndCode(Long schoolId, String code);
 }

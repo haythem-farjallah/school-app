@@ -1,6 +1,7 @@
 package com.example.school_management.feature.operational;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
@@ -96,6 +97,9 @@ class AttendanceQuarantineIntegrationTest {
     PeriodRepository periodRepository;
 
     @Autowired
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
     TimetableSlotRepository slotRepository;
 
     @Autowired
@@ -157,11 +161,13 @@ class AttendanceQuarantineIntegrationTest {
         schoolClass = classRepository.save(c);
 
         Course k = new Course();
+        k.setSchool(currentSchool.resolve());
         k.setName("Attendance course");
         k.setCode("AT-" + UUID.randomUUID().toString().substring(0, 8));
         course = courseRepository.save(k);
 
         Period p = new Period();
+        p.setSchool(currentSchool.resolve());
         p.setIndex(99);
         p.setStartTime(LocalTime.of(8, 0));
         p.setEndTime(LocalTime.of(9, 0));

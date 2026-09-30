@@ -7,6 +7,7 @@ import com.example.school_management.feature.operational.dto.RoomDto;
 import com.example.school_management.feature.operational.entity.Room;
 import com.example.school_management.feature.operational.entity.enums.RoomType;
 import com.example.school_management.feature.operational.repository.RoomRepository;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,6 +31,7 @@ import java.util.List;
 public class RoomController {
 
     private final RoomRepository roomRepository;
+    private final CurrentSchoolResolver currentSchool;
 
     @Operation(summary = "Create a new room")
     @PostMapping
@@ -38,6 +40,7 @@ public class RoomController {
         log.debug("Creating room: {}", roomDto);
         
         Room room = new Room();
+        room.setSchool(currentSchool.resolve());
         room.setName(roomDto.getName());
         room.setCapacity(roomDto.getCapacity());
         room.setRoomType(roomDto.getRoomType());
@@ -136,4 +139,4 @@ public class RoomController {
         List<Room> rooms = roomRepository.findByCapacityGreaterThanEqual(minCapacity);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Rooms retrieved successfully", rooms));
     }
-} 
+}

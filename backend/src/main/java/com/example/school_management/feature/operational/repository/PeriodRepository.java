@@ -14,6 +14,8 @@ import java.util.Optional;
 @Repository
 public interface PeriodRepository extends JpaRepository<Period, Long>, JpaSpecificationExecutor<Period> {
 
+    Optional<Period> findBySchoolIdAndIndex(Long schoolId, Integer index);
+
     @Query("SELECT p FROM Period p ORDER BY p.index")
     List<Period> findAllOrderByIndex();
 
@@ -31,4 +33,4 @@ public interface PeriodRepository extends JpaRepository<Period, Long>, JpaSpecif
 
     @Query("SELECT p FROM Period p WHERE p.startTime >= :startTime AND p.endTime <= :endTime ORDER BY p.index")
     List<Period> findByTimeRange(@Param("startTime") LocalTime startTime, @Param("endTime") LocalTime endTime);
-} 
+}

@@ -1,11 +1,14 @@
 package com.example.school_management.feature.academic.entity;
 
 import com.example.school_management.feature.auth.entity.Teacher;
+import com.example.school_management.feature.school.entity.School;
 import com.example.school_management.feature.operational.entity.TimetableSlot;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -13,17 +16,25 @@ import java.util.Set;
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
-@Table(name = "courses")
+@Table(name = "courses", uniqueConstraints =
+        @UniqueConstraint(name = "uk_courses_school_code", columnNames = {"school_id", "code"}))
 public class Course {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
 
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "school_id", nullable = false)
+    @JsonIgnore
+    @ToString.Exclude
+    private School school;
+
     @EqualsAndHashCode.Include
     private String name;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, length = 20)
     @EqualsAndHashCode.Include
     private String code; // Course code like MATH101
 

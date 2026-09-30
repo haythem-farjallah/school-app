@@ -28,11 +28,12 @@ class AcademicPeriodSchemaIntegrationTest {
     Flyway flyway;
 
     @Test
-    void canonicalTablesStartEmptyAndFlywayValidates() {
+    void compatibilitySchoolExistsAndAcademicPeriodsStartEmptyWhileFlywayValidates() {
         flyway.validate();
         assertThat(flyway.getConfiguration().isOutOfOrder()).isFalse();
         assertThat(flyway.getConfiguration().isBaselineOnMigrate()).isFalse();
-        for (String table : new String[]{"schools", "academic_years", "terms"}) {
+        assertThat(jdbc.queryForList("SELECT name FROM schools", String.class)).containsExactly("Legacy School");
+        for (String table : new String[]{"academic_years", "terms"}) {
             assertThat(jdbc.queryForObject("SELECT count(*) FROM " + table, Long.class)).isZero();
         }
     }

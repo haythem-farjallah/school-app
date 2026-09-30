@@ -1,6 +1,7 @@
 package com.example.school_management.feature.academic;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
@@ -65,6 +66,9 @@ class LearningResourceRetargetingIntegrationTest {
     CourseRepository courseRepository;
 
     @Autowired
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
     TransactionTemplate transaction;
 
     private static final AtomicInteger clientAddress = new AtomicInteger();
@@ -95,6 +99,7 @@ class LearningResourceRetargetingIntegrationTest {
         schoolClass = classRepository.save(c);
 
         Course k = new Course();
+        k.setSchool(currentSchool.resolve());
         k.setName("Retargeting course");
         k.setCode("RT-" + UUID.randomUUID().toString().substring(0, 8));
         course = courseRepository.save(k);

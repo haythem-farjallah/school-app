@@ -34,6 +34,7 @@ public interface AcademicMapper {
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "teacher", ignore = true)
+    @Mapping(target = "school", ignore = true)
     @Mapping(target = "timetableSlots", ignore = true)
     @Mapping(target = "classes", ignore = true)
     @Mapping(target = "learningResources", ignore = true)
