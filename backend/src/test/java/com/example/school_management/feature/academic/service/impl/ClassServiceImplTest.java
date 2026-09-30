@@ -3,6 +3,7 @@ package com.example.school_management.feature.academic.service.impl;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.ClassRepository;
+import com.example.school_management.feature.academic.service.CurrentAcademicYearResolver;
 import com.example.school_management.feature.academic.repository.CourseRepository;
 import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
 import com.example.school_management.feature.auth.entity.BaseUser;
@@ -47,6 +48,7 @@ class ClassServiceImplTest {
             mock(AcademicMapper.class),
             mock(TeachingAssignmentRepository.class),
             mock(AuditService.class),
+            mock(CurrentAcademicYearResolver.class),
             (BaseUserRepository<BaseUser>) mock(BaseUserRepository.class));
 
     @BeforeEach

@@ -96,7 +96,7 @@ class AcademicMasterMigrationIntegrationTest {
     }
 
     private Flyway flyway() {
-        return Flyway.configure().dataSource(jdbcUrl, postgres.getUsername(), postgres.getPassword()).load();
+        return Flyway.configure().dataSource(jdbcUrl, postgres.getUsername(), postgres.getPassword()).target("55").load();
     }
 
     private void migrate() {

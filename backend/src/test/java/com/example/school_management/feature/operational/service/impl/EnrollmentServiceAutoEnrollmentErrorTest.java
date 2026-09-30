@@ -1,6 +1,7 @@
 package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.feature.academic.repository.ClassRepository;
+import com.example.school_management.feature.academic.service.CurrentAcademicYearResolver;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
@@ -32,7 +33,8 @@ class EnrollmentServiceAutoEnrollmentErrorTest {
             mock(ClassRepository.class),
             mock(AuditService.class),
             (BaseUserRepository<BaseUser>) mock(BaseUserRepository.class),
-            mock(RealTimeNotificationService.class));
+            mock(RealTimeNotificationService.class),
+            mock(CurrentAcademicYearResolver.class));
 
     @Test
     void failureReportsOnlyAGenericError() {

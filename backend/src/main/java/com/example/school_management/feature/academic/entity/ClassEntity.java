@@ -36,8 +36,14 @@ public class ClassEntity {
     private String section; // A, B, C, etc.
     
     @Column(name = "academic_year")
-    private String academicYear; // 2024-2025
+    private String academicYear; // Compatibility projection for canonical new classes
     
+    // Historical classes remain unlinked until their academic ownership is reconciled.
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "academic_year_id", nullable = true)
+    @JsonIgnore
+    private AcademicYear canonicalAcademicYear;
+
     @EqualsAndHashCode.Include
     private Integer yearOfStudy;
     
@@ -124,6 +130,9 @@ public class ClassEntity {
     public String getAcademicYear() { return academicYear; }
     public void setAcademicYear(String academicYear) { this.academicYear = academicYear; }
     
+    public AcademicYear getCanonicalAcademicYear() { return canonicalAcademicYear; }
+    public void setCanonicalAcademicYear(AcademicYear canonicalAcademicYear) { this.canonicalAcademicYear = canonicalAcademicYear; }
+
     public Integer getYearOfStudy() { return yearOfStudy; }
     public void setYearOfStudy(Integer yearOfStudy) { this.yearOfStudy = yearOfStudy; }
     

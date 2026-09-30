@@ -9,6 +9,7 @@ import com.example.school_management.feature.academic.entity.*;
 import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.*;
 import com.example.school_management.feature.academic.service.ClassService;
+import com.example.school_management.feature.academic.service.CurrentAcademicYearResolver;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
@@ -49,6 +50,7 @@ public class ClassServiceImpl implements ClassService {
     private final AcademicMapper    mapper;
     private final TeachingAssignmentRepository  assignmentRepo;
     private final AuditService auditService;
+    private final CurrentAcademicYearResolver currentAcademicYear;
     private final BaseUserRepository<BaseUser> userRepo;
 
     /* ─────────────────── CRUD ─────────────────── */
@@ -56,6 +58,7 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public ClassDto create(CreateClassRequest r) {
         log.debug("Creating class: {}", r);
+        AcademicYear academicYear = currentAcademicYear.resolve();
         if (classRepo.existsByNameIgnoreCase(r.name())) {
             log.warn("Class name '{}' already exists", r.name());
             throw new ConflictException("Class name already exists");
@@ -63,6 +66,8 @@ public class ClassServiceImpl implements ClassService {
 
         ClassEntity entity = new ClassEntity();
         entity.setName(r.name());
+        entity.setCanonicalAcademicYear(academicYear);
+        entity.setAcademicYear(academicYear.getName());
 
         ClassEntity savedEntity = classRepo.save(entity);
         ClassDto dto = mapper.toClassDto(savedEntity);

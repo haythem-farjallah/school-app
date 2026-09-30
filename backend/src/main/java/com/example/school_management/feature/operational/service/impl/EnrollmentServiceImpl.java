@@ -4,6 +4,8 @@ import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.commons.utils.FilterFields;
 import com.example.school_management.feature.academic.entity.ClassEntity;
+import com.example.school_management.feature.academic.entity.AcademicYear;
+import com.example.school_management.feature.academic.service.CurrentAcademicYearResolver;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Student;
@@ -51,6 +53,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
     private final RealTimeNotificationService realTimeNotificationService;
+    private final CurrentAcademicYearResolver currentAcademicYear;
 
     @Override
     public EnrollmentDto enrollStudent(Long studentId, Long classId) {
@@ -409,6 +412,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     }
 
     private AutoEnrollmentResultDto performAutoEnrollment(String targetGradeLevel, boolean isPreview) {
+        AcademicYear academicYear = currentAcademicYear.resolve();
         List<String> errors = new ArrayList<>();
         List<String> createdClasses = new ArrayList<>();
         Map<String, Integer> enrollmentsByGradeLevel = new HashMap<>();
@@ -431,6 +435,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 .filter(student -> student.getGradeLevel() != null)
                 .collect(Collectors.groupingBy(Student::getGradeLevel));
             
+            List<ClassEntity> currentYearClasses = new ArrayList<>(classRepo.findByCanonicalAcademicYearId(academicYear.getId()));
+
             // Process each grade level
             for (Map.Entry<GradeLevel, List<Student>> entry : studentsByGrade.entrySet()) {
                 GradeLevel gradeLevel = entry.getKey();
@@ -439,7 +445,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 log.info("Processing {} students for grade level: {}", studentsInGrade.size(), gradeLevel);
                 
                 // Find or create classes for this grade level
-                List<ClassEntity> availableClasses = findOrCreateClassesForGradeLevel(gradeLevel, studentsInGrade.size(), isPreview);
+                List<ClassEntity> availableClasses = findOrCreateClassesForGradeLevel(gradeLevel, studentsInGrade.size(), academicYear, currentYearClasses);
                 
                 if (!isPreview) {
                     classesCreated += (int) availableClasses.stream()
@@ -534,7 +540,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         return !enrollmentRepo.findByStudentIdAndStatus(studentId, EnrollmentStatus.ACTIVE).isEmpty();
     }
 
-    private List<ClassEntity> findOrCreateClassesForGradeLevel(GradeLevel gradeLevel, int studentCount, boolean isPreview) {
+    private List<ClassEntity> findOrCreateClassesForGradeLevel(
+            GradeLevel gradeLevel, int studentCount, AcademicYear academicYear, List<ClassEntity> currentYearClasses) {
         List<ClassEntity> availableClasses = new ArrayList<>();
         
         // Don't create classes if no students to enroll
@@ -544,7 +551,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         }
         
         // Find existing classes for this grade level with available capacity
-        List<ClassEntity> existingClasses = classRepo.findAll().stream()
+        List<ClassEntity> existingClasses = currentYearClasses.stream()
             .filter(cls -> gradeLevel.name().equals(cls.getGradeLevel()))
             .filter(cls -> getAvailableCapacity(cls) > 0)
             .sorted((a, b) -> a.getSection() != null && b.getSection() != null ? 
@@ -563,15 +570,11 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         if (remainingStudents > 0) {
             int newClassesNeeded = (int) Math.ceil((double) remainingStudents / 30); // Default capacity of 30
             
-            // Find the next available section letter
-            String nextSection = getNextAvailableSection(gradeLevel);
-            
             for (int i = 0; i < newClassesNeeded; i++) {
-                ClassEntity newClass = createNewClass(gradeLevel, nextSection);
+                String nextSection = getNextAvailableSection(gradeLevel, currentYearClasses);
+                ClassEntity newClass = createNewClass(gradeLevel, nextSection, academicYear);
                 availableClasses.add(newClass);
-                
-                // Move to next section letter (A -> B -> C, etc.)
-                nextSection = String.valueOf((char) (nextSection.charAt(0) + 1));
+                currentYearClasses.add(newClass);
             }
         }
         
@@ -583,9 +586,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         return Math.max(0, (classEntity.getCapacity() != null ? classEntity.getCapacity() : 30) - currentEnrollments);
     }
 
-    private String getNextAvailableSection(GradeLevel gradeLevel) {
+    private String getNextAvailableSection(GradeLevel gradeLevel, List<ClassEntity> currentYearClasses) {
         // Find all existing sections for this grade level
-        List<String> existingSections = classRepo.findAll().stream()
+        List<String> existingSections = currentYearClasses.stream()
             .filter(cls -> gradeLevel.name().equals(cls.getGradeLevel()))
             .map(ClassEntity::getSection)
             .filter(section -> section != null && !section.isEmpty())
@@ -601,7 +604,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         return String.valueOf(sectionChar);
     }
 
-    private ClassEntity createNewClass(GradeLevel gradeLevel, String section) {
+    private ClassEntity createNewClass(GradeLevel gradeLevel, String section, AcademicYear academicYear) {
         ClassEntity newClass = new ClassEntity();
         
         // Generate class name based on grade level and section
@@ -610,7 +613,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         newClass.setName(className);
         newClass.setGradeLevel(gradeLevel.name());
         newClass.setSection(section);
-        newClass.setAcademicYear("2024-2025"); // Current academic year
+        newClass.setCanonicalAcademicYear(academicYear);
+        newClass.setAcademicYear(academicYear.getName());
         newClass.setCapacity(30);
         newClass.setWeeklyHours(30);
         

@@ -30,6 +30,8 @@ public interface AcademicMapper {
     /* ─────────────────────── UPDATE PATCHERS ───────────────────── */
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "canonicalAcademicYear", ignore = true)
+    @Mapping(target = "academicYear", ignore = true)
     void updateClassEntity(UpdateClassRequest src, @MappingTarget ClassEntity target);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
