@@ -22,7 +22,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -36,7 +36,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
@@ -53,7 +53,7 @@ class AcademicCalendarServiceIntegrationTest {
     @Autowired EntityManager entityManager;
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired JdbcTemplate jdbc;
-    @MockitoBean CurrentSchoolResolver currentSchool;
+    @MockitoSpyBean CurrentSchoolResolver currentSchool;
     private School school;
     private School otherSchool;
 
@@ -63,7 +63,7 @@ class AcademicCalendarServiceIntegrationTest {
         otherSchool = new School();
         otherSchool.setName("Other school");
         schools.saveAndFlush(otherSchool);
-        when(currentSchool.resolve()).thenReturn(school);
+        doReturn(school).when(currentSchool).resolve();
     }
 
     @Test
