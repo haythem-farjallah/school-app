@@ -8,11 +8,13 @@ import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.mapper.AdministrationMapper;
 import com.example.school_management.feature.auth.repository.AdministrationRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AdministrationService extends AbstractUserCrudService<
@@ -24,6 +26,7 @@ public class AdministrationService extends AbstractUserCrudService<
     private final AdministrationMapper mapper;
     private final PasswordEncoder      passwordEncoder;
     private final AdministrationRepository administrationRepo;
+    private final SchoolMembershipProvisioningService membershipProvisioner;
 
     public AdministrationService(AdministrationRepository repo,
                                  AdministrationMapper mapper,
@@ -31,14 +34,17 @@ public class AdministrationService extends AbstractUserCrudService<
                                  PasswordUtil pw,
                                  ApplicationEventPublisher events,
                                  AuditService auditService,
-                                 UserRepository userRepository) {
-        super(repo, mapper, enc, pw, events, auditService, userRepository);
+                                 UserRepository userRepository,
+                                 SchoolMembershipProvisioningService membershipProvisioner) {
+        super(repo, mapper, enc, pw, events, auditService, userRepository, membershipProvisioner);
         this.mapper = mapper;
         this.passwordEncoder = enc;
         this.administrationRepo = repo;
+        this.membershipProvisioner = membershipProvisioner;
     }
 
     @Override
+    @Transactional
     public Administration create(AdministrationCreateDto dto) {
         Administration admin = mapper.toEntity(dto);
 
@@ -53,6 +59,8 @@ public class AdministrationService extends AbstractUserCrudService<
         admin.setStatus(Status.ACTIVE);
 
         /* ------ Persist and return ------ */
-        return administrationRepo.save(admin);
+        admin = administrationRepo.save(admin);
+        membershipProvisioner.provisionFor(admin);
+        return admin;
     }
 }

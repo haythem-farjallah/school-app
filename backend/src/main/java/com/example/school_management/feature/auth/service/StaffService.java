@@ -8,6 +8,7 @@ import com.example.school_management.feature.auth.entity.enums.StaffType;
 import com.example.school_management.feature.auth.mapper.StaffMapper;
 import com.example.school_management.feature.auth.repository.StaffRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import lombok.extern.slf4j.Slf4j;
@@ -35,8 +36,9 @@ public class StaffService extends AbstractUserCrudService<
                         PasswordUtil pw,
                         ApplicationEventPublisher ev,
                         AuditService auditService,
-                        UserRepository userRepository) {
-        super(repo, mapper, enc, pw, ev, auditService, userRepository);
+                        UserRepository userRepository,
+                        SchoolMembershipProvisioningService membershipProvisioner) {
+        super(repo, mapper, enc, pw, ev, auditService, userRepository, membershipProvisioner);
         this.staffRepo = repo;
     }
 

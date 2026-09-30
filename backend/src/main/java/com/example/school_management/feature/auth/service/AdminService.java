@@ -9,6 +9,7 @@ import com.example.school_management.feature.auth.entity.*;
 import com.example.school_management.feature.auth.entity.enums.ContactMethod;
 import com.example.school_management.feature.auth.repository.ParentRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -26,6 +27,7 @@ public class AdminService {
     private final ParentRepository  parentRepo;
     private final PasswordEncoder   passwordEncoder;
     private final EmailService      emailService;
+    private final SchoolMembershipProvisioningService membershipProvisioner;
     private final SecureRandom      secureRandom = new SecureRandom();
 
     @Transactional
@@ -46,7 +48,8 @@ public class AdminService {
         populateCommon(student, studentProfile);
         String studentPw = generateAndSetPassword(student);
         student.setStatus(Status.ACTIVE);
-        studentRepo.save(student);
+        student = studentRepo.save(student);
+        membershipProvisioner.provisionFor(student);
         log.info("Created STUDENT id={}", student.getId());
         emailService.sendWelcomeEmail(
                 student.getId(),
@@ -84,7 +87,8 @@ public class AdminService {
             String parentPw = generateAndSetPassword(parent);
             parent.getChildren().add(student);
 
-            parentRepo.save(parent);
+            parent = parentRepo.save(parent);
+            membershipProvisioner.provisionFor(parent);
             log.info("Created PARENT id={} and linked to STUDENT id={}", parent.getId(), student.getId());
             emailService.sendWelcomeEmail(
                     parent.getId(),

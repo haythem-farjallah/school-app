@@ -8,6 +8,7 @@ import com.example.school_management.feature.auth.mapper.BaseUserMapper;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.auth.util.PasswordUtil;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
@@ -41,6 +42,7 @@ public abstract class AbstractUserCrudService<
     private final ApplicationEventPublisher events;
     private final AuditService auditService;
     private final UserRepository userRepository;
+    private final SchoolMembershipProvisioningService membershipProvisioner;
 
     protected AbstractUserCrudService(BaseUserRepository<E> repo,
                                       BaseUserMapper<E, C, U,R> mapper,
@@ -48,7 +50,8 @@ public abstract class AbstractUserCrudService<
                                       PasswordUtil passwordUtil,
                                       ApplicationEventPublisher events,
                                       AuditService auditService,
-                                      UserRepository userRepository) {
+                                      UserRepository userRepository,
+                                      SchoolMembershipProvisioningService membershipProvisioner) {
         this.repo             = repo;
         this.mapper           = mapper;
         this.passwordEncoder  = passwordEncoder;
@@ -56,6 +59,7 @@ public abstract class AbstractUserCrudService<
         this.events           = events;
         this.auditService     = auditService;
         this.userRepository   = userRepository;
+        this.membershipProvisioner = membershipProvisioner;
     }
 
     /* ------------------------------------------------------------------ *
@@ -71,6 +75,7 @@ public abstract class AbstractUserCrudService<
         entity.setPasswordChangeRequired(true);
         entity.setStatus(Status.ACTIVE);
         entity = repo.save(entity);
+        membershipProvisioner.provisionFor(entity);
         log.info("Created {} id={}", entity.getRole(), entity.getId());
 
         // Create audit event for user creation

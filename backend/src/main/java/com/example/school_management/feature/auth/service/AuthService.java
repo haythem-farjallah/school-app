@@ -9,6 +9,7 @@ import com.example.school_management.feature.auth.entity.*;
 import com.example.school_management.feature.auth.mapper.AuthMapper;
 import com.example.school_management.feature.auth.mapper.UserMapper;
 import com.example.school_management.feature.auth.repository.*;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +45,7 @@ public class AuthService {
     private final AdministrationRepository administrationRepository;
     private final StaffRepository staffRepository;
     private final PermissionService permissionService;
+    private final SchoolMembershipProvisioningService membershipProvisioner;
 
     /**
      * Authenticate a user and return JWT tokens plus user profile data.
@@ -149,7 +151,8 @@ public class AuthService {
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setPasswordChangeRequired(true);
-        repo.save(user);
+        user = repo.save(user);
+        membershipProvisioner.provisionFor(user);
         log.info("Registered {} id={} with status {} and forced password change", user.getRole(), user.getId(), user.getStatus());
     }
 

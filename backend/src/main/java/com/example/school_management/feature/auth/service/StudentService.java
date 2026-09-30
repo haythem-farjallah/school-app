@@ -10,6 +10,7 @@ import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.mapper.StudentMapper;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.auth.util.PasswordUtil;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.commons.dto.FilterCriteria;
@@ -52,8 +53,9 @@ public class StudentService extends AbstractUserCrudService<
                          PasswordUtil pw,
                          ApplicationEventPublisher ev,
                          AuditService auditService,
-                         UserRepository userRepository) {
-        super(repo, mapper, enc, pw, ev, auditService, userRepository);
+                         UserRepository userRepository,
+                         SchoolMembershipProvisioningService membershipProvisioner) {
+        super(repo, mapper, enc, pw, ev, auditService, userRepository, membershipProvisioner);
         this.studentRepo = repo;
     }
 
