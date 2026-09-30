@@ -60,7 +60,7 @@ class ClassAcademicYearMigrationIntegrationTest {
         for (String table : List.of("users", "student", "teacher", "courses", "rooms", "periods", "schools", "terms", "schedules", "schedule_courses", "learning_resources", "timetables", "announcements")) {
             preserved.put(table, jdbc.queryForList("SELECT * FROM " + table));
         }
-        Flyway flyway = Flyway.configure().dataSource(url, postgres.getUsername(), postgres.getPassword()).load();
+        Flyway flyway = Flyway.configure().dataSource(url, postgres.getUsername(), postgres.getPassword()).target("57").load();
         flyway.migrate();
         flyway.validate();
         assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("57");
@@ -104,7 +104,7 @@ class ClassAcademicYearMigrationIntegrationTest {
     @Test
     void cleanMigrationValidatesFinalSchemaWithoutInventingYears() throws Exception {
         String url = newDatabaseUrl();
-        Flyway flyway = Flyway.configure().dataSource(url, postgres.getUsername(), postgres.getPassword()).load();
+        Flyway flyway = Flyway.configure().dataSource(url, postgres.getUsername(), postgres.getPassword()).target("57").load();
         flyway.migrate();
         flyway.validate();
         JdbcTemplate jdbc = new JdbcTemplate(new DriverManagerDataSource(url, postgres.getUsername(), postgres.getPassword()));
