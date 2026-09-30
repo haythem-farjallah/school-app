@@ -8,6 +8,7 @@ import com.example.school_management.feature.operational.entity.Timetable;
 import com.example.school_management.feature.operational.entity.TimetableSlot;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.hibernate.annotations.Fetch;
@@ -35,14 +36,11 @@ public class ClassEntity {
     @Column(name = "section")
     private String section; // A, B, C, etc.
     
-    @Column(name = "academic_year")
-    private String academicYear; // Compatibility projection for canonical new classes
-    
-    // Historical classes remain unlinked until their academic ownership is reconciled.
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "academic_year_id", nullable = true)
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "academic_year_id", nullable = false)
     @JsonIgnore
-    private AcademicYear canonicalAcademicYear;
+    private AcademicYear academicYear;
 
     @EqualsAndHashCode.Include
     private Integer yearOfStudy;
@@ -127,11 +125,8 @@ public class ClassEntity {
     public String getSection() { return section; }
     public void setSection(String section) { this.section = section; }
     
-    public String getAcademicYear() { return academicYear; }
-    public void setAcademicYear(String academicYear) { this.academicYear = academicYear; }
-    
-    public AcademicYear getCanonicalAcademicYear() { return canonicalAcademicYear; }
-    public void setCanonicalAcademicYear(AcademicYear canonicalAcademicYear) { this.canonicalAcademicYear = canonicalAcademicYear; }
+    public AcademicYear getAcademicYear() { return academicYear; }
+    public void setAcademicYear(AcademicYear academicYear) { this.academicYear = academicYear; }
 
     public Integer getYearOfStudy() { return yearOfStudy; }
     public void setYearOfStudy(Integer yearOfStudy) { this.yearOfStudy = yearOfStudy; }

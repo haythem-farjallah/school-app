@@ -1,6 +1,8 @@
 package com.example.school_management.feature.academic;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.AcademicYearTestFixtures;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.dev.DevFixtureLoader;
@@ -68,6 +70,9 @@ class LearningResourceVisibilityIntegrationTest {
     private static final String NOT_AVAILABLE = "This learning resource is not available to you";
 
     @Autowired
+    AcademicYearRepository academicYears;
+
+    @Autowired
     MockMvc mockMvc;
 
     @Autowired
@@ -125,6 +130,7 @@ class LearningResourceVisibilityIntegrationTest {
         otherTeacher = teacherRepository.save(t);
 
         ClassEntity c = new ClassEntity();
+        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName("Visibility " + UUID.randomUUID());
         schoolClass = classRepository.save(c);
         Course k = new Course();
@@ -148,6 +154,7 @@ class LearningResourceVisibilityIntegrationTest {
             resourceRepository.findById(r.getId()).ifPresent(resourceRepository::delete);
         }
         classRepository.deleteById(schoolClass.getId());
+        academicYears.deleteById(schoolClass.getAcademicYear().getId());
         courseRepository.deleteById(course.getId());
         teacherRepository.deleteById(otherTeacher.getId());
         for (Path file : files) {

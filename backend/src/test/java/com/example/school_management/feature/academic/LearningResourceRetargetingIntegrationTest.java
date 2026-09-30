@@ -1,6 +1,8 @@
 package com.example.school_management.feature.academic;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.AcademicYearTestFixtures;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
@@ -46,6 +48,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class LearningResourceRetargetingIntegrationTest {
 
     private static final String DENIED = "You can only change the targets of resources you created";
+
+    @Autowired
+    AcademicYearRepository academicYears;
 
     @Autowired
     MockMvc mockMvc;
@@ -95,6 +100,7 @@ class LearningResourceRetargetingIntegrationTest {
                 resource(teacherRepository.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow()));
 
         ClassEntity c = new ClassEntity();
+        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName("Retargeting " + UUID.randomUUID());
         schoolClass = classRepository.save(c);
 
@@ -110,6 +116,7 @@ class LearningResourceRetargetingIntegrationTest {
         resourceRepository.deleteAll(resourceRepository.findAllById(
                 List.of(resourceOfTeacherA.getId(), resourceOfFixtureTeacher.getId())));
         classRepository.deleteById(schoolClass.getId());
+        academicYears.deleteById(schoolClass.getAcademicYear().getId());
         courseRepository.deleteById(course.getId());
         teacherRepository.deleteById(teacherA.getId());
     }

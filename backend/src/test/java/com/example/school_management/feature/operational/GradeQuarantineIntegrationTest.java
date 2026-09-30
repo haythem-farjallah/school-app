@@ -1,6 +1,9 @@
 package com.example.school_management.feature.operational;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.AcademicYearTestFixtures;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.repository.ClassRepository;
@@ -52,6 +55,12 @@ class GradeQuarantineIntegrationTest {
 
     private static final String DATE_FROM = "2020-01-01T00:00:00";
     private static final String DATE_TO = "2040-01-01T00:00:00";
+
+    @Autowired
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
+    AcademicYearRepository academicYears;
 
     @Autowired
     MockMvc mockMvc;
@@ -118,6 +127,7 @@ class GradeQuarantineIntegrationTest {
         teacherB = teacherRepository.save(t);
 
         ClassEntity c = new ClassEntity();
+        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName("Grade quarantine " + UUID.randomUUID());
         schoolClass = classRepository.save(c);
 
@@ -132,6 +142,7 @@ class GradeQuarantineIntegrationTest {
         gradeRepository.deleteAll(gradeRepository.findAllById(List.of(gradeA.getId(), gradeB.getId())));
         enrollmentRepository.deleteAll(enrollmentRepository.findAllById(List.of(enrollmentA.getId(), enrollmentB.getId())));
         classRepository.deleteById(schoolClass.getId());
+        academicYears.deleteById(schoolClass.getAcademicYear().getId());
         studentRepository.deleteById(studentB.getId());
         teacherRepository.deleteById(teacherB.getId());
     }

@@ -1,6 +1,8 @@
 package com.example.school_management.feature.operational;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.AcademicYearTestFixtures;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
@@ -74,6 +76,9 @@ class AttendanceQuarantineIntegrationTest {
     private static final LocalDate MONDAY = LocalDate.of(2030, 1, 7);
     private static final LocalDate TUESDAY = MONDAY.plusDays(1);
     private static final String SCHEDULED_DAY_ONLY = "Attendance for this slot can only be taken on its scheduled day";
+
+    @Autowired
+    AcademicYearRepository academicYears;
 
     @Autowired
     MockMvc mockMvc;
@@ -156,6 +161,7 @@ class AttendanceQuarantineIntegrationTest {
         teacherB = teacherRepository.save(t);
 
         ClassEntity c = new ClassEntity();
+        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName("Attendance " + UUID.randomUUID());
         c.getStudents().add(studentA);
         schoolClass = classRepository.save(c);
@@ -190,6 +196,7 @@ class AttendanceQuarantineIntegrationTest {
         slotRepository.deleteAllById(List.of(slotA.getId(), slotB.getId()));
         periodRepository.deleteById(period.getId());
         classRepository.deleteById(schoolClass.getId());
+        academicYears.deleteById(schoolClass.getAcademicYear().getId());
         courseRepository.deleteById(course.getId());
         studentRepository.deleteById(studentB.getId());
         teacherRepository.deleteById(teacherB.getId());

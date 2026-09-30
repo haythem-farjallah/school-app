@@ -59,15 +59,14 @@ public class ClassServiceImpl implements ClassService {
     public ClassDto create(CreateClassRequest r) {
         log.debug("Creating class: {}", r);
         AcademicYear academicYear = currentAcademicYear.resolve();
-        if (classRepo.existsByNameIgnoreCase(r.name())) {
+        if (classRepo.existsByAcademicYearIdAndNameIgnoreCase(academicYear.getId(), r.name())) {
             log.warn("Class name '{}' already exists", r.name());
             throw new ConflictException("Class name already exists");
         }
 
         ClassEntity entity = new ClassEntity();
         entity.setName(r.name());
-        entity.setCanonicalAcademicYear(academicYear);
-        entity.setAcademicYear(academicYear.getName());
+        entity.setAcademicYear(academicYear);
 
         ClassEntity savedEntity = classRepo.save(entity);
         ClassDto dto = mapper.toClassDto(savedEntity);

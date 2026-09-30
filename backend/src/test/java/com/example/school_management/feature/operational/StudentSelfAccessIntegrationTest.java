@@ -1,6 +1,9 @@
 package com.example.school_management.feature.operational;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.AcademicYearTestFixtures;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.repository.ClassRepository;
@@ -47,6 +50,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class StudentSelfAccessIntegrationTest {
 
     @Autowired
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
+    AcademicYearRepository academicYears;
+
+    @Autowired
     MockMvc mockMvc;
 
     @Autowired
@@ -90,6 +99,7 @@ class StudentSelfAccessIntegrationTest {
         studentB = studentRepository.save(other);
 
         ClassEntity c = new ClassEntity();
+        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName("Self access " + UUID.randomUUID());
         schoolClass = classRepository.save(c);
 
@@ -101,6 +111,7 @@ class StudentSelfAccessIntegrationTest {
     void removeEnrollments() {
         enrollmentRepository.deleteAll(enrollmentRepository.findAllById(List.of(enrollmentA.getId(), enrollmentB.getId())));
         classRepository.deleteById(schoolClass.getId());
+        academicYears.deleteById(schoolClass.getAcademicYear().getId());
         studentRepository.deleteById(studentB.getId());
     }
 

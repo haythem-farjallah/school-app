@@ -1,6 +1,9 @@
 package com.example.school_management.feature.operational;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.AcademicYearTestFixtures;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.repository.ClassRepository;
@@ -50,6 +53,12 @@ class GradeOwnershipIntegrationTest {
     private static final String DELETE_BODY = "{\"reason\":\"Entered for the wrong student\"}";
 
     @Autowired
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
+    AcademicYearRepository academicYears;
+
+    @Autowired
     MockMvc mockMvc;
 
     @Autowired
@@ -87,6 +96,7 @@ class GradeOwnershipIntegrationTest {
         teacherB = teacherRepository.save(otherTeacher());
 
         ClassEntity c = new ClassEntity();
+        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName("Grade ownership " + UUID.randomUUID());
         schoolClass = classRepository.save(c);
 
@@ -105,6 +115,7 @@ class GradeOwnershipIntegrationTest {
         gradeRepository.deleteAll(gradeRepository.findAllById(List.of(recentGrade.getId(), oldGrade.getId())));
         enrollmentRepository.deleteById(enrollment.getId());
         classRepository.deleteById(schoolClass.getId());
+        academicYears.deleteById(schoolClass.getAcademicYear().getId());
         teacherRepository.deleteById(teacherB.getId());
     }
 

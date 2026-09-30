@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -435,7 +436,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 .filter(student -> student.getGradeLevel() != null)
                 .collect(Collectors.groupingBy(Student::getGradeLevel));
             
-            List<ClassEntity> currentYearClasses = new ArrayList<>(classRepo.findByCanonicalAcademicYearId(academicYear.getId()));
+            List<ClassEntity> currentYearClasses = new ArrayList<>(classRepo.findByAcademicYearId(academicYear.getId()));
 
             // Process each grade level
             for (Map.Entry<GradeLevel, List<Student>> entry : studentsByGrade.entrySet()) {
@@ -594,10 +595,18 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             .filter(section -> section != null && !section.isEmpty())
             .sorted()
             .collect(Collectors.toList());
+
+        // Name-only classes also reserve names, even without grade/section metadata.
+        Set<String> existingNames = currentYearClasses.stream()
+            .map(ClassEntity::getName)
+            .filter(name -> name != null)
+            .map(name -> name.toLowerCase(Locale.ROOT))
+            .collect(Collectors.toSet());
         
         // Start from 'A' and find the first available section
         char sectionChar = 'A';
-        while (existingSections.contains(String.valueOf(sectionChar))) {
+        while (existingSections.contains(String.valueOf(sectionChar))
+                || existingNames.contains(generateClassName(gradeLevel, String.valueOf(sectionChar)).toLowerCase(Locale.ROOT))) {
             sectionChar++;
         }
         
@@ -613,8 +622,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         newClass.setName(className);
         newClass.setGradeLevel(gradeLevel.name());
         newClass.setSection(section);
-        newClass.setCanonicalAcademicYear(academicYear);
-        newClass.setAcademicYear(academicYear.getName());
+        newClass.setAcademicYear(academicYear);
         newClass.setCapacity(30);
         newClass.setWeeklyHours(30);
         
@@ -704,4 +712,4 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private boolean isStudentEnrolledInClass(Long studentId, Long classId) {
         return enrollmentRepo.findByStudentIdAndClassId(studentId, classId).isPresent();
     }
-} 
+}

@@ -1,6 +1,9 @@
 package com.example.school_management.feature.operational;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.AcademicYearTestFixtures;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.repository.ClassRepository;
@@ -50,6 +53,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @IntegrationTest
 class SchoolAdministrationQuarantineIntegrationTest {
+
+    @Autowired
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
+    AcademicYearRepository academicYears;
 
     @Autowired
     MockMvc mockMvc;
@@ -119,6 +128,7 @@ class SchoolAdministrationQuarantineIntegrationTest {
     void removeEnrollments() {
         enrollmentRepository.deleteAll(enrollmentRepository.findAllById(List.of(enrollmentA.getId(), enrollmentB.getId())));
         classRepository.deleteAllById(List.of(schoolClass.getId(), otherClass.getId()));
+        academicYears.deleteAllById(List.of(schoolClass.getAcademicYear().getId(), otherClass.getAcademicYear().getId()));
         studentRepository.deleteById(studentB.getId());
         staffRepository.deleteById(staff.getId());
     }
@@ -265,8 +275,9 @@ class SchoolAdministrationQuarantineIntegrationTest {
         expectForbidden(mockMvc.perform(get("/api/v1/classes/teacher/{id}", staff.getId()).header(HttpHeaders.AUTHORIZATION, teacher)));
     }
 
-    private static ClassEntity schoolClass(String name) {
+    private ClassEntity schoolClass(String name) {
         ClassEntity c = new ClassEntity();
+        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName(name + " " + UUID.randomUUID());
         return c;
     }

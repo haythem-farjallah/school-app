@@ -1,6 +1,9 @@
 package com.example.school_management.feature.academic;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.AcademicYearTestFixtures;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.repository.ClassRepository;
@@ -51,6 +54,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @IntegrationTest
 class ClassReadQuarantineIntegrationTest {
+
+    @Autowired
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
+    AcademicYearRepository academicYears;
 
     @Autowired
     MockMvc mockMvc;
@@ -123,6 +132,7 @@ class ClassReadQuarantineIntegrationTest {
     void deleteClasses() {
         enrollmentRepository.deleteAll(enrollments);
         classRepository.deleteAllById(List.of(ownClass.getId(), otherClass.getId()));
+        academicYears.deleteAllById(List.of(ownClass.getAcademicYear().getId(), otherClass.getAcademicYear().getId()));
         studentRepository.deleteById(studentB.getId());
         staffRepository.deleteById(staff.getId());
     }
@@ -211,8 +221,9 @@ class ClassReadQuarantineIntegrationTest {
                 .getStudents().stream().map(Student::getId).collect(Collectors.toSet()));
     }
 
-    private static ClassEntity schoolClass(String name, Student student, Teacher teacher) {
+    private ClassEntity schoolClass(String name, Student student, Teacher teacher) {
         ClassEntity c = new ClassEntity();
+        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName(name + " " + UUID.randomUUID());
         c.getStudents().add(student);
         if (teacher != null) {

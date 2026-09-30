@@ -11,9 +11,9 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ClassRepository extends JpaRepository<ClassEntity, Long> , JpaSpecificationExecutor<ClassEntity> {
-    boolean existsByNameIgnoreCase(String name);
+    boolean existsByAcademicYearIdAndNameIgnoreCase(Long academicYearId, String name);
     boolean existsByName(String name);
-    List<ClassEntity> findByCanonicalAcademicYearId(Long academicYearId);
+    List<ClassEntity> findByAcademicYearId(Long academicYearId);
     
     // Count classes by teacher ID (through multiple relationships)
     @Query("""
