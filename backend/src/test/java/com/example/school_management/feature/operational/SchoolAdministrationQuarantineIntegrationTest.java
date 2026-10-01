@@ -16,6 +16,8 @@ import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -82,6 +84,12 @@ class SchoolAdministrationQuarantineIntegrationTest {
     EnrollmentRepository enrollmentRepository;
 
     @Autowired
+    SchoolMembershipProvisioningService membershipProvisioning;
+
+    @Autowired
+    SchoolMembershipRepository memberships;
+
+    @Autowired
     PasswordEncoder passwordEncoder;
 
     private static final AtomicInteger clientAddress = new AtomicInteger();
@@ -107,6 +115,7 @@ class SchoolAdministrationQuarantineIntegrationTest {
         s.setStatus(Status.ACTIVE);
         s.setIsEmailVerified(true);
         studentB = studentRepository.save(s);
+        membershipProvisioning.provisionFor(studentB);
 
         Staff st = new Staff();
         st.setRole(UserRole.STAFF);
@@ -129,6 +138,7 @@ class SchoolAdministrationQuarantineIntegrationTest {
         enrollmentRepository.deleteAll(enrollmentRepository.findAllById(List.of(enrollmentA.getId(), enrollmentB.getId())));
         classRepository.deleteAllById(List.of(schoolClass.getId(), otherClass.getId()));
         academicYears.deleteAllById(List.of(schoolClass.getAcademicYear().getId(), otherClass.getAcademicYear().getId()));
+        memberships.deleteAll(memberships.findAllByUserId(studentB.getId()));
         studentRepository.deleteById(studentB.getId());
         staffRepository.deleteById(staff.getId());
     }
@@ -165,7 +175,7 @@ class SchoolAdministrationQuarantineIntegrationTest {
         Enrollment unchanged = enrollmentRepository.findById(enrollmentB.getId()).orElseThrow();
         assertThat(unchanged.getStatus()).isEqualTo(EnrollmentStatus.ACTIVE);
         assertThat(unchanged.getClassEntity().getId()).isEqualTo(classId);
-        assertThat(enrollmentRepository.findAllByStudentId(studentB.getId())).extracting(e -> e.getClassEntity().getId()).containsExactly(classId);
+        assertThat(enrollmentRepository.findByStudentId(studentB.getId())).extracting(e -> e.getClassEntity().getId()).containsExactly(classId);
     }
 
     @Test

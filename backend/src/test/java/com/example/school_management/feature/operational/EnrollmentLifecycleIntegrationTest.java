@@ -20,6 +20,8 @@ import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.Grade;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.operational.repository.AuditEventRepository;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.repository.GradeRepository;
@@ -74,6 +76,8 @@ class EnrollmentLifecycleIntegrationTest {
     @Autowired GradeRepository gradeRepository;
     @Autowired AuditEventRepository auditEvents;
     @Autowired CurrentSchoolResolver currentSchool;
+    @Autowired SchoolMembershipProvisioningService membershipProvisioning;
+    @Autowired SchoolMembershipRepository memberships;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired JdbcTemplate jdbc;
     @Autowired MockMvc mockMvc;
@@ -109,7 +113,10 @@ class EnrollmentLifecycleIntegrationTest {
                 .filter(e -> students.contains(e.getStudent().getId())).toList());
         classes.forEach(classRepository::deleteById);
         years.forEach(academicYears::deleteById);
-        students.forEach(studentRepository::deleteById);
+        students.forEach(id -> {
+            memberships.deleteAll(memberships.findAllByUserId(id));
+            studentRepository.deleteById(id);
+        });
     }
 
     // ---- manual enrollment -------------------------------------------------------------------------------
@@ -252,7 +259,7 @@ class EnrollmentLifecycleIntegrationTest {
         Long e3 = enrollmentService.transferStudent(e2, classA.getId()).getId();
 
         assertThat(List.of(e1.getId(), e2, e3)).doesNotHaveDuplicates();
-        assertThat(enrollmentRepository.findAllByStudentId(student.getId()))
+        assertThat(enrollmentRepository.findByStudentId(student.getId()))
                 .extracting(e -> e.getClassEntity().getId() + ":" + e.getStatus())
                 .containsExactlyInAnyOrder(
                         classA.getId() + ":TRANSFERRED", classB.getId() + ":TRANSFERRED", classA.getId() + ":ACTIVE");
@@ -266,7 +273,7 @@ class EnrollmentLifecycleIntegrationTest {
         assertThatThrownBy(() -> enrollmentService.transferStudent(source.getId(), classB.getId()))
                 .isInstanceOf(ConflictException.class);
 
-        assertThat(enrollmentRepository.findAllByStudentId(student.getId())).hasSize(1)
+        assertThat(enrollmentRepository.findByStudentId(student.getId())).hasSize(1)
                 .allSatisfy(e -> assertThat(e.getStatus()).isEqualTo(terminal));
     }
 
@@ -511,6 +518,7 @@ class EnrollmentLifecycleIntegrationTest {
         s.setStatus(Status.ACTIVE);
         s.setIsEmailVerified(true);
         Student saved = studentRepository.save(s);
+        membershipProvisioning.provisionFor(saved);
         students.add(saved.getId());
         return saved;
     }
@@ -531,7 +539,7 @@ class EnrollmentLifecycleIntegrationTest {
         Enrollment reloaded = enrollmentRepository.findById(source.getId()).orElseThrow();
         assertThat(reloaded.getStatus()).isEqualTo(EnrollmentStatus.ACTIVE);
         assertThat(reloaded.getClassEntity().getId()).isEqualTo(source.getClassEntity().getId());
-        assertThat(enrollmentRepository.findAllByStudentId(source.getStudent().getId())).hasSize(1);
+        assertThat(enrollmentRepository.findByStudentId(source.getStudent().getId())).hasSize(1);
     }
 
     private List<AuditEventType> auditTypes(Long enrollmentId) {

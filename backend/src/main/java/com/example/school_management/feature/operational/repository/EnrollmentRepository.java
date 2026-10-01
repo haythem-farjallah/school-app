@@ -17,14 +17,8 @@ import java.util.Optional;
 @Repository
 public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, JpaSpecificationExecutor<Enrollment> {
 
-    @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId ORDER BY e.enrolledAt DESC")
-    Page<Enrollment> findByStudentId(@Param("studentId") Long studentId, Pageable pageable);
-
     @Query("SELECT e FROM Enrollment e WHERE e.classEntity.id = :classId ORDER BY e.enrolledAt DESC")
     Page<Enrollment> findByClassId(@Param("classId") Long classId, Pageable pageable);
-
-    @Query("SELECT e FROM Enrollment e WHERE e.status = :status ORDER BY e.enrolledAt DESC")
-    Page<Enrollment> findByStatus(@Param("status") EnrollmentStatus status, Pageable pageable);
 
     // A Student may have many historical Enrollments in one Class, but at most one ACTIVE one:
     // the database allows a single ACTIVE Enrollment per Student per AcademicYear.
@@ -60,11 +54,6 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
     @Query("SELECT e FROM Enrollment e WHERE e.classEntity.id = :classId AND e.status = :status ORDER BY e.enrolledAt DESC")
     List<Enrollment> findByClassIdAndStatus(@Param("classId") Long classId, @Param("status") EnrollmentStatus status);
 
-    @Query("SELECT e FROM Enrollment e WHERE e.enrolledAt BETWEEN :startDate AND :endDate ORDER BY e.enrolledAt DESC")
-    Page<Enrollment> findByEnrolledAtBetween(@Param("startDate") LocalDateTime startDate, 
-                                            @Param("endDate") LocalDateTime endDate, 
-                                            Pageable pageable);
-
     @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.classEntity.id = :classId AND e.status = :status")
     Long countByClassIdAndStatus(@Param("classId") Long classId, @Param("status") EnrollmentStatus status);
 
@@ -79,27 +68,54 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
     @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId ORDER BY e.enrolledAt DESC")
     List<Enrollment> findByStudentId(@Param("studentId") Long studentId);
     
+    // ---- Enrollment administration is limited to one School: Enrollment -> Class -> AcademicYear -> School.
+    // The School constraint is part of every query, so paging and totals never include foreign rows.
+
+    @Query("SELECT e FROM Enrollment e WHERE e.id = :id AND e.classEntity.academicYear.school.id = :schoolId")
+    Optional<Enrollment> findByIdAndSchoolId(@Param("id") Long id, @Param("schoolId") Long schoolId);
+
+    @Query("SELECT e FROM Enrollment e WHERE e.classEntity.academicYear.school.id = :schoolId")
+    Page<Enrollment> findBySchoolId(@Param("schoolId") Long schoolId, Pageable pageable);
+
+    @Query("SELECT e FROM Enrollment e WHERE e.classEntity.academicYear.school.id = :schoolId "
+            + "AND e.student.id = :studentId ORDER BY e.enrolledAt DESC")
+    Page<Enrollment> findByStudentIdAndSchoolId(@Param("studentId") Long studentId, @Param("schoolId") Long schoolId,
+                                                Pageable pageable);
+
+    @Query("SELECT e FROM Enrollment e WHERE e.classEntity.academicYear.school.id = :schoolId "
+            + "AND e.student.id = :studentId ORDER BY e.enrolledAt DESC")
+    List<Enrollment> findAllByStudentIdAndSchoolId(@Param("studentId") Long studentId, @Param("schoolId") Long schoolId);
+
+    @Query("SELECT e FROM Enrollment e WHERE e.classEntity.academicYear.school.id = :schoolId "
+            + "AND e.status = :status ORDER BY e.enrolledAt DESC")
+    Page<Enrollment> findByStatusAndSchoolId(@Param("status") EnrollmentStatus status, @Param("schoolId") Long schoolId,
+                                             Pageable pageable);
+
+    @Query("SELECT e FROM Enrollment e WHERE e.classEntity.academicYear.school.id = :schoolId "
+            + "AND e.enrolledAt BETWEEN :startDate AND :endDate ORDER BY e.enrolledAt DESC")
+    Page<Enrollment> findByEnrolledAtBetweenAndSchoolId(@Param("startDate") LocalDateTime startDate,
+                                                        @Param("endDate") LocalDateTime endDate,
+                                                        @Param("schoolId") Long schoolId, Pageable pageable);
+
     // Search enrollments by student name or class name
-    @Query("SELECT e FROM Enrollment e WHERE " +
+    @Query("SELECT e FROM Enrollment e WHERE e.classEntity.academicYear.school.id = :schoolId AND (" +
            "LOWER(e.student.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(e.student.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(e.classEntity.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "ORDER BY e.enrolledAt DESC")
-    Page<Enrollment> findBySearch(@Param("search") String search, Pageable pageable);
-    
+           "LOWER(e.classEntity.name) LIKE LOWER(CONCAT('%', :search, '%'))" +
+           ") ORDER BY e.enrolledAt DESC")
+    Page<Enrollment> findBySearchAndSchoolId(@Param("search") String search, @Param("schoolId") Long schoolId,
+                                             Pageable pageable);
+
     // Search enrollments by student name or class name and status
-    @Query("SELECT e FROM Enrollment e WHERE " +
+    @Query("SELECT e FROM Enrollment e WHERE e.classEntity.academicYear.school.id = :schoolId AND " +
            "e.status = :status AND (" +
            "LOWER(e.student.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(e.student.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(e.classEntity.name) LIKE LOWER(CONCAT('%', :search, '%'))" +
            ") ORDER BY e.enrolledAt DESC")
-    Page<Enrollment> findBySearchAndStatus(@Param("search") String search, @Param("status") EnrollmentStatus status, Pageable pageable);
-    
-    // Get all enrollments for a student (regardless of status)
-    @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId ORDER BY e.enrolledAt DESC")
-    List<Enrollment> findAllByStudentId(@Param("studentId") Long studentId);
-    
+    Page<Enrollment> findBySearchAndStatusAndSchoolId(@Param("search") String search, @Param("status") EnrollmentStatus status,
+                                                      @Param("schoolId") Long schoolId, Pageable pageable);
+
     // Get all enrollments for a class (regardless of status)
     @Query("SELECT e FROM Enrollment e WHERE e.classEntity.id = :classId ORDER BY e.enrolledAt DESC")
     List<Enrollment> findAllByClassId(@Param("classId") Long classId);

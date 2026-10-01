@@ -8,9 +8,14 @@ import com.example.school_management.feature.academic.entity.AcademicYear;
 import com.example.school_management.feature.academic.service.CurrentAcademicYearResolver;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.entity.MembershipStatus;
+import com.example.school_management.feature.membership.entity.SchoolMembership;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
 import com.example.school_management.feature.operational.dto.EnrollmentDto;
 import com.example.school_management.feature.operational.dto.EnrollmentStatsDto;
 import com.example.school_management.feature.operational.dto.AutoEnrollmentResultDto;
@@ -21,6 +26,7 @@ import com.example.school_management.feature.operational.entity.enums.Enrollment
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.service.EnrollmentService;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,16 +65,18 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private final BaseUserRepository<BaseUser> userRepo;
     private final RealTimeNotificationService realTimeNotificationService;
     private final CurrentAcademicYearResolver currentAcademicYear;
+    private final CurrentSchoolResolver currentSchool;
+    private final SchoolMembershipRepository memberships;
 
     @Override
     public EnrollmentDto enrollStudent(Long studentId, Long classId) {
         log.debug("Enrolling student {} in class {}", studentId, classId);
 
-        Student student = studentRepo.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
-        ClassEntity classEntity = classRepo.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
+        SchoolStudent schoolStudent = requireSchoolStudent(studentId);
+        Student student = schoolStudent.student();
+        ClassEntity classEntity = requireSchoolClass(classId);
 
+        requireEligibleForNewEnrollment(schoolStudent);
         requireNoActiveEnrollmentInAcademicYear(studentId, classEntity);
         requireCapacity(classEntity);
 
@@ -105,12 +113,12 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     public EnrollmentDto transferStudent(Long enrollmentId, Long newClassId) {
         log.debug("Transferring enrollment {} to class {}", enrollmentId, newClassId);
 
-        Enrollment source = enrollmentRepo.findById(enrollmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
-        ClassEntity newClass = classRepo.findById(newClassId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + newClassId));
+        Enrollment source = requireSchoolEnrollment(enrollmentId);
+        ClassEntity newClass = requireSchoolClass(newClassId);
+        SchoolStudent schoolStudent = requireSchoolStudent(source.getStudent().getId());
         ClassEntity oldClass = source.getClassEntity();
 
+        requireEligibleForNewEnrollment(schoolStudent);
         if (source.getStatus() != EnrollmentStatus.ACTIVE) {
             throw new ConflictException("Only an active enrollment can be transferred");
         }
@@ -124,7 +132,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
         // Flush the old status first: the database allows one ACTIVE enrollment per student and academic year,
         // so the old row must already be TRANSFERRED when the new ACTIVE row is inserted.
-        Student student = source.getStudent();
+        Student student = schoolStudent.student();
         source.setStatus(EnrollmentStatus.TRANSFERRED);
         enrollmentRepo.saveAndFlush(source);
         Enrollment created = persistActiveEnrollment(student, newClass);
@@ -143,8 +151,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     public EnrollmentDto updateEnrollmentStatus(Long enrollmentId, EnrollmentStatus status) {
         log.debug("Updating enrollment {} status to {}", enrollmentId, status);
 
-        Enrollment enrollment = enrollmentRepo.findById(enrollmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
+        Enrollment enrollment = requireSchoolEnrollment(enrollmentId);
 
         EnrollmentStatus oldStatus = enrollment.getStatus();
         if (status == oldStatus) {
@@ -174,8 +181,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     public void withdrawEnrollment(Long enrollmentId, String reason) {
         log.debug("Withdrawing enrollment {}", enrollmentId);
 
-        Enrollment enrollment = enrollmentRepo.findById(enrollmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
+        Enrollment enrollment = requireSchoolEnrollment(enrollmentId);
 
         if (enrollment.getStatus() == EnrollmentStatus.WITHDRAWN) {
             return;
@@ -199,8 +205,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     @Transactional(readOnly = true)
     public EnrollmentDto getEnrollment(Long enrollmentId) {
-        Enrollment enrollment = enrollmentRepo.findById(enrollmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
+        Enrollment enrollment = requireSchoolEnrollment(enrollmentId);
         return toDto(enrollment);
     }
 
@@ -209,21 +214,22 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     public Page<EnrollmentDto> getAllEnrollments(Pageable pageable, String search, EnrollmentStatus status) {
         SORT_FIELDS.requireSortable(pageable.getSort());
         log.debug("Getting all enrollments with search: {}, status: {}", search, status);
-        
+
+        Long schoolId = currentSchool.resolve().getId();
         Page<Enrollment> enrollments;
         
         if (search != null && !search.trim().isEmpty() && status != null) {
             // Both search and status filters
-            enrollments = enrollmentRepo.findBySearchAndStatus(search.trim(), status, pageable);
+            enrollments = enrollmentRepo.findBySearchAndStatusAndSchoolId(search.trim(), status, schoolId, pageable);
         } else if (search != null && !search.trim().isEmpty()) {
             // Only search filter
-            enrollments = enrollmentRepo.findBySearch(search.trim(), pageable);
+            enrollments = enrollmentRepo.findBySearchAndSchoolId(search.trim(), schoolId, pageable);
         } else if (status != null) {
             // Only status filter
-            enrollments = enrollmentRepo.findByStatus(status, pageable);
+            enrollments = enrollmentRepo.findByStatusAndSchoolId(status, schoolId, pageable);
         } else {
             // No filters - get all
-            enrollments = enrollmentRepo.findAll(pageable);
+            enrollments = enrollmentRepo.findBySchoolId(schoolId, pageable);
         }
         
         return enrollments.map(this::toDto);
@@ -233,13 +239,15 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getStudentEnrollments(Long studentId, Pageable pageable) {
         SORT_FIELDS.requireSortable(pageable.getSort());
-        return enrollmentRepo.findByStudentId(studentId, pageable).map(this::toDto);
+        requireSchoolStudent(studentId);
+        return enrollmentRepo.findByStudentIdAndSchoolId(studentId, currentSchool.resolve().getId(), pageable).map(this::toDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getClassEnrollments(Long classId, Pageable pageable) {
         SORT_FIELDS.requireSortable(pageable.getSort());
+        requireSchoolClass(classId);
         return enrollmentRepo.findByClassId(classId, pageable).map(this::toDto);
     }
 
@@ -247,19 +255,21 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getEnrollmentsByStatus(EnrollmentStatus status, Pageable pageable) {
         SORT_FIELDS.requireSortable(pageable.getSort());
-        return enrollmentRepo.findByStatus(status, pageable).map(this::toDto);
+        return enrollmentRepo.findByStatusAndSchoolId(status, currentSchool.resolve().getId(), pageable).map(this::toDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<EnrollmentDto> getEnrollmentsByDateRange(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
         SORT_FIELDS.requireSortable(pageable.getSort());
-        return enrollmentRepo.findByEnrolledAtBetween(startDate, endDate, pageable).map(this::toDto);
+        return enrollmentRepo.findByEnrolledAtBetweenAndSchoolId(startDate, endDate, currentSchool.resolve().getId(), pageable)
+                .map(this::toDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EnrollmentStatsDto getClassEnrollmentStats(Long classId) {
+        requireSchoolClass(classId);
         List<Enrollment> enrollments = enrollmentRepo.findAllByClassId(classId);
         return calculateStats(enrollments);
     }
@@ -267,7 +277,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     @Transactional(readOnly = true)
     public EnrollmentStatsDto getStudentEnrollmentStats(Long studentId) {
-        List<Enrollment> enrollments = enrollmentRepo.findAllByStudentId(studentId);
+        requireSchoolStudent(studentId);
+        List<Enrollment> enrollments = enrollmentRepo.findAllByStudentIdAndSchoolId(studentId, currentSchool.resolve().getId());
         return calculateStats(enrollments);
     }
 
@@ -275,8 +286,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     public void bulkEnrollStudents(Long classId, List<Long> studentIds) {
         log.debug("Bulk enrolling {} students in class {}", studentIds.size(), classId);
 
-        ClassEntity classEntity = classRepo.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
+        ClassEntity classEntity = requireSchoolClass(classId);
 
         log.debug("Bulk enrolling students in class: {}", classEntity.getName());
 
@@ -296,14 +306,50 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     @Transactional(readOnly = true)
     public boolean canEnrollStudent(Long studentId, Long classId) {
-        if (!studentRepo.existsById(studentId)) {
-            throw new ResourceNotFoundException("Student not found with id: " + studentId);
-        }
-        ClassEntity classEntity = classRepo.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
+        SchoolStudent schoolStudent = requireSchoolStudent(studentId);
+        ClassEntity classEntity = requireSchoolClass(classId);
 
-        return getAvailableCapacity(classEntity) > 0
+        return schoolStudent.canReceiveActiveEnrollment()
+                && getAvailableCapacity(classEntity) > 0
                 && !enrollmentRepo.existsActiveInAcademicYear(studentId, classEntity.getAcademicYear().getId());
+    }
+
+    /** A Student of the current School: its membership holds the STUDENT role, in any membership status. */
+    private record SchoolStudent(Student student, SchoolMembership membership) {
+        boolean canReceiveActiveEnrollment() {
+            return membership.getStatus() == MembershipStatus.ACTIVE && student.getStatus() == Status.ACTIVE;
+        }
+    }
+
+    /**
+     * Resolves a Student resource of the current School. Anyone else, including a Student of another School, is
+     * reported as missing. Membership status does not matter here: history stays readable after a student leaves.
+     */
+    private SchoolStudent requireSchoolStudent(Long studentId) {
+        Long schoolId = currentSchool.resolve().getId();
+        SchoolMembership membership = memberships.findByUserIdAndSchoolId(studentId, schoolId)
+                .filter(m -> m.getRoles().contains(MembershipRole.STUDENT))
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+        Student student = studentRepo.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+        return new SchoolStudent(student, membership);
+    }
+
+    /** A new ACTIVE Enrollment needs an ACTIVE STUDENT membership and an ACTIVE account. */
+    private void requireEligibleForNewEnrollment(SchoolStudent schoolStudent) {
+        if (!schoolStudent.canReceiveActiveEnrollment()) {
+            throw new ConflictException("Student cannot receive a new enrollment: membership or account is not active");
+        }
+    }
+
+    private ClassEntity requireSchoolClass(Long classId) {
+        return classRepo.findByIdAndAcademicYearSchoolId(classId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
+    }
+
+    private Enrollment requireSchoolEnrollment(Long enrollmentId) {
+        return enrollmentRepo.findByIdAndSchoolId(enrollmentId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
     }
 
     private void requireNoActiveEnrollmentInAcademicYear(Long studentId, ClassEntity classEntity) {
@@ -432,8 +478,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         int classesUsed = 0;
         
         try {
-            // Get all students without active enrollments
-            List<Student> unenrolledStudents = getUnenrolledStudents(targetGradeLevel);
+            // Students of the current School who can still be enrolled in this academic year
+            List<Student> unenrolledStudents = getUnenrolledStudents(targetGradeLevel, academicYear);
             totalStudentsProcessed = unenrolledStudents.size();
             
             log.info("Found {} unenrolled students", totalStudentsProcessed);
@@ -530,22 +576,16 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         }
     }
 
-    private List<Student> getUnenrolledStudents(String targetGradeLevel) {
-        if (targetGradeLevel != null) {
-            GradeLevel gradeLevel = GradeLevel.valueOf(targetGradeLevel.toUpperCase());
-            return studentRepo.findAll().stream()
-                .filter(student -> student.getGradeLevel() == gradeLevel)
-                .filter(student -> !hasActiveEnrollment(student.getId()))
-                .collect(Collectors.toList());
-        } else {
-            return studentRepo.findAll().stream()
-                .filter(student -> !hasActiveEnrollment(student.getId()))
-                .collect(Collectors.toList());
+    /** Students of the current School who can receive a new ACTIVE Enrollment in the AcademicYear. */
+    private List<Student> getUnenrolledStudents(String targetGradeLevel, AcademicYear academicYear) {
+        List<Student> candidates = studentRepo.findEnrollableStudents(currentSchool.resolve().getId(), academicYear.getId());
+        if (targetGradeLevel == null) {
+            return candidates;
         }
-    }
-
-    private boolean hasActiveEnrollment(Long studentId) {
-        return !enrollmentRepo.findByStudentIdAndStatus(studentId, EnrollmentStatus.ACTIVE).isEmpty();
+        GradeLevel gradeLevel = GradeLevel.valueOf(targetGradeLevel.toUpperCase());
+        return candidates.stream()
+            .filter(student -> student.getGradeLevel() == gradeLevel)
+            .collect(Collectors.toList());
     }
 
     private List<ClassEntity> findOrCreateClassesForGradeLevel(
