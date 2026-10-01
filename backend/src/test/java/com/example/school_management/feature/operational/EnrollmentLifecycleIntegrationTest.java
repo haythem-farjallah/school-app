@@ -210,6 +210,58 @@ class EnrollmentLifecycleIntegrationTest {
         assertThat(activeEnrollments(alreadyPlaced)).extracting(e -> e.getClassEntity().getId()).containsExactly(classB.getId());
     }
 
+    @Test
+    void bulkDatabaseFailureCannotRollBackSurroundingStudents() {
+        Student rejected = newStudent();
+        Student last = newStudent();
+        jdbc.execute("""
+                CREATE FUNCTION test_fail_enrollment_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF NEW.student_id = %d THEN
+                        RAISE EXCEPTION 'forced private database failure' USING ERRCODE = '23514';
+                    END IF;
+                    RETURN NEW;
+                END $$
+                """.formatted(rejected.getId()));
+        jdbc.execute("CREATE TRIGGER trg_test_fail_enrollment_insert BEFORE INSERT ON enrollments "
+                + "FOR EACH ROW EXECUTE FUNCTION test_fail_enrollment_insert()");
+
+        enrollmentService.bulkEnrollStudents(classA.getId(), List.of(student.getId(), rejected.getId(), last.getId()));
+
+        assertThat(activeEnrollments(student)).hasSize(1);
+        assertThat(activeEnrollments(rejected)).isEmpty();
+        assertThat(activeEnrollments(last)).hasSize(1);
+    }
+
+    @Test
+    void concurrentEnrollmentCannotOverfillTheLastSeat() throws Exception {
+        ClassEntity singleSeat = newClass(year, "Single seat", 1);
+        Student second = newStudent();
+        var start = new java.util.concurrent.CyclicBarrier(2);
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var attempts = List.of(student, second).stream().map(candidate -> pool.submit(() -> {
+                SecurityContextHolder.getContext().setAuthentication(
+                        new UsernamePasswordAuthenticationToken(DevFixtureLoader.ADMIN_EMAIL, null, List.of()));
+                try {
+                    start.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                    enrollmentService.enrollStudent(candidate.getId(), singleSeat.getId());
+                    return "success";
+                } catch (ConflictException e) {
+                    return e.getMessage();
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            })).toList();
+            assertThat(List.of(attempts.get(0).get(20, java.util.concurrent.TimeUnit.SECONDS),
+                    attempts.get(1).get(20, java.util.concurrent.TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder("success", "Class has reached its capacity");
+            assertThat(enrollmentRepository.countActiveByClassId(singleSeat.getId())).isEqualTo(1);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     // ---- transfer ----------------------------------------------------------------------------------------
 
     @Test
@@ -488,6 +540,34 @@ class EnrollmentLifecycleIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, admin)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Too late\"}"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void bulkHttpReturnsNeutralStructuredPartialSuccessAndRejectsMissingTarget() throws Exception {
+        String admin = bearer(DevFixtureLoader.ADMIN_EMAIL);
+        Student other = newStudent();
+        insert(other, classB, EnrollmentStatus.ACTIVE);
+        mockMvc.perform(post("/api/v1/enrollments/bulk-enroll")
+                        .header(HttpHeaders.AUTHORIZATION, admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("classId", classA.getId(),
+                                "studentIds", List.of(student.getId(), other.getId(), student.getId())))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Bulk enrollment completed"))
+                .andExpect(jsonPath("$.data.requestedStudents").value(3))
+                .andExpect(jsonPath("$.data.uniqueStudentsProcessed").value(2))
+                .andExpect(jsonPath("$.data.duplicatesIgnored").value(1))
+                .andExpect(jsonPath("$.data.studentsEnrolled").value(1))
+                .andExpect(jsonPath("$.data.studentsFailed").value(1))
+                .andExpect(jsonPath("$.data.failures[0].code").value("CONFLICT"));
+        Student untouched = newStudent();
+        mockMvc.perform(post("/api/v1/enrollments/bulk-enroll")
+                        .header(HttpHeaders.AUTHORIZATION, admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("classId", Long.MAX_VALUE,
+                                "studentIds", List.of(untouched.getId())))))
+                .andExpect(status().isNotFound());
+        assertThat(activeEnrollments(untouched)).isEmpty();
     }
 
     // ---- fixtures ---------------------------------------------------------------------------------------------

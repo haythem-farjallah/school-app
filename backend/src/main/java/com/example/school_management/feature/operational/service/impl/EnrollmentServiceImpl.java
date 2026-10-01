@@ -4,7 +4,6 @@ import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.commons.utils.FilterFields;
 import com.example.school_management.feature.academic.entity.ClassEntity;
-import com.example.school_management.feature.academic.entity.AcademicYear;
 import com.example.school_management.feature.academic.service.CurrentAcademicYearResolver;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.auth.entity.BaseUser;
@@ -17,6 +16,7 @@ import com.example.school_management.feature.membership.entity.MembershipStatus;
 import com.example.school_management.feature.membership.entity.SchoolMembership;
 import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
 import com.example.school_management.feature.operational.dto.EnrollmentDto;
+import com.example.school_management.feature.operational.dto.BulkEnrollmentResultDto;
 import com.example.school_management.feature.operational.dto.EnrollmentStatsDto;
 import com.example.school_management.feature.operational.dto.AutoEnrollmentResultDto;
 import com.example.school_management.feature.auth.entity.enums.GradeLevel;
@@ -36,6 +36,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,6 +45,10 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -63,46 +68,16 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     private final ClassRepository classRepo;
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
-    private final RealTimeNotificationService realTimeNotificationService;
+    private final EnrollmentWriteExecutor enrollmentWriter;
+    private final AutoEnrollmentClassWriter autoClassWriter;
     private final CurrentAcademicYearResolver currentAcademicYear;
     private final CurrentSchoolResolver currentSchool;
     private final SchoolMembershipRepository memberships;
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EnrollmentDto enrollStudent(Long studentId, Long classId) {
-        log.debug("Enrolling student {} in class {}", studentId, classId);
-
-        SchoolStudent schoolStudent = requireSchoolStudent(studentId);
-        Student student = schoolStudent.student();
-        ClassEntity classEntity = requireSchoolClass(classId);
-
-        requireEligibleForNewEnrollment(schoolStudent);
-        requireNoActiveEnrollmentInAcademicYear(studentId, classEntity);
-        requireCapacity(classEntity);
-
-        Enrollment savedEnrollment = persistActiveEnrollment(student, classEntity);
-        log.info("Student {} enrolled in class {} with enrollment id {}", studentId, classId, savedEnrollment.getId());
-
-        recordAudit(AuditEventType.ENROLLMENT_CREATED, savedEnrollment.getId(), "Student enrolled in class",
-                String.format("Student %s %s enrolled in class %s",
-                        student.getFirstName(), student.getLastName(), classEntity.getName()));
-
-        // Send real-time enrollment notification
-        try {
-            String studentName = student.getFirstName() + " " + student.getLastName();
-
-            realTimeNotificationService.notifyEnrollmentChange(
-                studentName, 
-                classEntity.getName(), 
-                "ENROLLED", 
-                student.getId(), 
-                null // Parent ID - could be enhanced with a repository lookup if needed
-            );
-        } catch (Exception e) {
-            log.warn("Failed to send real-time enrollment notification: {}", e.getClass().getSimpleName());
-        }
-
-        return toDto(savedEnrollment);
+        return enrollmentWriter.enroll(studentId, classId);
     }
 
     /**
@@ -114,7 +89,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         log.debug("Transferring enrollment {} to class {}", enrollmentId, newClassId);
 
         Enrollment source = requireSchoolEnrollment(enrollmentId);
-        ClassEntity newClass = requireSchoolClass(newClassId);
+        ClassEntity newClass = classRepo.findSchoolClassForUpdate(newClassId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + newClassId));
         SchoolStudent schoolStudent = requireSchoolStudent(source.getStudent().getId());
         ClassEntity oldClass = source.getClassEntity();
 
@@ -135,7 +111,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         Student student = schoolStudent.student();
         source.setStatus(EnrollmentStatus.TRANSFERRED);
         enrollmentRepo.saveAndFlush(source);
-        Enrollment created = persistActiveEnrollment(student, newClass);
+        Enrollment created = persistTransferEnrollment(student, newClass);
 
         recordAudit(AuditEventType.ENROLLMENT_UPDATED, source.getId(), "Student transferred between classes",
                 String.format("Enrollment status changed from ACTIVE to TRANSFERRED: student %s %s moved from class %s to %s",
@@ -283,24 +259,33 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     }
 
     @Override
-    public void bulkEnrollStudents(Long classId, List<Long> studentIds) {
-        log.debug("Bulk enrolling {} students in class {}", studentIds.size(), classId);
-
-        ClassEntity classEntity = requireSchoolClass(classId);
-
-        log.debug("Bulk enrolling students in class: {}", classEntity.getName());
-
-        int enrolled = 0;
-        for (Long studentId : studentIds) {
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public BulkEnrollmentResultDto bulkEnrollStudents(Long classId, List<Long> studentIds) {
+        requireSchoolClass(classId); // Invalid target invalidates the command before any Student is processed.
+        Set<Long> unique = new LinkedHashSet<>(studentIds);
+        List<Long> enrolled = new ArrayList<>();
+        List<BulkEnrollmentResultDto.Failure> failures = new ArrayList<>();
+        for (Long studentId : unique) {
             try {
-                enrollStudent(studentId, classId);
-                enrolled++;
+                enrollmentWriter.enroll(studentId, classId);
+                enrolled.add(studentId);
             } catch (Exception e) {
-                log.warn("Failed to enroll student id={} in class id={}: {}", studentId, classId, e.getClass().getSimpleName());
+                failures.add(enrollmentFailure(studentId, classId, e));
             }
         }
+        return new BulkEnrollmentResultDto(studentIds.size(), unique.size(), enrolled.size(), failures.size(),
+                studentIds.size() - unique.size(), List.copyOf(enrolled), List.copyOf(failures));
+    }
 
-        log.info("Bulk enrollment completed: {}/{} students enrolled in class {}", enrolled, studentIds.size(), classId);
+    private BulkEnrollmentResultDto.Failure enrollmentFailure(Long studentId, Long classId, Exception e) {
+        log.warn("Enrollment failed for studentId={} classId={}: {}", studentId, classId, e.getClass().getSimpleName());
+        if (e instanceof ResourceNotFoundException) {
+            return new BulkEnrollmentResultDto.Failure(studentId, "NOT_FOUND", e.getMessage());
+        }
+        if (e instanceof ConflictException) {
+            return new BulkEnrollmentResultDto.Failure(studentId, "CONFLICT", e.getMessage());
+        }
+        return new BulkEnrollmentResultDto.Failure(studentId, "FAILED", "Enrollment failed");
     }
 
     @Override
@@ -352,12 +337,6 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
     }
 
-    private void requireNoActiveEnrollmentInAcademicYear(Long studentId, ClassEntity classEntity) {
-        if (enrollmentRepo.existsActiveInAcademicYear(studentId, classEntity.getAcademicYear().getId())) {
-            throw new ConflictException("Student already has an active enrollment in this academic year");
-        }
-    }
-
     private void requireCapacity(ClassEntity classEntity) {
         if (getAvailableCapacity(classEntity) <= 0) {
             throw new ConflictException("Class has reached its capacity");
@@ -368,7 +347,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
      * Inserts a new ACTIVE Enrollment and flushes, so a violation of the database's one-active-per-academic-year
      * rule surfaces here, before any audit or notification side effect.
      */
-    private Enrollment persistActiveEnrollment(Student student, ClassEntity classEntity) {
+    private Enrollment persistTransferEnrollment(Student student, ClassEntity classEntity) {
         Enrollment enrollment = new Enrollment();
         enrollment.setStudent(student);
         enrollment.setClassEntity(classEntity);
@@ -438,317 +417,205 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AutoEnrollmentResultDto autoEnrollAllStudents() {
-        log.info("Starting auto-enrollment process for all students");
         return performAutoEnrollment(null, false);
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AutoEnrollmentResultDto autoEnrollByGradeLevel(String gradeLevel) {
-        log.info("Starting auto-enrollment process for grade level: {}", gradeLevel);
-        
         try {
             GradeLevel.valueOf(gradeLevel.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid grade level: " + gradeLevel);
         }
-        
-        return performAutoEnrollment(gradeLevel, false);
+        return performAutoEnrollment(GradeLevel.valueOf(gradeLevel.toUpperCase()), false);
     }
 
+    // Pure planning has no writes; failed resolver reads must also leave the safe fatal result returnable.
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AutoEnrollmentResultDto previewAutoEnrollment() {
-        log.info("Generating auto-enrollment preview");
         return performAutoEnrollment(null, true);
     }
 
-    private AutoEnrollmentResultDto performAutoEnrollment(String targetGradeLevel, boolean isPreview) {
-        AcademicYear academicYear = currentAcademicYear.resolve();
+    private record StudentPlan(Long id, GradeLevel grade) {}
+    private record ClassPlan(Long id, String name, GradeLevel grade, String section, int available) {}
+    private record AutoPlan(Long yearId, int considered, int alreadyEnrolled,
+                            List<StudentPlan> students, List<ClassPlan> classes, List<String> errors) {}
+
+    private AutoEnrollmentResultDto performAutoEnrollment(GradeLevel targetGrade, boolean preview) {
         List<String> errors = new ArrayList<>();
         List<String> createdClasses = new ArrayList<>();
-        Map<String, Integer> enrollmentsByGradeLevel = new HashMap<>();
-        
-        int totalStudentsProcessed = 0;
-        int studentsEnrolled = 0;
-        int studentsAlreadyEnrolled = 0;
-        int classesCreated = 0;
-        int classesUsed = 0;
-        
+        Map<String, Integer> byGrade = new LinkedHashMap<>();
+        Set<String> usedClasses = new HashSet<>();
+        int considered = 0;
+        int alreadyEnrolled = 0;
+        int enrolled = 0;
         try {
-            // Students of the current School who can still be enrolled in this academic year
-            List<Student> unenrolledStudents = getUnenrolledStudents(targetGradeLevel, academicYear);
-            totalStudentsProcessed = unenrolledStudents.size();
-            
-            log.info("Found {} unenrolled students", totalStudentsProcessed);
-            
-            // Group students by grade level
-            Map<GradeLevel, List<Student>> studentsByGrade = unenrolledStudents.stream()
-                .filter(student -> student.getGradeLevel() != null)
-                .collect(Collectors.groupingBy(Student::getGradeLevel));
-            
-            List<ClassEntity> currentYearClasses = new ArrayList<>(classRepo.findByAcademicYearId(academicYear.getId()));
+            AutoPlan plan = planAutoEnrollment(targetGrade);
+            considered = plan.considered();
+            alreadyEnrolled = plan.alreadyEnrolled();
+            errors.addAll(plan.errors());
+            List<ClassPlan> available = new ArrayList<>(plan.classes());
+            Map<String, Integer> remaining = new HashMap<>();
+            available.forEach(c -> remaining.put(c.name(), c.available()));
+            Map<String, Long> resolvedIds = new HashMap<>();
+            available.stream().filter(c -> c.id() != null).forEach(c -> resolvedIds.put(c.name(), c.id()));
 
-            // Process each grade level
-            for (Map.Entry<GradeLevel, List<Student>> entry : studentsByGrade.entrySet()) {
-                GradeLevel gradeLevel = entry.getKey();
-                List<Student> studentsInGrade = entry.getValue();
-                
-                log.info("Processing {} students for grade level: {}", studentsInGrade.size(), gradeLevel);
-                
-                // Find or create classes for this grade level
-                List<ClassEntity> availableClasses = findOrCreateClassesForGradeLevel(gradeLevel, studentsInGrade.size(), academicYear, currentYearClasses);
-                
-                if (!isPreview) {
-                    classesCreated += (int) availableClasses.stream()
-                        .filter(cls -> cls.getId() == null)
-                        .count();
-                    
-                    classesUsed += availableClasses.size();
-                    
-                    // Save new classes
-                    availableClasses = availableClasses.stream()
-                        .map(cls -> cls.getId() == null ? classRepo.save(cls) : cls)
-                        .collect(Collectors.toList());
+            for (StudentPlan student : plan.students()) {
+                if (student.grade() == null) {
+                    continue;
                 }
-                
-                // Track created classes
-                availableClasses.stream()
-                    .filter(cls -> isPreview || cls.getId() != null)
-                    .forEach(cls -> createdClasses.add(cls.getName()));
-                
-                // Enroll students in classes
-                int enrolledInGrade = enrollStudentsInClasses(studentsInGrade, availableClasses, isPreview);
-                studentsEnrolled += enrolledInGrade;
-                enrollmentsByGradeLevel.put(gradeLevel.name(), enrolledInGrade);
+                boolean done = false;
+                while (!done) {
+                    ClassPlan target = available.stream()
+                            .filter(c -> c.grade() == student.grade() && remaining.get(c.name()) > 0)
+                            .findFirst().orElse(null);
+                    if (target == null) {
+                        // Final locked capacity may have changed since planning. Generate the next normal section.
+                        target = nextClass(student.grade(), available);
+                        available.add(target);
+                        remaining.put(target.name(), target.available());
+                    }
+                    if (preview) {
+                        if (target.id() == null && !createdClasses.contains(target.name())) {
+                            createdClasses.add(target.name());
+                        }
+                    } else {
+                        if (!resolvedIds.containsKey(target.name())) {
+                            AutoEnrollmentClassWriter.Result created = resolveGeneratedClass(plan.yearId(), target);
+                            resolvedIds.put(target.name(), created.id());
+                            if (created.created()) {
+                                createdClasses.add(created.name());
+                            }
+                        }
+                        Long classId = resolvedIds.get(target.name());
+                        try {
+                            enrollmentWriter.enroll(student.id(), classId);
+                        } catch (EnrollmentWriteExecutor.CapacityConflict e) {
+                            remaining.put(target.name(), 0);
+                            continue;
+                        } catch (Exception e) {
+                            var failure = enrollmentFailure(student.id(), classId, e);
+                            errors.add("Student " + student.id() + ": " + failure.message());
+                            done = true;
+                            continue;
+                        }
+                    }
+                    enrolled++;
+                    byGrade.merge(student.grade().name(), 1, Integer::sum);
+                    usedClasses.add(target.name());
+                    remaining.compute(target.name(), (name, slots) -> slots - 1);
+                    done = true;
+                }
             }
-            
-            // Check for students with null grade levels
-            long studentsWithoutGrade = unenrolledStudents.stream()
-                .filter(student -> student.getGradeLevel() == null)
-                .count();
-            
-            if (studentsWithoutGrade > 0) {
-                errors.add(String.format("%d students have no grade level assigned", studentsWithoutGrade));
-            }
-            
-            String message = isPreview 
-                ? String.format("Preview: Would enroll %d students and create %d classes", studentsEnrolled, classesCreated)
-                : String.format("Successfully enrolled %d students into %d classes (%d new classes created)", 
-                    studentsEnrolled, classesUsed, classesCreated);
-            
-            return new AutoEnrollmentResultDto(
-                true,
-                message,
-                totalStudentsProcessed,
-                studentsEnrolled,
-                studentsAlreadyEnrolled,
-                classesCreated,
-                classesUsed,
-                LocalDateTime.now(),
-                enrollmentsByGradeLevel,
-                createdClasses,
-                errors,
-                isPreview
-            );
-            
+            String message = preview
+                    ? "Preview: Would enroll %d students and create %d classes".formatted(enrolled, createdClasses.size())
+                    : "Auto-enrollment completed: enrolled %d students into %d classes (%d new classes created)"
+                            .formatted(enrolled, usedClasses.size(), createdClasses.size());
+            return autoResult(true, message, considered, enrolled, alreadyEnrolled, usedClasses.size(),
+                    byGrade, createdClasses, errors, preview);
         } catch (Exception e) {
-            log.error("Error during auto-enrollment process: {}", e.getClass().getSimpleName());
-            // The exception's message may carry SQL or internal state, so the caller only gets a generic error.
+            log.error("Auto-enrollment failed: {}", e.getClass().getSimpleName());
             errors.add("Auto-enrollment failed");
-            
-            return new AutoEnrollmentResultDto(
-                false,
-                "Auto-enrollment process failed",
-                totalStudentsProcessed,
-                studentsEnrolled,
-                studentsAlreadyEnrolled,
-                classesCreated,
-                classesUsed,
-                LocalDateTime.now(),
-                enrollmentsByGradeLevel,
-                createdClasses,
-                errors,
-                isPreview
-            );
+            return autoResult(false, "Auto-enrollment process failed", considered, enrolled, alreadyEnrolled,
+                    usedClasses.size(), byGrade, createdClasses, errors, preview);
         }
     }
 
-    /** Students of the current School who can receive a new ACTIVE Enrollment in the AcademicYear. */
-    private List<Student> getUnenrolledStudents(String targetGradeLevel, AcademicYear academicYear) {
-        List<Student> candidates = studentRepo.findEnrollableStudents(currentSchool.resolve().getId(), academicYear.getId());
-        if (targetGradeLevel == null) {
-            return candidates;
-        }
-        GradeLevel gradeLevel = GradeLevel.valueOf(targetGradeLevel.toUpperCase());
-        return candidates.stream()
-            .filter(student -> student.getGradeLevel() == gradeLevel)
-            .collect(Collectors.toList());
+    private AutoEnrollmentResultDto autoResult(boolean success, String message, int considered, int enrolled,
+            int alreadyEnrolled, int classesUsed, Map<String, Integer> byGrade, List<String> createdClasses,
+            List<String> errors, boolean preview) {
+        return new AutoEnrollmentResultDto(success, message, considered, enrolled, alreadyEnrolled,
+                createdClasses.size(), classesUsed, LocalDateTime.now(), Map.copyOf(byGrade),
+                List.copyOf(createdClasses), List.copyOf(errors), preview);
     }
 
-    private List<ClassEntity> findOrCreateClassesForGradeLevel(
-            GradeLevel gradeLevel, int studentCount, AcademicYear academicYear, List<ClassEntity> currentYearClasses) {
-        List<ClassEntity> availableClasses = new ArrayList<>();
-        
-        // Don't create classes if no students to enroll
-        if (studentCount == 0) {
-            log.info("No students to enroll for grade level: {}", gradeLevel);
-            return availableClasses;
+    /** Side-effect-free population, roster and capacity planning. Never passes entities to a write transaction. */
+    private AutoPlan planAutoEnrollment(GradeLevel targetGrade) {
+        Long yearId = currentAcademicYear.resolve().getId();
+        List<StudentPlan> eligible = studentRepo.findEligibleSchoolStudents(currentSchool.resolve().getId()).stream()
+                .filter(s -> targetGrade == null || s.getGradeLevel() == targetGrade)
+                .map(s -> new StudentPlan(s.getId(), s.getGradeLevel())).toList();
+        Set<Long> activeIds = new HashSet<>(enrollmentRepo.findStudentIdsByAcademicYearIdAndStatus(
+                yearId, EnrollmentStatus.ACTIVE));
+        List<StudentPlan> needingEnrollment = eligible.stream().filter(s -> !activeIds.contains(s.id())).toList();
+        List<ClassEntity> existing = classRepo.findByAcademicYearId(yearId);
+        Map<Long, Long> rosterCounts = enrollmentRepo.countActiveRosters(existing.stream().map(ClassEntity::getId).toList())
+                .stream().collect(Collectors.toMap(EnrollmentRepository.RosterCountRow::getClassId,
+                        EnrollmentRepository.RosterCountRow::getStudentCount));
+        List<ClassPlan> planned = new ArrayList<>();
+        for (ClassEntity c : existing) {
+            GradeLevel grade = null;
+            if (c.getGradeLevel() != null) {
+                try {
+                    grade = GradeLevel.valueOf(c.getGradeLevel());
+                } catch (IllegalArgumentException ignored) {
+                    // Name-only or legacy Classes still reserve their names, but cannot route this population.
+                }
+            }
+            int capacity = c.getCapacity() == null ? 30 : c.getCapacity();
+            int free = (int) Math.max(0, capacity - rosterCounts.getOrDefault(c.getId(), 0L));
+            planned.add(new ClassPlan(c.getId(), c.getName(), grade, c.getSection(), free));
         }
-        
-        // Find existing classes for this grade level with available capacity
-        List<ClassEntity> existingClasses = currentYearClasses.stream()
-            .filter(cls -> gradeLevel.name().equals(cls.getGradeLevel()))
-            .filter(cls -> getAvailableCapacity(cls) > 0)
-            .sorted((a, b) -> a.getSection() != null && b.getSection() != null ? 
-                a.getSection().compareTo(b.getSection()) : 0) // Sort by section
-            .collect(Collectors.toList());
-        
-        availableClasses.addAll(existingClasses);
-        
-        // Calculate how many students can be accommodated in existing classes
-        int availableCapacity = existingClasses.stream()
-            .mapToInt(this::getAvailableCapacity)
-            .sum();
-        
-        // Create new classes if needed
-        int remainingStudents = studentCount - availableCapacity;
-        if (remainingStudents > 0) {
-            int newClassesNeeded = (int) Math.ceil((double) remainingStudents / 30); // Default capacity of 30
-            
-            for (int i = 0; i < newClassesNeeded; i++) {
-                String nextSection = getNextAvailableSection(gradeLevel, currentYearClasses);
-                ClassEntity newClass = createNewClass(gradeLevel, nextSection, academicYear);
-                availableClasses.add(newClass);
-                currentYearClasses.add(newClass);
+        planned.sort(Comparator.comparing(ClassPlan::section, Comparator.nullsFirst(Comparator.naturalOrder()))
+                .thenComparing(ClassPlan::id));
+        for (GradeLevel grade : GradeLevel.values()) {
+            long demand = needingEnrollment.stream().filter(s -> s.grade() == grade).count();
+            long capacity = planned.stream().filter(c -> c.grade() == grade).mapToLong(ClassPlan::available).sum();
+            while (capacity < demand) {
+                ClassPlan created = nextClass(grade, planned);
+                planned.add(created);
+                capacity += created.available();
             }
         }
-        
-        return availableClasses;
+        long withoutGrade = needingEnrollment.stream().filter(s -> s.grade() == null).count();
+        List<String> errors = withoutGrade == 0 ? List.of()
+                : List.of(withoutGrade + " eligible students have no grade level assigned");
+        return new AutoPlan(yearId, eligible.size(), eligible.size() - needingEnrollment.size(),
+                needingEnrollment, List.copyOf(planned), errors);
+    }
+
+    private AutoEnrollmentClassWriter.Result resolveGeneratedClass(Long yearId, ClassPlan target) {
+        try {
+            return autoClassWriter.create(yearId, target.grade(), target.section(), target.name());
+        } catch (DataIntegrityViolationException e) {
+            String detail = e.getMostSpecificCause().getMessage();
+            if (detail != null && detail.contains("uk_classes_academic_year_name")) {
+                return autoClassWriter.findExisting(yearId, target.grade(), target.section(), target.name())
+                        .orElseThrow(() -> e);
+            }
+            throw e;
+        }
+    }
+
+    private ClassPlan nextClass(GradeLevel grade, List<ClassPlan> classes) {
+        Set<String> names = classes.stream().map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
+        Set<String> sections = classes.stream().filter(c -> c.grade() == grade).map(ClassPlan::section)
+                .filter(section -> section != null).collect(Collectors.toSet());
+        char section = 'A';
+        while (sections.contains(String.valueOf(section))
+                || names.contains(generateClassName(grade, String.valueOf(section)).toLowerCase(Locale.ROOT))) {
+            section++;
+        }
+        String value = String.valueOf(section);
+        return new ClassPlan(null, generateClassName(grade, value), grade, value, 30);
+    }
+
+    private String generateClassName(GradeLevel gradeLevel, String section) {
+        return switch (gradeLevel) {
+            case KINDERGARTEN -> "K-" + section;
+            case ELEMENTARY -> "E-" + section;
+            case MIDDLE -> "M-" + section;
+            case HIGH -> "H-" + section;
+            case UNIVERSITY -> "U-" + section;
+        };
     }
 
     private int getAvailableCapacity(ClassEntity classEntity) {
         long currentEnrollments = enrollmentRepo.countActiveByClassId(classEntity.getId());
         return (int) Math.max(0, (classEntity.getCapacity() != null ? classEntity.getCapacity() : 30) - currentEnrollments);
-    }
-
-    private String getNextAvailableSection(GradeLevel gradeLevel, List<ClassEntity> currentYearClasses) {
-        // Find all existing sections for this grade level
-        List<String> existingSections = currentYearClasses.stream()
-            .filter(cls -> gradeLevel.name().equals(cls.getGradeLevel()))
-            .map(ClassEntity::getSection)
-            .filter(section -> section != null && !section.isEmpty())
-            .sorted()
-            .collect(Collectors.toList());
-
-        // Name-only classes also reserve names, even without grade/section metadata.
-        Set<String> existingNames = currentYearClasses.stream()
-            .map(ClassEntity::getName)
-            .filter(name -> name != null)
-            .map(name -> name.toLowerCase(Locale.ROOT))
-            .collect(Collectors.toSet());
-        
-        // Start from 'A' and find the first available section
-        char sectionChar = 'A';
-        while (existingSections.contains(String.valueOf(sectionChar))
-                || existingNames.contains(generateClassName(gradeLevel, String.valueOf(sectionChar)).toLowerCase(Locale.ROOT))) {
-            sectionChar++;
-        }
-        
-        return String.valueOf(sectionChar);
-    }
-
-    private ClassEntity createNewClass(GradeLevel gradeLevel, String section, AcademicYear academicYear) {
-        ClassEntity newClass = new ClassEntity();
-        
-        // Generate class name based on grade level and section
-        String className = generateClassName(gradeLevel, section);
-        
-        newClass.setName(className);
-        newClass.setGradeLevel(gradeLevel.name());
-        newClass.setSection(section);
-        newClass.setAcademicYear(academicYear);
-        newClass.setCapacity(30);
-        newClass.setWeeklyHours(30);
-        
-        log.info("Creating new class: {}", className);
-        return newClass;
-    }
-
-    private String generateClassName(GradeLevel gradeLevel, String section) {
-        return switch (gradeLevel) {
-            case KINDERGARTEN -> "K-" + section;      // K-A, K-B
-            case ELEMENTARY -> "E-" + section;        // E-A, E-B (grades 1-6)
-            case MIDDLE -> "M-" + section;            // M-A, M-B (grades 7-9)
-            case HIGH -> "H-" + section;              // H-A, H-B (grades 10-12)
-            case UNIVERSITY -> "U-" + section;        // U-A, U-B
-        };
-    }
-
-    /**
-     * Generate class name with specific grade number if available
-     * This method can be enhanced to use specific grade numbers when that information is available
-     */
-    private String generateClassNameWithGrade(GradeLevel gradeLevel, String section, Integer specificGrade) {
-        if (specificGrade != null) {
-            return specificGrade + "-" + section;  // 7-A, 8-B, 10-C, etc.
-        }
-        return generateClassName(gradeLevel, section);
-    }
-
-    private int enrollStudentsInClasses(List<Student> students, List<ClassEntity> classes, boolean isPreview) {
-        int enrolled = 0;
-        int studentIndex = 0;
-        
-        for (ClassEntity classEntity : classes) {
-            int availableCapacity = isPreview ? 30 : getAvailableCapacity(classEntity);
-            
-            while (availableCapacity > 0 && studentIndex < students.size()) {
-                Student student = students.get(studentIndex);
-                
-                // Check if student is currently enrolled in this specific class
-                if (!isPreview && isStudentEnrolledInClass(student.getId(), classEntity.getId())) {
-                    log.debug("Student id={} is already enrolled in class id={}, skipping",
-                        student.getId(), classEntity.getId());
-                    studentIndex++;
-                    continue;
-                }
-                
-                if (!isPreview) {
-                    try {
-                        // Create enrollment
-                        Enrollment enrollment = new Enrollment();
-                        enrollment.setStudent(student);
-                        enrollment.setClassEntity(classEntity);
-                        enrollment.setStatus(EnrollmentStatus.ACTIVE);
-                        enrollment.setEnrolledAt(LocalDateTime.now());
-                        
-                        enrollmentRepo.save(enrollment);
-                        log.debug("Enrolled student id={} in class id={}", student.getId(), classEntity.getId());
-                    } catch (Exception e) {
-                        log.warn("Failed to enroll student id={} in class id={}: {}",
-                            student.getId(), classEntity.getId(), e.getClass().getSimpleName());
-                        studentIndex++;
-                        continue;
-                    }
-                }
-                
-                enrolled++;
-                studentIndex++;
-                availableCapacity--;
-            }
-            
-            if (studentIndex >= students.size()) {
-                break;
-            }
-        }
-        
-        return enrolled;
-    }
-
-    private boolean isStudentEnrolledInClass(Long studentId, Long classId) {
-        return enrollmentRepo.existsActiveInClass(studentId, classId);
     }
 }

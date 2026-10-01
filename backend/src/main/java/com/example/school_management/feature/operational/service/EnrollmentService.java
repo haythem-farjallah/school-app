@@ -1,6 +1,7 @@
 package com.example.school_management.feature.operational.service;
 
 import com.example.school_management.feature.operational.dto.EnrollmentDto;
+import com.example.school_management.feature.operational.dto.BulkEnrollmentResultDto;
 import com.example.school_management.feature.operational.dto.EnrollmentStatsDto;
 import com.example.school_management.feature.operational.dto.AutoEnrollmentResultDto;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
@@ -75,7 +76,7 @@ public interface EnrollmentService {
     /**
      * Bulk enroll students in a class
      */
-    void bulkEnrollStudents(Long classId, java.util.List<Long> studentIds);
+    BulkEnrollmentResultDto bulkEnrollStudents(Long classId, java.util.List<Long> studentIds);
     
     /**
      * Check if student can be enrolled in class (capacity, prerequisites, etc.)

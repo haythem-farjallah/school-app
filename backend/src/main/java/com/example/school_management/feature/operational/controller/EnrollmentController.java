@@ -3,6 +3,7 @@ package com.example.school_management.feature.operational.controller;
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
 import com.example.school_management.feature.operational.dto.EnrollmentDto;
+import com.example.school_management.feature.operational.dto.BulkEnrollmentResultDto;
 import com.example.school_management.feature.operational.dto.EnrollmentStatsDto;
 import com.example.school_management.feature.operational.dto.AutoEnrollmentResultDto;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
@@ -189,12 +190,12 @@ public class EnrollmentController {
     @PostMapping("/bulk-enroll")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @Operation(summary = "Bulk enroll students in a class")
-    public ResponseEntity<ApiSuccessResponse<String>> bulkEnrollStudents(
+    public ResponseEntity<ApiSuccessResponse<BulkEnrollmentResultDto>> bulkEnrollStudents(
             @Valid @RequestBody BulkEnrollStudentsRequest request) {
         log.debug("Bulk enrolling {} students in class {}", request.studentIds().size(), request.classId());
         
-        enrollmentService.bulkEnrollStudents(request.classId(), request.studentIds());
-        return ResponseEntity.ok(new ApiSuccessResponse<>("Students bulk enrolled successfully", ""));
+        BulkEnrollmentResultDto result = enrollmentService.bulkEnrollStudents(request.classId(), request.studentIds());
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Bulk enrollment completed", result));
     }
 
     @GetMapping("/can-enroll")
@@ -216,7 +217,7 @@ public class EnrollmentController {
         log.debug("Starting auto-enrollment process for all students");
         
         AutoEnrollmentResultDto result = enrollmentService.autoEnrollAllStudents();
-        return ResponseEntity.ok(new ApiSuccessResponse<>("Auto-enrollment completed successfully", result));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Auto-enrollment completed", result));
     }
 
     @PostMapping("/auto-enroll/grade/{gradeLevel}")
@@ -227,7 +228,7 @@ public class EnrollmentController {
         log.debug("Starting auto-enrollment process for grade level: {}", gradeLevel);
         
         AutoEnrollmentResultDto result = enrollmentService.autoEnrollByGradeLevel(gradeLevel);
-        return ResponseEntity.ok(new ApiSuccessResponse<>("Auto-enrollment completed successfully", result));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Auto-enrollment completed", result));
     }
 
     @GetMapping("/auto-enroll/preview")

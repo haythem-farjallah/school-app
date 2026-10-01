@@ -6,6 +6,8 @@ import com.example.school_management.feature.operational.entity.TimetableSlot;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -15,6 +17,12 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> , JpaS
     boolean existsByAcademicYearIdAndNameIgnoreCase(Long academicYearId, String name);
     boolean existsByAcademicYearIdAndNameIgnoreCaseAndIdNot(Long academicYearId, String name, Long id);
     Optional<ClassEntity> findByIdAndAcademicYearSchoolId(Long id, Long schoolId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ClassEntity c WHERE c.id = :id AND c.academicYear.school.id = :schoolId")
+    Optional<ClassEntity> findSchoolClassForUpdate(@Param("id") Long id, @Param("schoolId") Long schoolId);
+
+    Optional<ClassEntity> findByAcademicYearIdAndNameIgnoreCase(Long academicYearId, String name);
+
     boolean existsByName(String name);
     List<ClassEntity> findByAcademicYearId(Long academicYearId);
     

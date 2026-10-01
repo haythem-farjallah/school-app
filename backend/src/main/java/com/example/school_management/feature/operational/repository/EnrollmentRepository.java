@@ -33,6 +33,11 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
                                                         @Param("academicYearId") Long academicYearId,
                                                         @Param("status") EnrollmentStatus status);
 
+    @Query("SELECT e.student.id FROM Enrollment e WHERE e.classEntity.academicYear.id = :academicYearId "
+            + "AND e.status = :status")
+    List<Long> findStudentIdsByAcademicYearIdAndStatus(@Param("academicYearId") Long academicYearId,
+                                                     @Param("status") EnrollmentStatus status);
+
     default Optional<Enrollment> findActiveByStudentIdAndClassId(Long studentId, Long classId) {
         return findByStudentIdAndClassIdAndStatus(studentId, classId, EnrollmentStatus.ACTIVE);
     }

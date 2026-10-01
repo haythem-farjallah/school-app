@@ -19,6 +19,12 @@ import jakarta.persistence.EntityManager;
 import jakarta.validation.ConstraintViolationException;
 import org.hibernate.Hibernate;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.context.transaction.TestTransaction;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,6 +56,37 @@ class ClassAcademicYearWriteIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired MockMvc mvc;
 
+    private final List<Long> committedYearIds = new ArrayList<>();
+    private boolean committedAutoFixtures;
+    private Long fixtureStudentId;
+    private GradeLevel originalGrade;
+
+    @AfterEach
+    void cleanupCommittedAutoFixtures() {
+        if (!committedAutoFixtures) return;
+        SecurityContextHolder.clearContext();
+        if (TestTransaction.isActive()) TestTransaction.end();
+        for (Long yearId : committedYearIds) {
+            jdbc.update("DELETE FROM audit_events WHERE entity_type = 'Enrollment' AND entity_id IN "
+                    + "(SELECT e.id FROM enrollments e JOIN classes c ON e.class_id = c.id WHERE c.academic_year_id = ?)", yearId);
+            jdbc.update("DELETE FROM enrollments WHERE class_id IN (SELECT id FROM classes WHERE academic_year_id = ?)", yearId);
+            jdbc.update("DELETE FROM classes WHERE academic_year_id = ?", yearId);
+            jdbc.update("DELETE FROM academic_years WHERE id = ?", yearId);
+        }
+        if (fixtureStudentId != null) {
+            jdbc.update("UPDATE student SET grade_level = ?::grade_level WHERE id = ?",
+                    originalGrade == null ? null : originalGrade.name(), fixtureStudentId);
+        }
+    }
+
+    private void commitAutoFixtures() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(DevFixtureLoader.ADMIN_EMAIL, null, List.of()));
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        committedAutoFixtures = true;
+    }
+
     @Test
     void nameOnlyCreatePersistsCurrentYearAndUpdatePreservesOwnership() {
         long first = year("Configured A", true);
@@ -71,6 +108,7 @@ class ClassAcademicYearWriteIntegrationTest {
         long id;
         if (autoEnrollment) {
             Long student = middleStudent();
+            commitAutoFixtures();
             var result = enrollment.autoEnrollByGradeLevel("MIDDLE");
             assertThat(result.success()).isTrue();
             id = jdbc.queryForObject("SELECT class_id FROM enrollments WHERE student_id = ? AND status = 'ACTIVE'", Long.class, student);
@@ -137,6 +175,7 @@ class ClassAcademicYearWriteIntegrationTest {
         long current = year("Current", true);
         fixtureClass("Old M-A", "A", previous, 30);
         var student = middleStudent();
+        commitAutoFixtures();
         var result = enrollment.autoEnrollByGradeLevel("MIDDLE");
         assertThat(result.success()).isTrue();
         assertThat(result.classesCreated()).isEqualTo(1);
@@ -155,6 +194,7 @@ class ClassAcademicYearWriteIntegrationTest {
         fixtureClass("M-C", "C", previous, 30);
         var student = middleStudent();
         long before = classes.count();
+        commitAutoFixtures();
         var result = preview ? enrollment.previewAutoEnrollment() : enrollment.autoEnrollByGradeLevel("MIDDLE");
         assertThat(result.success()).isTrue();
         assertThat(result.createdClasses()).contains("M-C");
@@ -176,6 +216,7 @@ class ClassAcademicYearWriteIntegrationTest {
         long current = year("Current", true);
         long existing = fixtureClass("Current M-A", "A", current, 30);
         var student = middleStudent();
+        commitAutoFixtures();
         var result = enrollment.autoEnrollByGradeLevel("MIDDLE");
         assertThat(result.success()).isTrue();
         assertThat(result.classesCreated()).isZero();
@@ -190,6 +231,7 @@ class ClassAcademicYearWriteIntegrationTest {
         fixtureClass("Current M-A", "A", current, 0);
         middleStudent();
         long before = classes.count();
+        commitAutoFixtures();
         var preview = enrollment.previewAutoEnrollment();
         assertThat(preview.success()).isTrue();
         assertThat(preview.createdClasses()).contains("M-B");
@@ -204,16 +246,16 @@ class ClassAcademicYearWriteIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {"all", "grade", "preview"})
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    void autoEnrollmentWithoutActiveYearPropagatesConfigurationFailureWithoutWrites(String operation) {
+    void autoEnrollmentWithoutActiveYearReturnsSafeFatalResultWithoutWrites(String operation) {
         long before = classes.count();
-        assertThatThrownBy(() -> {
-            switch (operation) {
-                case "all" -> enrollment.autoEnrollAllStudents();
-                case "grade" -> enrollment.autoEnrollByGradeLevel("MIDDLE");
-                case "preview" -> enrollment.previewAutoEnrollment();
-                default -> throw new AssertionError("Unknown test operation");
-            }
-        }).isInstanceOf(IllegalStateException.class).hasMessageContaining("no active AcademicYear");
+        var result = switch (operation) {
+            case "all" -> enrollment.autoEnrollAllStudents();
+            case "grade" -> enrollment.autoEnrollByGradeLevel("MIDDLE");
+            case "preview" -> enrollment.previewAutoEnrollment();
+            default -> throw new AssertionError("Unknown test operation");
+        };
+        assertThat(result.success()).isFalse();
+        assertThat(result.errors()).containsExactly("Auto-enrollment failed");
         assertThat(classes.count()).isEqualTo(before);
         assertThat(years.count()).isZero();
     }
@@ -236,11 +278,15 @@ class ClassAcademicYearWriteIntegrationTest {
     }
 
     private long year(String name, boolean active) {
-        return calendar.create(new CreateAcademicYearRequest(name, LocalDate.of(2026, 8, 17), LocalDate.of(2027, 7, 9), active)).id();
+        long id = calendar.create(new CreateAcademicYearRequest(name, LocalDate.of(2026, 8, 17), LocalDate.of(2027, 7, 9), active)).id();
+        committedYearIds.add(id);
+        return id;
     }
 
     private Long middleStudent() {
         var student = students.findByEmail(DevFixtureLoader.STUDENT_EMAIL).orElseThrow();
+        fixtureStudentId = student.getId();
+        originalGrade = student.getGradeLevel();
         student.setGradeLevel(GradeLevel.MIDDLE);
         em.flush();
         return student.getId();
@@ -251,6 +297,7 @@ class ClassAcademicYearWriteIntegrationTest {
     }
 
     private void assertOwnership(long id, long year, String yearName) {
+        if (!TestTransaction.isActive()) TestTransaction.start();
         em.flush();
         em.clear();
         assertThat(jdbc.queryForObject("SELECT academic_year_id FROM classes WHERE id = ?", Long.class, id)).isEqualTo(year);

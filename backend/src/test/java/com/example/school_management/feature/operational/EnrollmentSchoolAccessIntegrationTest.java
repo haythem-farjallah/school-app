@@ -26,6 +26,7 @@ import com.example.school_management.feature.school.entity.School;
 import com.example.school_management.feature.school.repository.SchoolRepository;
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import jakarta.persistence.EntityManager;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,7 +37,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.springframework.transaction.annotation.Transactional;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.example.school_management.dev.DevFixtureLoader;
+import java.util.ArrayList;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,7 +60,6 @@ import static org.mockito.Mockito.doReturn;
  * Existing history stays readable and closable whatever the membership status becomes.
  */
 @IntegrationTest
-@Transactional
 class EnrollmentSchoolAccessIntegrationTest {
     @Autowired EnrollmentService enrollmentService;
     @Autowired EnrollmentRepository enrollments;
@@ -65,8 +69,10 @@ class EnrollmentSchoolAccessIntegrationTest {
     @Autowired AcademicYearRepository years;
     @Autowired ClassRepository classes;
     @Autowired EntityManager em;
+    @Autowired JdbcTemplate jdbc;
     @MockitoSpyBean CurrentSchoolResolver currentSchool;
 
+    private final List<Long> studentIds = new ArrayList<>();
     private School school;
     private School otherSchool;
     private AcademicYear year;
@@ -77,6 +83,8 @@ class EnrollmentSchoolAccessIntegrationTest {
 
     @BeforeEach
     void twoSchools() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(DevFixtureLoader.ADMIN_EMAIL, null, List.of()));
         school = school("Current school");
         otherSchool = school("Other school");
         year = year(school);
@@ -85,6 +93,25 @@ class EnrollmentSchoolAccessIntegrationTest {
         classB = clazz(year, "Room B", 30);
         foreignClass = clazz(otherYear, "Foreign room", 30);
         doReturn(school).when(currentSchool).resolve();
+    }
+
+    @AfterEach
+    void cleanupCommittedFixtures() {
+        SecurityContextHolder.clearContext();
+        enrollments.deleteAll(enrollments.findAll().stream()
+                .filter(e -> studentIds.contains(e.getStudent().getId())).toList());
+        classes.deleteAll(classes.findByAcademicYearId(year.getId()));
+        classes.deleteAll(classes.findByAcademicYearId(otherYear.getId()));
+        years.deleteById(year.getId());
+        years.deleteById(otherYear.getId());
+        studentIds.forEach(id -> {
+            // Restore visibility solely to remove this test's soft-deleted fixture and its memberships.
+            jdbc.update("UPDATE users SET status = 'ACTIVE' WHERE id = ?", id);
+            memberships.deleteAll(memberships.findAllByUserId(id));
+            students.deleteById(id);
+        });
+        schools.deleteById(school.getId());
+        schools.deleteById(otherSchool.getId());
     }
 
     // ---- creating an enrollment ------------------------------------------------------------------------
@@ -124,7 +151,6 @@ class EnrollmentSchoolAccessIntegrationTest {
 
         assertThatThrownBy(() -> enrollmentService.enrollStudent(studentId, classA.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
-        em.flush();
         assertThat(enrollments.findByStudentId(studentId)).isEmpty();
     }
 
@@ -156,7 +182,6 @@ class EnrollmentSchoolAccessIntegrationTest {
 
         EnrollmentDto result = enrollmentService.transferStudent(source.getId(), classB.getId());
 
-        em.flush();
         em.clear();
         assertThat(enrollments.findById(source.getId()).orElseThrow().getStatus()).isEqualTo(EnrollmentStatus.TRANSFERRED);
         Enrollment created = enrollments.findById(result.getId()).orElseThrow();
@@ -236,7 +261,6 @@ class EnrollmentSchoolAccessIntegrationTest {
 
         enrollmentService.withdrawEnrollment(active.getId(), "Left the school");
 
-        em.flush();
         em.clear();
         assertThat(enrollments.findById(active.getId()).orElseThrow().getStatus()).isEqualTo(EnrollmentStatus.WITHDRAWN);
     }
@@ -460,7 +484,8 @@ class EnrollmentSchoolAccessIntegrationTest {
                     .noneMatch(e -> e.getClassEntity().getId().equals(classA.getId()));
         }
 
-        assertThat(enrollmentService.previewAutoEnrollment().totalStudentsProcessed()).isZero();
+        assertThat(enrollmentService.previewAutoEnrollment().totalStudentsProcessed()).isEqualTo(1);
+        assertThat(enrollmentService.previewAutoEnrollment().studentsAlreadyEnrolled()).isEqualTo(1);
     }
 
     // ---- fixtures ----------------------------------------------------------------------------------------------
@@ -502,7 +527,9 @@ class EnrollmentSchoolAccessIntegrationTest {
         created.setPassword("not-a-real-hash");
         created.setStatus(status);
         created.setIsEmailVerified(true);
-        return students.saveAndFlush(created);
+        Student saved = students.saveAndFlush(created);
+        studentIds.add(saved.getId());
+        return saved;
     }
 
     private Student named(String first, String last, School memberOf) {
@@ -516,8 +543,9 @@ class EnrollmentSchoolAccessIntegrationTest {
     }
 
     private Student middle(Student student) {
-        student.setGradeLevel(GradeLevel.MIDDLE);
-        return students.saveAndFlush(student);
+        Student loaded = students.findById(student.getId()).orElseThrow();
+        loaded.setGradeLevel(GradeLevel.MIDDLE);
+        return students.saveAndFlush(loaded);
     }
 
     private Student wrongRoleMember() {
@@ -564,7 +592,6 @@ class EnrollmentSchoolAccessIntegrationTest {
     }
 
     private void assertUnchanged(Enrollment source) {
-        em.flush();
         em.clear();
         Enrollment reloaded = enrollments.findById(source.getId()).orElseThrow();
         assertThat(reloaded.getStatus()).isEqualTo(EnrollmentStatus.ACTIVE);

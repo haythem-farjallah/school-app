@@ -27,6 +27,9 @@ const filterParsers = {
 
 // The fields of the backend AutoEnrollmentResultDto shown after an auto-enrollment.
 interface AutoEnrollmentResult {
+  success: boolean;
+  message: string;
+  errors: string[];
   studentsEnrolled: number;
   classesUsed: number;
   classesCreated: number;
@@ -109,9 +112,15 @@ export function EnrollmentsTable() {
       const response = await api.post<ApiResponse<AutoEnrollmentResult>>('/v1/enrollments/auto-enroll');
       const result = response.data.data;
       
-      toast.success(
-        `Auto-Enrollment Complete! Successfully enrolled ${result.studentsEnrolled} students into ${result.classesUsed} classes (${result.classesCreated} new classes created)`
-      );
+      if (!result.success) {
+        toast.error(result.message || "Auto-enrollment process failed");
+      } else if (result.errors.length > 0) {
+        toast(`Auto-Enrollment completed with warnings: ${result.studentsEnrolled} students enrolled. ${result.errors.length} warning(s).`);
+      } else {
+        toast.success(
+          `Auto-Enrollment Complete! Successfully enrolled ${result.studentsEnrolled} students into ${result.classesUsed} classes (${result.classesCreated} new classes created)`
+        );
+      }
       
       // Refresh the enrollments table
       refetch();

@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,9 +61,23 @@ public class AuditServiceImpl implements AuditService {
             // Broadcast real-time admin feed notification
             try {
                 String performedBy = actedBy != null ? actedBy.getFirstName() + " " + actedBy.getLastName() : "System";
-                realTimeNotificationService.broadcastAdminFeed(
-                    eventType, summary, details, performedBy, entityType, entityId
-                );
+                if ("Enrollment".equals(entityType) && TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            try {
+                                realTimeNotificationService.broadcastAdminFeed(
+                                        eventType, summary, details, performedBy, entityType, entityId);
+                            } catch (Exception e) {
+                                log.warn("Enrollment audit notification failed for enrollmentId={}: {}",
+                                        entityId, e.getClass().getSimpleName());
+                            }
+                        }
+                    });
+                } else {
+                    realTimeNotificationService.broadcastAdminFeed(
+                            eventType, summary, details, performedBy, entityType, entityId);
+                }
             } catch (Exception notificationError) {
                 log.warn("Failed to broadcast real-time notification for audit event: {}", notificationError.getMessage());
             }

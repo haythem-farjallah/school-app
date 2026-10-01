@@ -40,7 +40,8 @@ class EnrollmentServiceAutoEnrollmentErrorTest {
             mock(ClassRepository.class),
             mock(AuditService.class),
             (BaseUserRepository<BaseUser>) mock(BaseUserRepository.class),
-            mock(RealTimeNotificationService.class),
+            mock(EnrollmentWriteExecutor.class),
+            mock(AutoEnrollmentClassWriter.class),
             academicYearResolver,
             schoolResolver,
             mock(SchoolMembershipRepository.class));
@@ -53,7 +54,7 @@ class EnrollmentServiceAutoEnrollmentErrorTest {
         when(school.getId()).thenReturn(2L);
         when(academicYearResolver.resolve()).thenReturn(year);
         when(schoolResolver.resolve()).thenReturn(school);
-        when(studentRepo.findEnrollableStudents(anyLong(), anyLong()))
+        when(studentRepo.findEligibleSchoolStudents(anyLong()))
                 .thenThrow(new DataAccessResourceFailureException(INTERNAL_DETAIL));
 
         AutoEnrollmentResultDto result = service.previewAutoEnrollment();
