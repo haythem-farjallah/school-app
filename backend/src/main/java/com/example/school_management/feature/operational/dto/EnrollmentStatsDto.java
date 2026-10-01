@@ -6,9 +6,9 @@ import lombok.Value;
 public class EnrollmentStatsDto {
     Long totalEnrollments;
     Long activeEnrollments;
-    Long pendingEnrollments;
     Long completedEnrollments;
-    Long droppedEnrollments;
+    Long transferredEnrollments;
+    Long withdrawnEnrollments;
     Double completionRate;
     Double averageFinalGrade;
 } 

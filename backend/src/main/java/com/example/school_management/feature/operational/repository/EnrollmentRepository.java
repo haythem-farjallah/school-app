@@ -26,8 +26,33 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
     @Query("SELECT e FROM Enrollment e WHERE e.status = :status ORDER BY e.enrolledAt DESC")
     Page<Enrollment> findByStatus(@Param("status") EnrollmentStatus status, Pageable pageable);
 
-    @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId AND e.classEntity.id = :classId")
-    Optional<Enrollment> findByStudentIdAndClassId(@Param("studentId") Long studentId, @Param("classId") Long classId);
+    // A Student may have many historical Enrollments in one Class, but at most one ACTIVE one:
+    // the database allows a single ACTIVE Enrollment per Student per AcademicYear.
+    @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId AND e.classEntity.id = :classId AND e.status = :status")
+    Optional<Enrollment> findByStudentIdAndClassIdAndStatus(@Param("studentId") Long studentId, @Param("classId") Long classId,
+                                                            @Param("status") EnrollmentStatus status);
+
+    @Query("SELECT COUNT(e) > 0 FROM Enrollment e WHERE e.student.id = :studentId "
+            + "AND e.classEntity.academicYear.id = :academicYearId AND e.status = :status")
+    boolean existsByStudentIdAndAcademicYearIdAndStatus(@Param("studentId") Long studentId,
+                                                        @Param("academicYearId") Long academicYearId,
+                                                        @Param("status") EnrollmentStatus status);
+
+    default Optional<Enrollment> findActiveByStudentIdAndClassId(Long studentId, Long classId) {
+        return findByStudentIdAndClassIdAndStatus(studentId, classId, EnrollmentStatus.ACTIVE);
+    }
+
+    default boolean existsActiveInClass(Long studentId, Long classId) {
+        return findActiveByStudentIdAndClassId(studentId, classId).isPresent();
+    }
+
+    default boolean existsActiveInAcademicYear(Long studentId, Long academicYearId) {
+        return existsByStudentIdAndAcademicYearIdAndStatus(studentId, academicYearId, EnrollmentStatus.ACTIVE);
+    }
+
+    default long countActiveByClassId(Long classId) {
+        return countByClassIdAndStatus(classId, EnrollmentStatus.ACTIVE);
+    }
 
     @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId AND e.status = :status ORDER BY e.enrolledAt DESC")
     List<Enrollment> findByStudentIdAndStatus(@Param("studentId") Long studentId, @Param("status") EnrollmentStatus status);
@@ -41,7 +66,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
                                             Pageable pageable);
 
     @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.classEntity.id = :classId AND e.status = :status")
-    Long countActiveEnrollmentsByClassId(@Param("classId") Long classId, @Param("status") EnrollmentStatus status);
+    Long countByClassIdAndStatus(@Param("classId") Long classId, @Param("status") EnrollmentStatus status);
 
     @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.student.id = :studentId AND e.status = :status")
     Long countActiveEnrollmentsByStudentId(@Param("studentId") Long studentId, @Param("status") EnrollmentStatus status);

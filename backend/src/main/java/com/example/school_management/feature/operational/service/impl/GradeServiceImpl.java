@@ -82,7 +82,7 @@ public class GradeServiceImpl implements GradeService {
             if (!seen.add(entry.getStudentId())) {
                 throw new IllegalArgumentException("Duplicate grade for student ID: " + entry.getStudentId());
             }
-            Enrollment enrollment = enrollmentRepository.findByStudentIdAndClassId(entry.getStudentId(), request.getClassId())
+            Enrollment enrollment = enrollmentRepository.findActiveByStudentIdAndClassId(entry.getStudentId(), request.getClassId())
                 .orElseThrow(() -> new IllegalArgumentException("Enrollment not found for student " + entry.getStudentId()));
             Grade grade = new Grade();
             grade.setEnrollment(enrollment);
@@ -494,7 +494,7 @@ public class GradeServiceImpl implements GradeService {
         
         for (BulkEnhancedGradeEntryRequest.StudentGradeEntry gradeEntry : request.getGrades()) {
             // Get student and course information
-            Enrollment enrollment = enrollmentRepository.findByStudentIdAndClassId(gradeEntry.getStudentId(), request.getClassId())
+            Enrollment enrollment = enrollmentRepository.findActiveByStudentIdAndClassId(gradeEntry.getStudentId(), request.getClassId())
                     .orElseThrow(() -> new IllegalArgumentException("Student " + gradeEntry.getStudentId() + " not enrolled in class " + request.getClassId()));
             
             Course course = courseRepository.findById(request.getCourseId())
@@ -559,7 +559,7 @@ public class GradeServiceImpl implements GradeService {
         log.debug("Creating enhanced grade for student: {}, course: {}", request.getStudentId(), request.getCourseId());
         
         // Get student and course information
-        Enrollment enrollment = enrollmentRepository.findByStudentIdAndClassId(request.getStudentId(), request.getClassId())
+        Enrollment enrollment = enrollmentRepository.findActiveByStudentIdAndClassId(request.getStudentId(), request.getClassId())
                 .orElseThrow(() -> new IllegalArgumentException("Student " + request.getStudentId() + " not enrolled in class " + request.getClassId()));
         
         Course course = courseRepository.findById(request.getCourseId())

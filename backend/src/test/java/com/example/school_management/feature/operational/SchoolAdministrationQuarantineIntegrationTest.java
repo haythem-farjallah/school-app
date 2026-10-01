@@ -146,7 +146,7 @@ class SchoolAdministrationQuarantineIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content(json(Map.of("newClassId", otherClass.getId())))));
         expectForbidden(mockMvc.perform(put("/api/v1/enrollments/{id}/status", enrollmentB.getId())
                 .header(HttpHeaders.AUTHORIZATION, teacher)
-                .contentType(MediaType.APPLICATION_JSON).content(json(Map.of("status", "SUSPENDED")))));
+                .contentType(MediaType.APPLICATION_JSON).content(json(Map.of("status", "WITHDRAWN")))));
 
         for (MockHttpServletRequestBuilder read : List.of(
                 get("/api/v1/enrollments"),
@@ -165,7 +165,7 @@ class SchoolAdministrationQuarantineIntegrationTest {
         Enrollment unchanged = enrollmentRepository.findById(enrollmentB.getId()).orElseThrow();
         assertThat(unchanged.getStatus()).isEqualTo(EnrollmentStatus.ACTIVE);
         assertThat(unchanged.getClassEntity().getId()).isEqualTo(classId);
-        assertThat(enrollmentRepository.findByStudentIdAndClassId(studentB.getId(), otherClass.getId())).isEmpty();
+        assertThat(enrollmentRepository.findAllByStudentId(studentB.getId())).extracting(e -> e.getClassEntity().getId()).containsExactly(classId);
     }
 
     @Test
@@ -181,9 +181,9 @@ class SchoolAdministrationQuarantineIntegrationTest {
 
         mockMvc.perform(put("/api/v1/enrollments/{id}/status", enrollmentB.getId())
                         .header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL))
-                        .contentType(MediaType.APPLICATION_JSON).content(json(Map.of("status", "SUSPENDED"))))
+                        .contentType(MediaType.APPLICATION_JSON).content(json(Map.of("status", "WITHDRAWN"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("SUSPENDED"));
+                .andExpect(jsonPath("$.data.status").value("WITHDRAWN"));
     }
 
     @Test

@@ -1,9 +1,16 @@
+/** ACTIVE is the only live status; the other three are terminal history. */
 export enum EnrollmentStatus {
-  PENDING = "PENDING",
   ACTIVE = "ACTIVE",
   COMPLETED = "COMPLETED",
-  DROPPED = "DROPPED",
-  SUSPENDED = "SUSPENDED",
+  TRANSFERRED = "TRANSFERRED",
+  WITHDRAWN = "WITHDRAWN",
+}
+
+/** Statuses an administrator may set by hand. TRANSFERRED only results from a transfer. */
+export const MANUAL_ENROLLMENT_STATUSES = [EnrollmentStatus.COMPLETED, EnrollmentStatus.WITHDRAWN] as const;
+
+export function isTerminalEnrollmentStatus(status: EnrollmentStatus): boolean {
+  return status !== EnrollmentStatus.ACTIVE;
 }
 
 export interface Enrollment {
@@ -25,14 +32,14 @@ export interface CreateEnrollmentRequest {
 }
 
 export interface UpdateEnrollmentStatusRequest {
-  status: EnrollmentStatus;
+  status: (typeof MANUAL_ENROLLMENT_STATUSES)[number];
 }
 
 export interface TransferStudentRequest {
   newClassId: number;
 }
 
-export interface DropEnrollmentRequest {
+export interface WithdrawEnrollmentRequest {
   reason: string;
 }
 
@@ -53,9 +60,9 @@ export interface EnrollmentFilters {
 export interface EnrollmentStats {
   totalEnrollments: number;
   activeEnrollments: number;
-  pendingEnrollments: number;
   completedEnrollments: number;
-  droppedEnrollments: number;
+  transferredEnrollments: number;
+  withdrawnEnrollments: number;
   completionRate: number;
   averageFinalGrade: number;
 }
@@ -70,16 +77,14 @@ export interface EnrollmentResponse {
 // Helper function to get status color
 export function getEnrollmentStatusColor(status: EnrollmentStatus): string {
   switch (status) {
-    case EnrollmentStatus.PENDING:
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
     case EnrollmentStatus.ACTIVE:
       return "bg-green-100 text-green-800 border-green-200";
     case EnrollmentStatus.COMPLETED:
       return "bg-blue-100 text-blue-800 border-blue-200";
-    case EnrollmentStatus.DROPPED:
+    case EnrollmentStatus.TRANSFERRED:
+      return "bg-purple-100 text-purple-800 border-purple-200";
+    case EnrollmentStatus.WITHDRAWN:
       return "bg-red-100 text-red-800 border-red-200";
-    case EnrollmentStatus.SUSPENDED:
-      return "bg-gray-100 text-gray-800 border-gray-200";
     default:
       return "bg-gray-100 text-gray-800 border-gray-200";
   }
@@ -88,16 +93,14 @@ export function getEnrollmentStatusColor(status: EnrollmentStatus): string {
 // Helper function to get status label
 export function getEnrollmentStatusLabel(status: EnrollmentStatus): string {
   switch (status) {
-    case EnrollmentStatus.PENDING:
-      return "Pending";
     case EnrollmentStatus.ACTIVE:
       return "Active";
     case EnrollmentStatus.COMPLETED:
       return "Completed";
-    case EnrollmentStatus.DROPPED:
-      return "Dropped";
-    case EnrollmentStatus.SUSPENDED:
-      return "Suspended";
+    case EnrollmentStatus.TRANSFERRED:
+      return "Transferred";
+    case EnrollmentStatus.WITHDRAWN:
+      return "Withdrawn";
     default:
       return status;
   }

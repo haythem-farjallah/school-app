@@ -10,9 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEnrollment, useDropEnrollment } from "@/features/enrollments/hooks/use-enrollments";
+import { useEnrollment, useWithdrawEnrollment } from "@/features/enrollments/hooks/use-enrollments";
 import { EditEnrollmentSheet } from "@/features/enrollments/components/enrollment-sheet";
-import { getEnrollmentStatusColor, getEnrollmentStatusLabel } from "@/types/enrollment";
+import { getEnrollmentStatusColor, getEnrollmentStatusLabel, isTerminalEnrollmentStatus } from "@/types/enrollment";
 
 export default function EnrollmentsView() {
   const { id } = useParams<{ id: string }>();
@@ -20,27 +20,27 @@ export default function EnrollmentsView() {
   const enrollmentId = id ? parseInt(id, 10) : undefined;
   
   const { data: enrollment, isLoading, error, refetch } = useEnrollment(enrollmentId);
-  const dropMutation = useDropEnrollment();
+  const withdrawMutation = useWithdrawEnrollment();
 
-  const handleDrop = async () => {
+  const handleWithdraw = async () => {
     if (!enrollment) return;
 
-    const reason = prompt("Please provide a reason for dropping this enrollment:");
+    const reason = prompt("Please provide a reason for withdrawing this enrollment:");
     if (!reason || reason.trim().length < 3) {
-      toast.error("A valid reason is required to drop an enrollment");
+      toast.error("A valid reason is required to withdraw an enrollment");
       return;
     }
 
     try {
-      await dropMutation.mutateAsync({
+      await withdrawMutation.mutateAsync({
         id: enrollment.id,
-        data: { reason: reason.trim() },
+        reason: reason.trim(),
       });
-      toast.success("Student dropped from enrollment successfully");
+      toast.success("Student withdrawn from enrollment successfully");
       navigate("/admin/enrollments");
     } catch (error) {
-      console.error("Failed to drop enrollment:", error);
-      toast.error("Failed to drop enrollment. Please try again.");
+      console.error("Failed to withdraw enrollment:", error);
+      toast.error("Failed to withdraw enrollment. Please try again.");
     }
   };
 
@@ -236,37 +236,41 @@ export default function EnrollmentsView() {
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <EditEnrollmentSheet
-                  enrollment={enrollment}
-                  onSuccess={refetch}
-                  trigger={
-                    <Button className="w-full justify-start bg-green-600 hover:bg-green-700 text-white">
-                      <Edit className="mr-3 h-4 w-4" />
-                      Edit Status
+                {!isTerminalEnrollmentStatus(enrollment.status) && (
+                  <>
+                    <EditEnrollmentSheet
+                      enrollment={enrollment}
+                      onSuccess={refetch}
+                      trigger={
+                        <Button className="w-full justify-start bg-green-600 hover:bg-green-700 text-white">
+                          <Edit className="mr-3 h-4 w-4" />
+                          Edit Status
+                        </Button>
+                      }
+                    />
+
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={handleTransfer}
+                    >
+                      <ArrowRightLeft className="mr-3 h-4 w-4" />
+                      Transfer Student
                     </Button>
-                  }
-                />
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={handleTransfer}
-                >
-                  <ArrowRightLeft className="mr-3 h-4 w-4" />
-                  Transfer Student
-                </Button>
+                    <Separator />
 
-                <Separator />
-
-                <Button
-                  variant="destructive"
-                  className="w-full justify-start"
-                  onClick={handleDrop}
-                  disabled={dropMutation.isPending}
-                >
-                  <UserX className="mr-3 h-4 w-4" />
-                  {dropMutation.isPending ? "Dropping..." : "Drop Enrollment"}
-                </Button>
+                    <Button
+                      variant="destructive"
+                      className="w-full justify-start"
+                      onClick={handleWithdraw}
+                      disabled={withdrawMutation.isPending}
+                    >
+                      <UserX className="mr-3 h-4 w-4" />
+                      {withdrawMutation.isPending ? "Withdrawing..." : "Withdraw Enrollment"}
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
 

@@ -22,19 +22,20 @@ public interface EnrollmentService {
     EnrollmentDto enrollStudent(Long studentId, Long classId);
     
     /**
-     * Transfer student from one class to another
+     * Transfer a student to another class of the same academic year. The ACTIVE enrollment becomes
+     * TRANSFERRED and a new ACTIVE enrollment is created and returned.
      */
     EnrollmentDto transferStudent(Long enrollmentId, Long newClassId);
     
     /**
-     * Update enrollment status
+     * Complete or withdraw an ACTIVE enrollment. TRANSFERRED is reserved for the transfer workflow.
      */
     EnrollmentDto updateEnrollmentStatus(Long enrollmentId, EnrollmentStatus status);
     
     /**
-     * Drop/withdraw a student from enrollment
+     * Withdraw a student from an ACTIVE enrollment
      */
-    void dropEnrollment(Long enrollmentId, String reason);
+    void withdrawEnrollment(Long enrollmentId, String reason);
     
     /**
      * Get enrollment by ID

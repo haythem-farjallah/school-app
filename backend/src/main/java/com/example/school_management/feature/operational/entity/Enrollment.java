@@ -20,18 +20,19 @@ public class Enrollment {
     private Long id;
 
     @Convert(converter = EnrollmentStatusConverter.class)
-    @Column(name = "status")
-    private EnrollmentStatus status = EnrollmentStatus.PENDING;
+    @Column(name = "status", nullable = false)
+    private EnrollmentStatus status = EnrollmentStatus.ACTIVE;
     
     private LocalDateTime enrolledAt = LocalDateTime.now();
     private Float finalGrad;
 
+    // Enrollment is history: its Student and Class never change after creation.
     @ManyToOne
-    @JoinColumn(name = "student_id", nullable = false)
+    @JoinColumn(name = "student_id", nullable = false, updatable = false)
     private Student student;
 
     @ManyToOne
-    @JoinColumn(name = "class_id", nullable = false)
+    @JoinColumn(name = "class_id", nullable = false, updatable = false)
     private ClassEntity classEntity;
 
     @OneToMany(mappedBy = "enrollment")

@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 
-const BASELINE = { typescript: 379, eslint: 228 };
+const BASELINE = { typescript: 375, eslint: 228 };
 
 function run(command, args) {
   return spawnSync(command, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });

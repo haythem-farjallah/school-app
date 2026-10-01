@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
-import { useDropEnrollment, useEnrollment, useEnrollStudent, useUpdateEnrollmentStatus } from "./use-enrollments";
+import { useWithdrawEnrollment, useEnrollment, useEnrollStudent, useUpdateEnrollmentStatus } from "./use-enrollments";
 import { apiUrl, server } from "@/test/server";
 import { EnrollmentStatus } from "@/types/enrollment";
 
@@ -53,27 +53,27 @@ describe("enrollment hooks", () => {
     server.use(
       http.put(apiUrl("/v1/enrollments/12/status"), async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ status: "success", data: { ...enrollment, status: "SUSPENDED" } });
+        return HttpResponse.json({ status: "success", data: { ...enrollment, status: "WITHDRAWN" } });
       }),
     );
     const { result } = renderHook(() => useUpdateEnrollmentStatus(), { wrapper });
 
-    await expect(result.current.mutateAsync({ id: 12, status: EnrollmentStatus.SUSPENDED })).resolves.toEqual({
+    await expect(result.current.mutateAsync({ id: 12, status: EnrollmentStatus.WITHDRAWN })).resolves.toEqual({
       ...enrollment,
-      status: "SUSPENDED",
+      status: "WITHDRAWN",
     });
-    expect(body).toEqual({ status: "SUSPENDED" });
+    expect(body).toEqual({ status: "WITHDRAWN" });
   });
 
-  it("drops an enrollment with the reason in the body and resolves undefined", async () => {
+  it("withdraws an enrollment with the reason in the body and resolves undefined", async () => {
     let body: unknown;
     server.use(
       http.delete(apiUrl("/v1/enrollments/12"), async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ status: "Student dropped from enrollment successfully", data: "" });
+        return HttpResponse.json({ status: "Student withdrawn from enrollment successfully", data: "" });
       }),
     );
-    const { result } = renderHook(() => useDropEnrollment(), { wrapper });
+    const { result } = renderHook(() => useWithdrawEnrollment(), { wrapper });
 
     await expect(result.current.mutateAsync({ id: 12, reason: "Moved to another school" })).resolves.toBeUndefined();
     expect(body).toEqual({ reason: "Moved to another school" });

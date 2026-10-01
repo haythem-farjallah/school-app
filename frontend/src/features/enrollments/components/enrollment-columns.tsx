@@ -15,7 +15,7 @@ interface EnrollmentColumnsProps {
   onEdit?: (enrollment: Enrollment) => void;
   onView?: (enrollment: Enrollment) => void;
   onTransfer?: (enrollment: Enrollment) => void;
-  onDrop?: (enrollment: Enrollment) => void;
+  onWithdraw?: (enrollment: Enrollment) => void;
   onSuccess?: () => void;
 }
 
@@ -23,7 +23,7 @@ export function getEnrollmentColumns({
   onEdit,
   onView,
   onTransfer,
-  onDrop,
+  onWithdraw,
   onSuccess,
 }: EnrollmentColumnsProps): ColumnDef<Enrollment>[] {
   return [
@@ -92,11 +92,10 @@ export function getEnrollmentColumns({
         variant: "select",
         label: "Status",
         options: [
-          { label: "Pending", value: EnrollmentStatus.PENDING },
           { label: "Active", value: EnrollmentStatus.ACTIVE },
           { label: "Completed", value: EnrollmentStatus.COMPLETED },
-          { label: "Dropped", value: EnrollmentStatus.DROPPED },
-          { label: "Suspended", value: EnrollmentStatus.SUSPENDED },
+          { label: "Transferred", value: EnrollmentStatus.TRANSFERRED },
+          { label: "Withdrawn", value: EnrollmentStatus.WITHDRAWN },
         ],
       },
     },
@@ -186,7 +185,7 @@ export function getEnrollmentColumns({
             onEdit={onEdit}
             onView={onView}
             onTransfer={onTransfer}
-            onDrop={onDrop}
+            onWithdraw={onWithdraw}
             onSuccess={onSuccess}
           />
         );

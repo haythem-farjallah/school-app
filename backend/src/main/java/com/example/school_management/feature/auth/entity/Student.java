@@ -2,7 +2,6 @@ package com.example.school_management.feature.auth.entity;
 
 import com.example.school_management.feature.auth.entity.enums.GradeLevel;
 import com.example.school_management.feature.operational.entity.Enrollment;
-import com.example.school_management.feature.operational.entity.Transfer;
 import org.hibernate.annotations.ColumnTransformer;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -27,9 +26,6 @@ public class Student extends BaseUser {
     @OneToMany(mappedBy = "student")
     private Set<Enrollment> enrollments = new HashSet<>();
 
-    @OneToMany(mappedBy = "student")
-    private Set<Transfer> transfers = new HashSet<>();
-
     // Getters and Setters
     public GradeLevel getGradeLevel() { return gradeLevel; }
     public void setGradeLevel(GradeLevel gradeLevel) { this.gradeLevel = gradeLevel; }
@@ -39,7 +35,4 @@ public class Student extends BaseUser {
     
     public Set<Enrollment> getEnrollments() { return enrollments; }
     public void setEnrollments(Set<Enrollment> enrollments) { this.enrollments = enrollments; }
-    
-    public Set<Transfer> getTransfers() { return transfers; }
-    public void setTransfers(Set<Transfer> transfers) { this.transfers = transfers; }
 }

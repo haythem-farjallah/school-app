@@ -86,10 +86,6 @@ export function EnrollmentsTable() {
         console.log("Transfer enrollment:", enrollment);
         toast.success("Transfer functionality coming soon");
       },
-      onDrop: (enrollment) => {
-        console.log("Drop enrollment:", enrollment);
-        // Drop handled by actions component
-      },
       onSuccess: () => {
         refetch();
       },

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EnrollmentStatus } from "@/types/enrollment";
+import { EnrollmentStatus, MANUAL_ENROLLMENT_STATUSES } from "@/types/enrollment";
 import type { BaseField } from "@/form/types";
 
 export const enrollmentFormDefinition = z.object({
@@ -16,19 +16,6 @@ export const enrollmentFormDefinition = z.object({
       invalid_type_error: "Class must be selected",
     })
     .min(1, "Class is required"),
-
-  status: z
-    .nativeEnum(EnrollmentStatus, {
-      required_error: "Status is required",
-      invalid_type_error: "Invalid status selected",
-    })
-    .default(EnrollmentStatus.ACTIVE),
-
-  finalGrad: z
-    .number()
-    .min(0, "Grade must be between 0 and 20")
-    .max(20, "Grade must be between 0 and 20")
-    .optional(),
 });
 
 export type EnrollmentFormValues = z.infer<typeof enrollmentFormDefinition>;
@@ -49,34 +36,28 @@ export const enrollmentFormFields: BaseField[] = [
     placeholder: "Choose a class...",
     options: [], // Will be populated dynamically
   },
-  {
-    name: "status",
-    type: "select",
-    label: "Initial Status",
-    placeholder: "Choose status...",
-    options: [
-      { label: "Active", value: EnrollmentStatus.ACTIVE },
-      { label: "Pending", value: EnrollmentStatus.PENDING },
-      { label: "Suspended", value: EnrollmentStatus.SUSPENDED },
-      { label: "Completed", value: EnrollmentStatus.COMPLETED },
-      { label: "Dropped", value: EnrollmentStatus.DROPPED },
-    ],
-  },
-  {
-    name: "finalGrad",
-    type: "number",
-    label: "Final Grade (Optional)",
-    placeholder: "Enter grade (0-20)...",
-  },
 ];
 
-// Form definition for updating enrollment status only
+// Form definition for ending an active enrollment by hand (TRANSFERRED comes only from a transfer)
 export const updateEnrollmentStatusFormDefinition = z.object({
-  status: z.nativeEnum(EnrollmentStatus, {
+  status: z.enum(MANUAL_ENROLLMENT_STATUSES, {
     required_error: "Status is required",
     invalid_type_error: "Invalid status selected",
   }),
 });
+
+export const updateEnrollmentStatusFormFields: BaseField[] = [
+  {
+    name: "status",
+    type: "select",
+    label: "New Status",
+    placeholder: "Choose status...",
+    options: [
+      { label: "Completed", value: EnrollmentStatus.COMPLETED },
+      { label: "Withdrawn", value: EnrollmentStatus.WITHDRAWN },
+    ],
+  },
+];
 
 export type UpdateEnrollmentStatusFormValues = z.infer<typeof updateEnrollmentStatusFormDefinition>;
 
@@ -92,8 +73,8 @@ export const transferStudentFormDefinition = z.object({
 
 export type TransferStudentFormValues = z.infer<typeof transferStudentFormDefinition>;
 
-// Form definition for dropping enrollment
-export const dropEnrollmentFormDefinition = z.object({
+// Form definition for withdrawing enrollment
+export const withdrawEnrollmentFormDefinition = z.object({
   reason: z
     .string({
       required_error: "Reason is required",
@@ -102,7 +83,7 @@ export const dropEnrollmentFormDefinition = z.object({
     .max(500, "Reason must be less than 500 characters"),
 });
 
-export type DropEnrollmentFormValues = z.infer<typeof dropEnrollmentFormDefinition>;
+export type WithdrawEnrollmentFormValues = z.infer<typeof withdrawEnrollmentFormDefinition>;
 
 // Form definition for bulk enrollment
 export const bulkEnrollFormDefinition = z.object({

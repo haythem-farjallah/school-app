@@ -9,7 +9,12 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { AutoForm } from "@/form/AutoForm";
-import { updateEnrollmentStatusFormDefinition, type UpdateEnrollmentStatusFormValues } from "../enrollmentForm.definition";
+import type { FormRecipe } from "@/form/types";
+import {
+  updateEnrollmentStatusFormDefinition,
+  updateEnrollmentStatusFormFields,
+  type UpdateEnrollmentStatusFormValues,
+} from "../enrollmentForm.definition";
 import { useUpdateEnrollmentStatus } from "../hooks/use-enrollments";
 import type { Enrollment } from "@/types/enrollment";
 
@@ -26,12 +31,10 @@ export function EditEnrollmentSheet({ enrollment, onSuccess, trigger }: EditEnro
   const handleSubmit = async (values: unknown) => {
     try {
       const formData = values as UpdateEnrollmentStatusFormValues;
-      
-      console.log("Updating enrollment status:", { id: enrollment.id, ...formData });
-      
+
       await updateMutation.mutateAsync({
         id: enrollment.id,
-        data: formData,
+        status: formData.status,
       });
 
       toast.success("Enrollment status updated successfully");
@@ -43,8 +46,10 @@ export function EditEnrollmentSheet({ enrollment, onSuccess, trigger }: EditEnro
     }
   };
 
-  const defaultValues: UpdateEnrollmentStatusFormValues = {
-    status: enrollment.status,
+  const recipe: FormRecipe = {
+    schema: updateEnrollmentStatusFormDefinition,
+    fields: updateEnrollmentStatusFormFields,
+    onSubmit: handleSubmit,
   };
 
   return (
@@ -92,28 +97,16 @@ export function EditEnrollmentSheet({ enrollment, onSuccess, trigger }: EditEnro
           </div>
 
           <AutoForm
-            formSchema={updateEnrollmentStatusFormDefinition}
-            onSubmit={handleSubmit}
-            defaultValues={defaultValues}
-            fieldConfig={{
-              status: {
-                label: "New Status",
-                description: "Select the new enrollment status",
-                placeholder: "Choose status...",
-              },
-            }}
-            submitButton={{
-              text: updateMutation.isPending ? "Updating..." : "Update Status",
-              className: "w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200",
-              disabled: updateMutation.isPending,
-            }}
-          >
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Changing the enrollment status will affect the student's access to class materials and grade reporting.
-              </p>
-            </div>
-          </AutoForm>
+            recipe={recipe}
+            loading={updateMutation.isPending}
+            submitText={updateMutation.isPending ? "Updating..." : "Update Status"}
+            submitClassName="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+          />
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Note:</strong> Completing or withdrawing an enrollment ends it permanently. A new enrollment is needed to return the student to a class.
+            </p>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

@@ -2,34 +2,21 @@ package com.example.school_management.feature.operational.entity.enums;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
-import lombok.extern.slf4j.Slf4j;
 
 /**
- * JPA Converter for EnrollmentStatus enum to handle PostgreSQL enum type conversion
+ * Stores EnrollmentStatus by name. The database CHECK constraint guarantees valid values, so an
+ * unknown value is a schema problem and fails loudly instead of being mapped to another status.
  */
-@Slf4j
 @Converter(autoApply = true)
 public class EnrollmentStatusConverter implements AttributeConverter<EnrollmentStatus, String> {
 
     @Override
     public String convertToDatabaseColumn(EnrollmentStatus attribute) {
-        if (attribute == null) {
-            return null;
-        }
-        return attribute.name();
+        return attribute == null ? null : attribute.name();
     }
 
     @Override
     public EnrollmentStatus convertToEntityAttribute(String dbData) {
-        if (dbData == null || dbData.trim().isEmpty()) {
-            return null;
-        }
-        
-        try {
-            return EnrollmentStatus.valueOf(dbData.trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            log.warn("Invalid enrollment status value in database: {}. Using PENDING as default.", dbData);
-            return EnrollmentStatus.PENDING;
-        }
+        return dbData == null ? null : EnrollmentStatus.valueOf(dbData);
     }
 }

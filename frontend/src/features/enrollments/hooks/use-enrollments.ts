@@ -7,7 +7,7 @@ import type {
   Enrollment, 
   CreateEnrollmentRequest,
   UpdateEnrollmentStatusRequest,
-  DropEnrollmentRequest,
+  WithdrawEnrollmentRequest,
   EnrollmentStatus 
 } from "@/types/enrollment";
 import type { ApiResponse } from "@/types/level";
@@ -150,8 +150,8 @@ export function useUpdateEnrollmentStatus() {
   );
 }
 
-export function useDropEnrollment() {
-  return useMutationApi<void, DropEnrollmentRequest & { id: number }>(
+export function useWithdrawEnrollment() {
+  return useMutationApi<void, WithdrawEnrollmentRequest & { id: number }>(
     async (data) => {
       await api.delete(`/v1/enrollments/${data.id}`, {
         data: { reason: data.reason }

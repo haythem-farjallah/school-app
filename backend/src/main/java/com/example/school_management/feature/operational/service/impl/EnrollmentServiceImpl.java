@@ -24,6 +24,7 @@ import com.example.school_management.feature.operational.service.EnrollmentServi
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -48,6 +49,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     /** Properties a paged enrollment read may be sorted by. */
     private static final FilterFields SORT_FIELDS = new FilterFields(Set.of(), Set.of("enrolledAt", "status"));
 
+    /** Name of the database rule that allows one ACTIVE Enrollment per Student per AcademicYear (V59). */
+    private static final String ONE_ACTIVE_PER_ACADEMIC_YEAR = "uk_enrollments_one_active_per_academic_year";
+
     private final EnrollmentRepository enrollmentRepo;
     private final StudentRepository studentRepo;
     private final ClassRepository classRepo;
@@ -59,56 +63,26 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     public EnrollmentDto enrollStudent(Long studentId, Long classId) {
         log.debug("Enrolling student {} in class {}", studentId, classId);
-        
-        // Check if already enrolled
-        if (enrollmentRepo.findByStudentIdAndClassId(studentId, classId).isPresent()) {
-            throw new ConflictException("Student is already enrolled in this class");
-        }
-        
-        // Get student and class entities
+
         Student student = studentRepo.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
         ClassEntity classEntity = classRepo.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-        
-        // Check enrollment capacity
-        if (!canEnrollStudent(studentId, classId)) {
-            throw new ConflictException("Cannot enroll student: capacity limit reached or prerequisites not met");
-        }
-        
-        // Create enrollment
-        Enrollment enrollment = new Enrollment();
-        enrollment.setStudent(student);
-        enrollment.setClassEntity(classEntity);
-        enrollment.setStatus(EnrollmentStatus.ACTIVE);
-        enrollment.setEnrolledAt(LocalDateTime.now());
-        
-        Enrollment savedEnrollment = enrollmentRepo.save(enrollment);
+
+        requireNoActiveEnrollmentInAcademicYear(studentId, classEntity);
+        requireCapacity(classEntity);
+
+        Enrollment savedEnrollment = persistActiveEnrollment(student, classEntity);
         log.info("Student {} enrolled in class {} with enrollment id {}", studentId, classId, savedEnrollment.getId());
-        
-        // Create audit event
-        try {
-            BaseUser currentUser = getCurrentUser();
-            String summary = "Student enrolled in class";
-            String details = String.format("Student %s %s enrolled in class %s", 
-                student.getFirstName(), student.getLastName(), classEntity.getName());
-            
-            auditService.createAuditEvent(
-                AuditEventType.ENROLLMENT_CREATED,
-                "Enrollment",
-                savedEnrollment.getId(),
-                summary,
-                details,
-                currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to create audit event for enrollment: {}", e.getClass().getSimpleName());
-        }
-        
+
+        recordAudit(AuditEventType.ENROLLMENT_CREATED, savedEnrollment.getId(), "Student enrolled in class",
+                String.format("Student %s %s enrolled in class %s",
+                        student.getFirstName(), student.getLastName(), classEntity.getName()));
+
         // Send real-time enrollment notification
         try {
             String studentName = student.getFirstName() + " " + student.getLastName();
-            
+
             realTimeNotificationService.notifyEnrollmentChange(
                 studentName, 
                 classEntity.getName(), 
@@ -119,116 +93,107 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         } catch (Exception e) {
             log.warn("Failed to send real-time enrollment notification: {}", e.getClass().getSimpleName());
         }
-        
+
         return toDto(savedEnrollment);
     }
 
+    /**
+     * Ends the ACTIVE Enrollment as TRANSFERRED and starts a new ACTIVE Enrollment in the target Class.
+     * The source Enrollment keeps its Class and its grades; the returned Enrollment is the new one.
+     */
     @Override
     public EnrollmentDto transferStudent(Long enrollmentId, Long newClassId) {
         log.debug("Transferring enrollment {} to class {}", enrollmentId, newClassId);
-        
-        Enrollment enrollment = enrollmentRepo.findById(enrollmentId)
+
+        Enrollment source = enrollmentRepo.findById(enrollmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
-        
-        ClassEntity oldClass = enrollment.getClassEntity();
         ClassEntity newClass = classRepo.findById(newClassId)
                 .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + newClassId));
-        
-        enrollment.setClassEntity(newClass);
-        Enrollment updatedEnrollment = enrollmentRepo.save(enrollment);
-        
-        // Create audit event
-        try {
-            BaseUser currentUser = getCurrentUser();
-            String summary = "Student transferred between classes";
-            String details = String.format("Student %s %s transferred from class %s to %s", 
-                enrollment.getStudent().getFirstName(), enrollment.getStudent().getLastName(),
-                oldClass.getName(), newClass.getName());
-            
-            auditService.createAuditEvent(
-                AuditEventType.ENROLLMENT_UPDATED,
-                "Enrollment",
-                enrollmentId,
-                summary,
-                details,
-                currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to create audit event for enrollment transfer: {}", e.getClass().getSimpleName());
+        ClassEntity oldClass = source.getClassEntity();
+
+        if (source.getStatus() != EnrollmentStatus.ACTIVE) {
+            throw new ConflictException("Only an active enrollment can be transferred");
         }
-        
-        return toDto(updatedEnrollment);
+        if (oldClass.getId().equals(newClass.getId())) {
+            throw new ConflictException("Student is already enrolled in this class");
+        }
+        if (!oldClass.getAcademicYear().getId().equals(newClass.getAcademicYear().getId())) {
+            throw new ConflictException("A transfer must stay within the same academic year");
+        }
+        requireCapacity(newClass);
+
+        // Flush the old status first: the database allows one ACTIVE enrollment per student and academic year,
+        // so the old row must already be TRANSFERRED when the new ACTIVE row is inserted.
+        Student student = source.getStudent();
+        source.setStatus(EnrollmentStatus.TRANSFERRED);
+        enrollmentRepo.saveAndFlush(source);
+        Enrollment created = persistActiveEnrollment(student, newClass);
+
+        recordAudit(AuditEventType.ENROLLMENT_UPDATED, source.getId(), "Student transferred between classes",
+                String.format("Enrollment status changed from ACTIVE to TRANSFERRED: student %s %s moved from class %s to %s",
+                        student.getFirstName(), student.getLastName(), oldClass.getName(), newClass.getName()));
+        recordAudit(AuditEventType.ENROLLMENT_CREATED, created.getId(), "Enrollment created by transfer",
+                String.format("New ACTIVE enrollment of student %s %s in class %s, created by transfer from class %s",
+                        student.getFirstName(), student.getLastName(), newClass.getName(), oldClass.getName()));
+
+        return toDto(created);
     }
 
     @Override
     public EnrollmentDto updateEnrollmentStatus(Long enrollmentId, EnrollmentStatus status) {
         log.debug("Updating enrollment {} status to {}", enrollmentId, status);
-        
+
         Enrollment enrollment = enrollmentRepo.findById(enrollmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
-        
+
         EnrollmentStatus oldStatus = enrollment.getStatus();
-        enrollment.setStatus(status);
-        Enrollment updatedEnrollment = enrollmentRepo.save(enrollment);
-        
-        // Create audit event
-        try {
-            BaseUser currentUser = getCurrentUser();
-            String summary = "Enrollment status updated";
-            String details = String.format("Enrollment status changed from %s to %s for student %s %s in class %s", 
-                oldStatus, status,
-                enrollment.getStudent().getFirstName(), enrollment.getStudent().getLastName(),
-                enrollment.getClassEntity().getName());
-            
-            auditService.createAuditEvent(
-                AuditEventType.ENROLLMENT_UPDATED,
-                "Enrollment",
-                enrollmentId,
-                summary,
-                details,
-                currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to create audit event for enrollment status update: {}", e.getClass().getSimpleName());
+        if (status == oldStatus) {
+            return toDto(enrollment);
         }
-        
+        if (status == EnrollmentStatus.TRANSFERRED) {
+            throw new ConflictException("An enrollment becomes TRANSFERRED only through a transfer");
+        }
+        if (oldStatus.isTerminal()) {
+            throw new ConflictException(
+                    String.format("A %s enrollment cannot change status", oldStatus));
+        }
+
+        enrollment.setStatus(status);
+        Enrollment updatedEnrollment = enrollmentRepo.saveAndFlush(enrollment);
+
+        recordAudit(AuditEventType.ENROLLMENT_UPDATED, enrollmentId, "Enrollment status updated",
+                String.format("Enrollment status changed from %s to %s for student %s %s in class %s",
+                        oldStatus, status,
+                        enrollment.getStudent().getFirstName(), enrollment.getStudent().getLastName(),
+                        enrollment.getClassEntity().getName()));
+
         return toDto(updatedEnrollment);
     }
 
     @Override
-    public void dropEnrollment(Long enrollmentId, String reason) {
-        log.debug("Dropping enrollment {} with reason: {}", enrollmentId, reason);
-        
+    public void withdrawEnrollment(Long enrollmentId, String reason) {
+        log.debug("Withdrawing enrollment {}", enrollmentId);
+
         Enrollment enrollment = enrollmentRepo.findById(enrollmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
-        
-        String studentInfo = String.format("%s %s from class %s", 
-            enrollment.getStudent().getFirstName(), 
-            enrollment.getStudent().getLastName(),
-            enrollment.getClassEntity().getName());
-        
-        enrollment.setStatus(EnrollmentStatus.DROPPED);
-        enrollmentRepo.save(enrollment);
-        
-        // Create audit event
-        try {
-            BaseUser currentUser = getCurrentUser();
-            String summary = "Student dropped from enrollment";
-            String details = String.format("Student %s dropped. Reason: %s", studentInfo, reason);
-            
-            auditService.createAuditEvent(
-                AuditEventType.ENROLLMENT_DELETED,
-                "Enrollment",
-                enrollmentId,
-                summary,
-                details,
-                currentUser
-            );
-        } catch (Exception e) {
-            log.warn("Failed to create audit event for enrollment drop: {}", e.getClass().getSimpleName());
+
+        if (enrollment.getStatus() == EnrollmentStatus.WITHDRAWN) {
+            return;
         }
-        
-        log.info("Enrollment {} dropped: {}", enrollmentId, reason);
+        if (enrollment.getStatus() != EnrollmentStatus.ACTIVE) {
+            throw new ConflictException(
+                    String.format("A %s enrollment cannot be withdrawn", enrollment.getStatus()));
+        }
+
+        enrollment.setStatus(EnrollmentStatus.WITHDRAWN);
+        enrollmentRepo.saveAndFlush(enrollment);
+
+        recordAudit(AuditEventType.ENROLLMENT_DELETED, enrollmentId, "Student withdrawn from enrollment",
+                String.format("Student %s %s withdrawn from class %s. Reason: %s",
+                        enrollment.getStudent().getFirstName(), enrollment.getStudent().getLastName(),
+                        enrollment.getClassEntity().getName(), reason));
+
+        log.info("Enrollment {} withdrawn", enrollmentId);
     }
 
     @Override
@@ -309,40 +274,78 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Override
     public void bulkEnrollStudents(Long classId, List<Long> studentIds) {
         log.debug("Bulk enrolling {} students in class {}", studentIds.size(), classId);
-        
+
         ClassEntity classEntity = classRepo.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-        
 
-                log.debug("Bulk enrolling students in class: {}", classEntity.getName());
-        
+        log.debug("Bulk enrolling students in class: {}", classEntity.getName());
+
         int enrolled = 0;
         for (Long studentId : studentIds) {
             try {
-                if (!enrollmentRepo.findByStudentIdAndClassId(studentId, classId).isPresent()) {
-                    enrollStudent(studentId, classId);
-                    enrolled++;
-                }
+                enrollStudent(studentId, classId);
+                enrolled++;
             } catch (Exception e) {
                 log.warn("Failed to enroll student id={} in class id={}: {}", studentId, classId, e.getClass().getSimpleName());
             }
         }
-        
+
         log.info("Bulk enrollment completed: {}/{} students enrolled in class {}", enrolled, studentIds.size(), classId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public boolean canEnrollStudent(Long studentId, Long classId) {
-        // Check if already enrolled
-        if (enrollmentRepo.findByStudentIdAndClassId(studentId, classId).isPresent()) {
-            return false;
+        if (!studentRepo.existsById(studentId)) {
+            throw new ResourceNotFoundException("Student not found with id: " + studentId);
         }
-        
-        // Check class capacity (simple implementation - can be enhanced)
-        Long activeEnrollments = enrollmentRepo.countActiveEnrollmentsByClassId(classId, EnrollmentStatus.ACTIVE);
-        // Assuming max capacity of 30 students per class (can be configured)
-        return activeEnrollments < 30;
+        ClassEntity classEntity = classRepo.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
+
+        return getAvailableCapacity(classEntity) > 0
+                && !enrollmentRepo.existsActiveInAcademicYear(studentId, classEntity.getAcademicYear().getId());
+    }
+
+    private void requireNoActiveEnrollmentInAcademicYear(Long studentId, ClassEntity classEntity) {
+        if (enrollmentRepo.existsActiveInAcademicYear(studentId, classEntity.getAcademicYear().getId())) {
+            throw new ConflictException("Student already has an active enrollment in this academic year");
+        }
+    }
+
+    private void requireCapacity(ClassEntity classEntity) {
+        if (getAvailableCapacity(classEntity) <= 0) {
+            throw new ConflictException("Class has reached its capacity");
+        }
+    }
+
+    /**
+     * Inserts a new ACTIVE Enrollment and flushes, so a violation of the database's one-active-per-academic-year
+     * rule surfaces here, before any audit or notification side effect.
+     */
+    private Enrollment persistActiveEnrollment(Student student, ClassEntity classEntity) {
+        Enrollment enrollment = new Enrollment();
+        enrollment.setStudent(student);
+        enrollment.setClassEntity(classEntity);
+        enrollment.setStatus(EnrollmentStatus.ACTIVE);
+        enrollment.setEnrolledAt(LocalDateTime.now());
+        enrollment.setFinalGrad(null);
+        try {
+            return enrollmentRepo.saveAndFlush(enrollment);
+        } catch (DataIntegrityViolationException e) {
+            String detail = e.getMostSpecificCause().getMessage();
+            if (detail != null && detail.contains(ONE_ACTIVE_PER_ACADEMIC_YEAR)) {
+                throw new ConflictException("Student already has an active enrollment in this academic year");
+            }
+            throw e;
+        }
+    }
+
+    private void recordAudit(AuditEventType type, Long enrollmentId, String summary, String details) {
+        try {
+            auditService.createAuditEvent(type, "Enrollment", enrollmentId, summary, details, getCurrentUser());
+        } catch (Exception e) {
+            log.warn("Failed to create audit event {}: {}", type, e.getClass().getSimpleName());
+        }
     }
 
     private EnrollmentDto toDto(Enrollment enrollment) {
@@ -364,18 +367,22 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
     private EnrollmentStatsDto calculateStats(List<Enrollment> enrollments) {
         long total = enrollments.size();
-        long active = enrollments.stream().mapToLong(e -> e.getStatus() == EnrollmentStatus.ACTIVE ? 1 : 0).sum();
-        long pending = enrollments.stream().mapToLong(e -> e.getStatus() == EnrollmentStatus.PENDING ? 1 : 0).sum();
-        long completed = enrollments.stream().mapToLong(e -> e.getStatus() == EnrollmentStatus.COMPLETED ? 1 : 0).sum();
-        long dropped = enrollments.stream().mapToLong(e -> e.getStatus() == EnrollmentStatus.DROPPED ? 1 : 0).sum();
-        
+        long active = countWithStatus(enrollments, EnrollmentStatus.ACTIVE);
+        long completed = countWithStatus(enrollments, EnrollmentStatus.COMPLETED);
+        long transferred = countWithStatus(enrollments, EnrollmentStatus.TRANSFERRED);
+        long withdrawn = countWithStatus(enrollments, EnrollmentStatus.WITHDRAWN);
+
         double completionRate = total > 0 ? (double) completed / total * 100 : 0.0;
         double averageFinalGrade = enrollments.stream()
                 .filter(e -> e.getFinalGrad() != null)
                 .mapToDouble(Enrollment::getFinalGrad)
                 .average().orElse(0.0);
-        
-        return new EnrollmentStatsDto(total, active, pending, completed, dropped, completionRate, averageFinalGrade);
+
+        return new EnrollmentStatsDto(total, active, completed, transferred, withdrawn, completionRate, averageFinalGrade);
+    }
+
+    private static long countWithStatus(List<Enrollment> enrollments, EnrollmentStatus status) {
+        return enrollments.stream().filter(e -> e.getStatus() == status).count();
     }
 
     private BaseUser getCurrentUser() {
@@ -583,8 +590,8 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     }
 
     private int getAvailableCapacity(ClassEntity classEntity) {
-        int currentEnrollments = enrollmentRepo.findByClassIdAndStatus(classEntity.getId(), EnrollmentStatus.ACTIVE).size();
-        return Math.max(0, (classEntity.getCapacity() != null ? classEntity.getCapacity() : 30) - currentEnrollments);
+        long currentEnrollments = enrollmentRepo.countActiveByClassId(classEntity.getId());
+        return (int) Math.max(0, (classEntity.getCapacity() != null ? classEntity.getCapacity() : 30) - currentEnrollments);
     }
 
     private String getNextAvailableSection(GradeLevel gradeLevel, List<ClassEntity> currentYearClasses) {
@@ -661,7 +668,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             while (availableCapacity > 0 && studentIndex < students.size()) {
                 Student student = students.get(studentIndex);
                 
-                // Check if student is already enrolled in this specific class
+                // Check if student is currently enrolled in this specific class
                 if (!isPreview && isStudentEnrolledInClass(student.getId(), classEntity.getId())) {
                     log.debug("Student id={} is already enrolled in class id={}, skipping",
                         student.getId(), classEntity.getId());
@@ -671,14 +678,6 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 
                 if (!isPreview) {
                     try {
-                        // Double-check enrollment doesn't exist (race condition protection)
-                        if (enrollmentRepo.findByStudentIdAndClassId(student.getId(), classEntity.getId()).isPresent()) {
-                            log.debug("Student id={} already enrolled in class id={} (race condition detected)",
-                                student.getId(), classEntity.getId());
-                            studentIndex++;
-                            continue;
-                        }
-                        
                         // Create enrollment
                         Enrollment enrollment = new Enrollment();
                         enrollment.setStudent(student);
@@ -710,6 +709,6 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     }
 
     private boolean isStudentEnrolledInClass(Long studentId, Long classId) {
-        return enrollmentRepo.findByStudentIdAndClassId(studentId, classId).isPresent();
+        return enrollmentRepo.existsActiveInClass(studentId, classId);
     }
 }

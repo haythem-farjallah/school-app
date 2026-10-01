@@ -13,15 +13,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EditEnrollmentSheet } from "./enrollment-sheet";
-import { useDropEnrollment } from "../hooks/use-enrollments";
-import type { Enrollment } from "@/types/enrollment";
+import { useWithdrawEnrollment } from "../hooks/use-enrollments";
+import { isTerminalEnrollmentStatus, type Enrollment } from "@/types/enrollment";
 
 interface EnrollmentActionsProps {
   enrollment: Enrollment;
   onEdit?: (enrollment: Enrollment) => void;
   onView?: (enrollment: Enrollment) => void;
   onTransfer?: (enrollment: Enrollment) => void;
-  onDrop?: (enrollment: Enrollment) => void;
+  onWithdraw?: (enrollment: Enrollment) => void;
   onSuccess?: () => void;
 }
 
@@ -30,11 +30,12 @@ export function EnrollmentActions({
   onEdit,
   onView,
   onTransfer,
-  onDrop,
+  onWithdraw,
   onSuccess,
 }: EnrollmentActionsProps) {
   const navigate = useNavigate();
-  const dropMutation = useDropEnrollment();
+  const withdrawMutation = useWithdrawEnrollment();
+  const isHistory = isTerminalEnrollmentStatus(enrollment.status);
 
   const handleView = () => {
     if (onView) {
@@ -59,28 +60,28 @@ export function EnrollmentActions({
     }
   };
 
-  const handleDrop = async () => {
-    if (onDrop) {
-      onDrop(enrollment);
+  const handleWithdraw = async () => {
+    if (onWithdraw) {
+      onWithdraw(enrollment);
       return;
     }
 
-    const reason = prompt("Please provide a reason for dropping this enrollment:");
+    const reason = prompt("Please provide a reason for withdrawing this enrollment:");
     if (!reason || reason.trim().length < 3) {
-      toast.error("A valid reason is required to drop an enrollment");
+      toast.error("A valid reason is required to withdraw an enrollment");
       return;
     }
 
     try {
-      await dropMutation.mutateAsync({
+      await withdrawMutation.mutateAsync({
         id: enrollment.id,
-        data: { reason: reason.trim() },
+        reason: reason.trim(),
       });
-      toast.success("Student dropped from enrollment successfully");
+      toast.success("Student withdrawn from enrollment successfully");
       onSuccess?.();
     } catch (error) {
-      console.error("Failed to drop enrollment:", error);
-      toast.error("Failed to drop enrollment. Please try again.");
+      console.error("Failed to withdraw enrollment:", error);
+      toast.error("Failed to withdraw enrollment. Please try again.");
     }
   };
 
@@ -104,43 +105,47 @@ export function EnrollmentActions({
           <span className="font-medium">View Details</span>
         </DropdownMenuItem>
         
-        <EditEnrollmentSheet 
-          enrollment={enrollment} 
-          onSuccess={onSuccess}
-          trigger={
-            <DropdownMenuItem 
-              onSelect={(e) => {
-                e.preventDefault();
-                // The sheet trigger will handle opening the sheet
-              }}
-              className="cursor-pointer hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-green-50 focus:to-emerald-50"
+        {!isHistory && (
+          <>
+            <EditEnrollmentSheet
+              enrollment={enrollment}
+              onSuccess={onSuccess}
+              trigger={
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    // The sheet trigger will handle opening the sheet
+                  }}
+                  className="cursor-pointer hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-green-50 focus:to-emerald-50"
+                >
+                  <Edit className="mr-3 h-4 w-4 text-green-600" />
+                  <span className="font-medium">Edit Status</span>
+                </DropdownMenuItem>
+              }
+            />
+
+            <DropdownMenuItem
+              onClick={handleTransfer}
+              className="cursor-pointer hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-purple-50 focus:to-violet-50"
             >
-              <Edit className="mr-3 h-4 w-4 text-green-600" />
-              <span className="font-medium">Edit Status</span>
+              <ArrowRightLeft className="mr-3 h-4 w-4 text-purple-600" />
+              <span className="font-medium">Transfer Student</span>
             </DropdownMenuItem>
-          }
-        />
 
-        <DropdownMenuItem 
-          onClick={handleTransfer}
-          className="cursor-pointer hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-purple-50 focus:to-violet-50"
-        >
-          <ArrowRightLeft className="mr-3 h-4 w-4 text-purple-600" />
-          <span className="font-medium">Transfer Student</span>
-        </DropdownMenuItem>
+            <DropdownMenuSeparator />
 
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuItem 
-          onClick={handleDrop}
-          disabled={dropMutation.isPending}
-          className="cursor-pointer hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-red-50 focus:to-rose-50 text-red-600"
-        >
-          <UserX className="mr-3 h-4 w-4" />
-          <span className="font-medium">
-            {dropMutation.isPending ? "Dropping..." : "Drop Enrollment"}
-          </span>
-        </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleWithdraw}
+              disabled={withdrawMutation.isPending}
+              className="cursor-pointer hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all duration-200 focus:bg-gradient-to-r focus:from-red-50 focus:to-rose-50 text-red-600"
+            >
+              <UserX className="mr-3 h-4 w-4" />
+              <span className="font-medium">
+                {withdrawMutation.isPending ? "Withdrawing..." : "Withdraw Enrollment"}
+              </span>
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

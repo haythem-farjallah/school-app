@@ -63,7 +63,7 @@ public class EnrollmentController {
 
     @PutMapping("/{enrollmentId}/transfer")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-    @Operation(summary = "Transfer a student to another class")
+    @Operation(summary = "Transfer a student to another class of the same academic year")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> transferStudent(
             @PathVariable Long enrollmentId,
             @Valid @RequestBody TransferStudentRequest request) {
@@ -75,7 +75,7 @@ public class EnrollmentController {
 
     @PutMapping("/{enrollmentId}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-    @Operation(summary = "Update enrollment status")
+    @Operation(summary = "Complete or withdraw an active enrollment")
     public ResponseEntity<ApiSuccessResponse<EnrollmentDto>> updateEnrollmentStatus(
             @PathVariable Long enrollmentId,
             @Valid @RequestBody UpdateEnrollmentStatusRequest request) {
@@ -87,14 +87,14 @@ public class EnrollmentController {
 
     @DeleteMapping("/{enrollmentId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-    @Operation(summary = "Drop/withdraw a student from enrollment")
-    public ResponseEntity<ApiSuccessResponse<String>> dropEnrollment(
+    @Operation(summary = "Withdraw a student from enrollment")
+    public ResponseEntity<ApiSuccessResponse<String>> withdrawEnrollment(
             @PathVariable Long enrollmentId,
-            @Valid @RequestBody DropEnrollmentRequest request) {
-        log.debug("Dropping enrollment {} with reason: {}", enrollmentId, request.reason());
+            @Valid @RequestBody WithdrawEnrollmentRequest request) {
+        log.debug("Withdrawing enrollment {}", enrollmentId);
         
-        enrollmentService.dropEnrollment(enrollmentId, request.reason());
-        return ResponseEntity.ok(new ApiSuccessResponse<>("Student dropped from enrollment successfully", ""));
+        enrollmentService.withdrawEnrollment(enrollmentId, request.reason());
+        return ResponseEntity.ok(new ApiSuccessResponse<>("Student withdrawn from enrollment successfully", ""));
     }
 
     @GetMapping("/{enrollmentId}")
@@ -254,7 +254,7 @@ public class EnrollmentController {
             @NotNull EnrollmentStatus status
     ) {}
 
-    public record DropEnrollmentRequest(
+    public record WithdrawEnrollmentRequest(
             @NotNull String reason
     ) {}
 

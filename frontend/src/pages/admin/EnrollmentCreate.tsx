@@ -102,9 +102,6 @@ export default function EnrollmentsCreate() {
               <CardContent>
                 <AutoForm
                   recipe={enrollmentRecipe}
-                  defaultValues={{
-                    status: "ACTIVE",
-                  }}
                   submitLabel="Enroll Student"
                   submitClassName="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
                 />
@@ -127,7 +124,7 @@ export default function EnrollmentsCreate() {
                     <div>
                       <p className="font-medium text-sm">Student Selection</p>
                       <p className="text-xs text-gray-600">
-                        Choose an active student who is not already enrolled in the selected class.
+                        Choose a student who has no active enrollment in the class's academic year.
                       </p>
                     </div>
                   </div>
@@ -145,19 +142,9 @@ export default function EnrollmentsCreate() {
                   <div className="flex items-start space-x-3">
                     <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
                     <div>
-                      <p className="font-medium text-sm">Status Management</p>
+                      <p className="font-medium text-sm">Active Enrollment</p>
                       <p className="text-xs text-gray-600">
-                        Set appropriate status: Active for current students, Pending for future enrollments.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3">
-                    <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-sm">Grade Entry</p>
-                      <p className="text-xs text-gray-600">
-                        Final grades are optional and can be added later. Use scale 0-20.
+                        A new enrollment is always active. A student has one active enrollment per academic year.
                       </p>
                     </div>
                   </div>
@@ -171,7 +158,7 @@ export default function EnrollmentsCreate() {
                     <div>
                       <p className="font-medium text-sm text-amber-800">Important Notes</p>
                       <ul className="text-xs text-amber-700 space-y-1 mt-1">
-                        <li>• Students cannot be enrolled in the same class twice</li>
+                        <li>• A student has at most one active enrollment per academic year</li>
                         <li>• Class capacity limits will be enforced</li>
                         <li>• Enrollment creates audit trail for tracking</li>
                         <li>• Parents/guardians will be notified automatically</li>
