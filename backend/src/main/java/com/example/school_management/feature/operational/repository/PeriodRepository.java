@@ -16,6 +16,8 @@ public interface PeriodRepository extends JpaRepository<Period, Long>, JpaSpecif
 
     Optional<Period> findBySchoolIdAndIndex(Long schoolId, Integer index);
 
+    List<Period> findBySchoolIdOrderByIndex(Long schoolId);
+
     @Query("SELECT p FROM Period p ORDER BY p.index")
     List<Period> findAllOrderByIndex();
 

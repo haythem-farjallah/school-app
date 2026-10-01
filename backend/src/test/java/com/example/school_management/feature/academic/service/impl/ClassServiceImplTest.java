@@ -12,6 +12,8 @@ import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.service.AuditService;
+import com.example.school_management.feature.school.entity.School;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,7 @@ class ClassServiceImplTest {
 
     private final ClassRepository classes = mock(ClassRepository.class);
     private final TeacherRepository teachers = mock(TeacherRepository.class);
+    private final CurrentSchoolResolver currentSchool = mock(CurrentSchoolResolver.class);
 
     @SuppressWarnings("unchecked")
     private final ClassServiceImpl service = new ClassServiceImpl(
@@ -49,6 +52,7 @@ class ClassServiceImplTest {
             mock(TeachingAssignmentRepository.class),
             mock(AuditService.class),
             mock(CurrentAcademicYearResolver.class),
+            currentSchool,
             (BaseUserRepository<BaseUser>) mock(BaseUserRepository.class));
 
     @BeforeEach
@@ -68,7 +72,10 @@ class ClassServiceImplTest {
         Teacher teacher = new Teacher();
         teacher.setId(5L);
         when(teachers.findByEmail(EMAIL)).thenReturn(Optional.of(teacher));
-        when(classes.findByTeacherId(5L)).thenThrow(new DataAccessResourceFailureException("connection refused"));
+        School school = mock(School.class);
+        when(school.getId()).thenReturn(1L);
+        when(currentSchool.resolve()).thenReturn(school);
+        when(classes.findByTeacherIdAndSchoolId(5L, 1L)).thenThrow(new DataAccessResourceFailureException("connection refused"));
 
         assertThatThrownBy(() -> service.getCurrentTeacherClasses(PageRequest.of(0, 10)))
                 .isInstanceOf(DataAccessResourceFailureException.class);

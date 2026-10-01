@@ -1,6 +1,7 @@
 package com.example.school_management.feature.academic.service.impl;
 
 import com.example.school_management.commons.exceptions.ConflictException;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.commons.utils.FetchJoinSpecification;
 import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.commons.utils.SpecificationBuilder;
@@ -91,7 +92,11 @@ public class CourseServiceImpl implements CourseService {
     @Override
     public CourseDto update(Long id, UpdateCourseRequest r) {
         log.debug("Updating course {} with {}", id, r);
-        Course entity = fetch(courseRepo, id, "Course");
+        Long schoolId = currentSchool.resolve().getId();
+        Course entity = findCourse(id, schoolId);
+        if (r.name() != null && courseRepo.existsBySchoolIdAndNameIgnoreCaseAndIdNot(schoolId, r.name(), id)) {
+            throw new ConflictException("Course name already exists");
+        }
         String oldName = entity.getName();
         Float oldCredit = entity.getCredit();
         String oldTeacher = entity.getTeacher() != null ? entity.getTeacher().getEmail() : "None";
@@ -130,11 +135,11 @@ public class CourseServiceImpl implements CourseService {
         log.info("Deleting course {}", id);
         
         // Get course details before deletion for audit
-        Course entity = fetch(courseRepo, id, "Course");
+        Course entity = findCourse(id, currentSchool.resolve().getId());
         String courseName = entity.getName();
         String teacherEmail = entity.getTeacher() != null ? entity.getTeacher().getEmail() : "None";
         
-        courseRepo.deleteById(id);
+        courseRepo.delete(entity);
         
         // Create audit event
         try {
@@ -157,7 +162,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override public CourseDto get(Long id) {
         log.debug("Fetching course {}", id);
-        return mapper.toCourseDto(fetch(courseRepo, id, "Course"));
+        return mapper.toCourseDto(findCourse(id, currentSchool.resolve().getId()));
     }
 
     /* ─────────────────── LIST ─────────────────── */
@@ -168,7 +173,7 @@ public class CourseServiceImpl implements CourseService {
 
         log.trace("Listing courses teacherId={} nameLike={} {}", teacherId, nameLike, p);
 
-        Specification<Course> spec = (root, q, cb) -> cb.conjunction();
+        Specification<Course> spec = inCurrentSchool();
 
         if (teacherId != null)
             spec = spec.and((root, q, cb) -> cb.equal(root.get("teacher").get("id"), teacherId));
@@ -181,6 +186,16 @@ public class CourseServiceImpl implements CourseService {
     }
 
     /* ─────────────────── helper ─────────────────── */
+
+    private Course findCourse(Long id, Long schoolId) {
+        return courseRepo.findByIdAndSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+    }
+
+    private Specification<Course> inCurrentSchool() {
+        Long schoolId = currentSchool.resolve().getId();
+        return (root, query, cb) -> cb.equal(root.get("school").get("id"), schoolId);
+    }
 
     private static String generateCourseCode() {
         // 96 random bits fit in 16 URL-safe characters, leaving four for the prefix.
@@ -212,7 +227,7 @@ public class CourseServiceImpl implements CourseService {
 
         // 3) combine them
         Specification<Course> combinedSpec =
-                Specification.where(joinSpec)
+                inCurrentSchool().and(joinSpec)
                         .and(filterSpec);
 
         // 4) page + sort from qp

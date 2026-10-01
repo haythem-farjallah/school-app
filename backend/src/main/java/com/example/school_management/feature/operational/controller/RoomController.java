@@ -53,8 +53,7 @@ public class RoomController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiSuccessResponse<Room>> get(@PathVariable Long id) {
         log.debug("Getting room: {}", id);
-        Room room = roomRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + id));
+        Room room = findRoom(id);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Room retrieved successfully", room));
     }
 
@@ -64,8 +63,7 @@ public class RoomController {
     public ResponseEntity<ApiSuccessResponse<Room>> update(@PathVariable Long id, @Valid @RequestBody RoomDto roomDto) {
         log.debug("Updating room: {}", id);
         
-        Room room = roomRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + id));
+        Room room = findRoom(id);
         
         room.setName(roomDto.getName());
         room.setCapacity(roomDto.getCapacity());
@@ -81,11 +79,8 @@ public class RoomController {
     public ResponseEntity<ApiSuccessResponse<Void>> delete(@PathVariable Long id) {
         log.debug("Deleting room: {}", id);
         
-        if (!roomRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Room not found with id: " + id);
-        }
-        
-        roomRepository.deleteById(id);
+        Room room = findRoom(id);
+        roomRepository.delete(room);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Room deleted successfully", null));
     }
 
@@ -103,13 +98,12 @@ public class RoomController {
         
         Pageable pageable = PageRequest.of(page, size);
         Page<Room> rooms;
+        Long schoolId = currentSchool.resolve().getId();
         
         if (name != null && !name.trim().isEmpty()) {
-            rooms = roomRepository.findByNameContaining(name, pageable);
-        } else if (roomType != null && minCapacity != null) {
-            rooms = roomRepository.findAll(pageable); // You can implement custom filtering here
+            rooms = roomRepository.findBySchoolIdAndNameContaining(schoolId, name, pageable);
         } else {
-            rooms = roomRepository.findAll(pageable);
+            rooms = roomRepository.findAllBySchoolId(schoolId, pageable);
         }
         
         var dto = new PageDto<>(rooms);
@@ -120,7 +114,7 @@ public class RoomController {
     @GetMapping("/available")
     public ResponseEntity<ApiSuccessResponse<List<Room>>> getAvailableRooms() {
         log.debug("Getting available rooms");
-        List<Room> availableRooms = roomRepository.findAvailableRooms();
+        List<Room> availableRooms = roomRepository.findAvailableRoomsBySchoolId(currentSchool.resolve().getId());
         return ResponseEntity.ok(new ApiSuccessResponse<>("Available rooms retrieved successfully", availableRooms));
     }
 
@@ -128,7 +122,8 @@ public class RoomController {
     @GetMapping("/by-type/{roomType}")
     public ResponseEntity<ApiSuccessResponse<List<Room>>> getRoomsByType(@PathVariable RoomType roomType) {
         log.debug("Getting rooms by type: {}", roomType);
-        List<Room> rooms = roomRepository.findByRoomType(roomType);
+        List<Room> rooms = roomRepository.findBySchoolIdAndRoomTypeOrderByName(
+                currentSchool.resolve().getId(), roomType.name());
         return ResponseEntity.ok(new ApiSuccessResponse<>("Rooms retrieved successfully", rooms));
     }
 
@@ -136,7 +131,13 @@ public class RoomController {
     @GetMapping("/by-capacity/{minCapacity}")
     public ResponseEntity<ApiSuccessResponse<List<Room>>> getRoomsByCapacity(@PathVariable Integer minCapacity) {
         log.debug("Getting rooms by capacity >= {}", minCapacity);
-        List<Room> rooms = roomRepository.findByCapacityGreaterThanEqual(minCapacity);
+        List<Room> rooms = roomRepository.findBySchoolIdAndCapacityGreaterThanEqualOrderByCapacity(
+                currentSchool.resolve().getId(), minCapacity);
         return ResponseEntity.ok(new ApiSuccessResponse<>("Rooms retrieved successfully", rooms));
+    }
+
+    private Room findRoom(Long id) {
+        return roomRepository.findByIdAndSchoolId(id, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + id));
     }
 }

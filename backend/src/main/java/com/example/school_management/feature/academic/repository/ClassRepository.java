@@ -9,9 +9,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ClassRepository extends JpaRepository<ClassEntity, Long> , JpaSpecificationExecutor<ClassEntity> {
     boolean existsByAcademicYearIdAndNameIgnoreCase(Long academicYearId, String name);
+    boolean existsByAcademicYearIdAndNameIgnoreCaseAndIdNot(Long academicYearId, String name, Long id);
+    Optional<ClassEntity> findByIdAndAcademicYearSchoolId(Long id, Long schoolId);
     boolean existsByName(String name);
     List<ClassEntity> findByAcademicYearId(Long academicYearId);
     
@@ -42,4 +45,19 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> , JpaS
         ORDER BY c.name
         """)
     List<ClassEntity> findByTeacherId(@Param("teacherId") Long teacherId);
+
+    @Query("""
+        SELECT DISTINCT c FROM ClassEntity c
+        LEFT JOIN FETCH c.assignedRoom
+        WHERE c.academicYear.school.id = :schoolId AND c.id IN (
+            SELECT DISTINCT ta.clazz.id FROM TeachingAssignment ta WHERE ta.teacher.id = :teacherId
+            UNION
+            SELECT DISTINCT ts.forClass.id FROM TimetableSlot ts WHERE ts.teacher.id = :teacherId
+            UNION
+            SELECT DISTINCT ct.id FROM ClassEntity ct JOIN ct.teachers t WHERE t.id = :teacherId
+        )
+        ORDER BY c.name
+        """)
+    List<ClassEntity> findByTeacherIdAndSchoolId(@Param("teacherId") Long teacherId,
+                                               @Param("schoolId") Long schoolId);
 }

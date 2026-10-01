@@ -10,6 +10,7 @@ import com.example.school_management.feature.academic.mapper.AcademicMapper;
 import com.example.school_management.feature.academic.repository.*;
 import com.example.school_management.feature.academic.service.ClassService;
 import com.example.school_management.feature.academic.service.CurrentAcademicYearResolver;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
@@ -51,6 +52,7 @@ public class ClassServiceImpl implements ClassService {
     private final TeachingAssignmentRepository  assignmentRepo;
     private final AuditService auditService;
     private final CurrentAcademicYearResolver currentAcademicYear;
+    private final CurrentSchoolResolver currentSchool;
     private final BaseUserRepository<BaseUser> userRepo;
 
     /* ─────────────────── CRUD ─────────────────── */
@@ -96,7 +98,11 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public ClassDto update(Long id, UpdateClassRequest r) {
         log.debug("Updating class {} with {}", id, r);
-        ClassEntity entity = fetch(classRepo, id, "Class");
+        ClassEntity entity = findClass(id);
+        if (r.name() != null && classRepo.existsByAcademicYearIdAndNameIgnoreCaseAndIdNot(
+                entity.getAcademicYear().getId(), r.name(), id)) {
+            throw new ConflictException("Class name already exists");
+        }
         String oldName = entity.getName();
         
         mapper.updateClassEntity(r, entity);
@@ -128,10 +134,10 @@ public class ClassServiceImpl implements ClassService {
         log.info("Deleting class {}", id);
         
         // Get class details before deletion for audit
-        ClassEntity entity = fetch(classRepo, id, "Class");
+        ClassEntity entity = findClass(id);
         String className = entity.getName();
         
-        classRepo.deleteById(id);
+        classRepo.delete(entity);
         
         // Create audit event
         try {
@@ -155,7 +161,7 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public ClassDto get(Long id) {
         log.debug("Fetching class {}", id);
-        return mapper.toClassDto(fetch(classRepo, id, "Class"));
+        return mapper.toClassDto(findClass(id));
     }
 
     /* ─────────────────── LIST ─────────────────── */
@@ -166,7 +172,7 @@ public class ClassServiceImpl implements ClassService {
 
         log.trace("Listing classes nameLike={} {}", nameLike, page);
 
-        Specification<ClassEntity> spec = (root, q, cb) -> cb.conjunction();
+        Specification<ClassEntity> spec = inCurrentSchool();
 
         if (nameLike != null && !nameLike.isBlank())
             spec = spec.and((root, q, cb) ->
@@ -180,7 +186,7 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public ClassDto mutateStudents(Long classId, BatchIdsRequest req) {
         log.debug("Batch {} students {} in class {}", req.operation(), req.ids(), classId);
-        ClassEntity entity = fetch(classRepo, classId, "Class");
+        ClassEntity entity = findClass(classId);
         applyBatch(entity.getStudents(), req,
                 id -> fetch(studentRepo, id, "Student"));
         return mapper.toClassDto(entity);
@@ -189,9 +195,18 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public ClassDto mutateCourses(Long classId, BatchIdsRequest req) {
         log.debug("Batch {} courses {} in class {}", req.operation(), req.ids(), classId);
-        ClassEntity entity = fetch(classRepo, classId, "Class");
-        applyBatch(entity.getCourses(), req,
-                id -> fetch(courseRepo, id, "Course"));
+        ClassEntity entity = findClass(classId);
+        Long schoolId = entity.getAcademicYear().getSchool().getId();
+        // Validate every ID before changing links, including IDs requested for removal.
+        List<Course> requested = req.ids().stream()
+                .map(id -> courseRepo.findByIdAndSchoolId(id, schoolId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found")))
+                .toList();
+        if (req.operation() == ADD) {
+            entity.getCourses().addAll(requested);
+        } else {
+            entity.getCourses().removeIf(course -> req.ids().contains(course.getId()));
+        }
         return mapper.toClassDto(entity);
     }
 
@@ -223,7 +238,7 @@ public class ClassServiceImpl implements ClassService {
         Specification<ClassEntity> filterSpec =
                 new SpecificationBuilder<ClassEntity>(qp).build();
 
-        Specification<ClassEntity> combined = fetchSpec.and(filterSpec);
+        Specification<ClassEntity> combined = inCurrentSchool().and(fetchSpec).and(filterSpec);
 
         // 2) Build a PageRequest with sort & pagination
         PageRequest pageReq = PageRequest.of(
@@ -245,7 +260,7 @@ public class ClassServiceImpl implements ClassService {
     public Page<ClassCardDto> listCards(QueryParams qp) {
 
         Page<ClassEntity> page = classRepo.findAll(
-                new SpecificationBuilder<ClassEntity>(qp).build(),
+                inCurrentSchool().and(new SpecificationBuilder<ClassEntity>(qp).build()),
                 PageRequest.of(qp.getPage(), qp.getSize(),
                         qp.getSort().isEmpty()
                                 ? Sort.by("name")
@@ -280,7 +295,7 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional(readOnly = true)
     public ClassViewDto getDetails(Long classId) {
-        ClassEntity c = fetch(classRepo, classId, "Class");
+        ClassEntity c = findClass(classId);
         List<AssignmentDto> list = assignmentRepo.findAllByClassId(classId)
                 .stream()
                 .map(mapper::toAssignmentDto)
@@ -292,7 +307,7 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public Page<ClassDto> getClassesByTeacherId(Long teacherId, Pageable pageable) {
         log.debug("Getting classes for teacher: {}", teacherId);
-        List<ClassEntity> classes = classRepo.findByTeacherId(teacherId);
+        List<ClassEntity> classes = classRepo.findByTeacherIdAndSchoolId(teacherId, currentSchool.resolve().getId());
         log.debug("Found {} classes for teacher {}", classes.size(), teacherId);
         
         if (classes.isEmpty()) {
@@ -325,7 +340,7 @@ public class ClassServiceImpl implements ClassService {
             return cb.equal(studentJoin.get("id"), studentId);
         };
         
-        Page<ClassEntity> classPage = classRepo.findAll(spec, pageable);
+        Page<ClassEntity> classPage = classRepo.findAll(inCurrentSchool().and(spec), pageable);
         return classPage.map(mapper::toClassDto);
     }
     
@@ -343,6 +358,16 @@ public class ClassServiceImpl implements ClassService {
 
         log.debug("Found teacher with ID: {}", teacher.getId());
         return getClassesByTeacherId(teacher.getId(), pageable);
+    }
+
+    private ClassEntity findClass(Long id) {
+        return classRepo.findByIdAndAcademicYearSchoolId(id, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+    }
+
+    private Specification<ClassEntity> inCurrentSchool() {
+        Long schoolId = currentSchool.resolve().getId();
+        return (root, query, cb) -> cb.equal(root.get("academicYear").get("school").get("id"), schoolId);
     }
 
     /**
