@@ -127,7 +127,7 @@ class SchoolMembershipMigrationIntegrationTest {
         flyway.validate();
         JdbcTemplate jdbc = jdbc(url);
 
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("59");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("60");
         assertThat(flyway.getConfiguration().isOutOfOrder()).isFalse();
         assertThat(flyway.getConfiguration().isBaselineOnMigrate()).isFalse();
         assertThat(jdbc.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'", String.class))

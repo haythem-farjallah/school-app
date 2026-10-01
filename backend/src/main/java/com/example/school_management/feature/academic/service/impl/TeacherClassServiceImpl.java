@@ -11,6 +11,7 @@ import com.example.school_management.feature.academic.service.TeacherClassServic
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.entity.Grade;
+import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.repository.GradeRepository;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class TeacherClassServiceImpl implements TeacherClassService {
     private final TeachingAssignmentRepository teachingAssignmentRepository;
     private final ClassRepository classRepository;
     private final GradeRepository gradeRepository;
+    private final EnrollmentRepository enrollmentRepository;
     
     @Override
     public Page<TeacherClassDto> getTeacherClasses(String teacherEmail, Pageable pageable, String search) {
@@ -198,7 +200,7 @@ public class TeacherClassServiceImpl implements TeacherClassService {
                             classEntity.getName(),
                             classEntity.getGradeLevel(),
                             classEntity.getCapacity(),
-                            classEntity.getStudents() != null ? classEntity.getStudents().size() : 0,
+                            (int) enrollmentRepository.countActiveByClassId(classEntity.getId()),
                             classEntity.getAssignedRoom() != null ? classEntity.getAssignedRoom().getName() : "TBD",
                             schedule,
                             averageGrade,

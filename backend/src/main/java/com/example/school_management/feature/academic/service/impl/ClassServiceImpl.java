@@ -14,13 +14,17 @@ import com.example.school_management.feature.school.service.CurrentSchoolResolve
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
-import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
+import com.example.school_management.feature.operational.entity.Enrollment;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
+import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,14 +32,14 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.example.school_management.feature.academic.utils.EnrollmentUtils.applyBatch;
-import static com.example.school_management.feature.academic.utils.EnrollmentUtils.fetch;
 import static com.example.school_management.feature.academic.dto.BatchIdsRequest.Operation.*;
 
 @Slf4j
@@ -46,7 +50,7 @@ public class ClassServiceImpl implements ClassService {
 
     private final ClassRepository   classRepo;
     private final CourseRepository  courseRepo;
-    private final StudentRepository studentRepo;
+    private final EnrollmentRepository enrollmentRepo;
     private final TeacherRepository teacherRepo;
     private final AcademicMapper    mapper;
     private final TeachingAssignmentRepository  assignmentRepo;
@@ -71,7 +75,7 @@ public class ClassServiceImpl implements ClassService {
         entity.setAcademicYear(academicYear);
 
         ClassEntity savedEntity = classRepo.save(entity);
-        ClassDto dto = mapper.toClassDto(savedEntity);
+        ClassDto dto = mapper.toClassDto(savedEntity, Set.of());
         log.info("Class created id={}", dto.id());
         
         // Create audit event
@@ -126,7 +130,7 @@ public class ClassServiceImpl implements ClassService {
             log.warn("Failed to create audit event for class update: {}", e.getClass().getSimpleName());
         }
         
-        return mapper.toClassDto(entity);
+        return toDto(entity);
     }
 
     @Override
@@ -161,7 +165,7 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public ClassDto get(Long id) {
         log.debug("Fetching class {}", id);
-        return mapper.toClassDto(findClass(id));
+        return toDto(findClass(id));
     }
 
     /* ─────────────────── LIST ─────────────────── */
@@ -178,19 +182,10 @@ public class ClassServiceImpl implements ClassService {
             spec = spec.and((root, q, cb) ->
                     cb.like(cb.lower(root.get("name")), "%" + nameLike.toLowerCase() + "%"));
 
-        return classRepo.findAll(spec, page).map(mapper::toClassDto);
+        return toDtoPage(classRepo.findAll(spec, page));
     }
 
-    /* ─────────────────── ENROLMENT (batch) ────── */
-
-    @Override
-    public ClassDto mutateStudents(Long classId, BatchIdsRequest req) {
-        log.debug("Batch {} students {} in class {}", req.operation(), req.ids(), classId);
-        ClassEntity entity = findClass(classId);
-        applyBatch(entity.getStudents(), req,
-                id -> fetch(studentRepo, id, "Student"));
-        return mapper.toClassDto(entity);
-    }
+    /* ─────────────────── COURSES (batch) ──────── */
 
     @Override
     public ClassDto mutateCourses(Long classId, BatchIdsRequest req) {
@@ -207,19 +202,11 @@ public class ClassServiceImpl implements ClassService {
         } else {
             entity.getCourses().removeIf(course -> req.ids().contains(course.getId()));
         }
-        return mapper.toClassDto(entity);
+        return toDto(entity);
     }
 
     /* ── single-item wrappers (checkbox UX) ───── */
 
-    @Override public ClassDto addStudent   (Long c, Long s){
-        log.debug("Add student {} to class {}", s, c);
-        return mutateStudents(c, new BatchIdsRequest(ADD, Set.of(s)));
-    }
-    @Override public ClassDto removeStudent(Long c, Long s){
-        log.debug("Remove student {} from class {}", s, c);
-        return mutateStudents(c, new BatchIdsRequest(REMOVE, Set.of(s)));
-    }
     @Override public ClassDto addCourse    (Long c, Long d){
         log.debug("Add course {} to class {}", d, c);
         return mutateCourses(c, new BatchIdsRequest(ADD, Set.of(d)));
@@ -250,9 +237,7 @@ public class ClassServiceImpl implements ClassService {
         );
 
         // 3) Execute and map
-        return classRepo
-                .findAll(combined, pageReq)
-                .map(mapper::toClassDto);
+        return toDtoPage(classRepo.findAll(combined, pageReq));
     }
 
     @Override
@@ -267,16 +252,17 @@ public class ClassServiceImpl implements ClassService {
                                 : Sort.by(qp.getSort())));
 
         /* -------- aggregate counts -------- */
+        List<Long> classIds = page.getContent().stream().map(ClassEntity::getId).toList();
         Map<Long, ClassCountRow> counts =
-                assignmentRepo.aggregateForClasses(
-                                page.getContent()
-                                        .stream()
-                                        .map(ClassEntity::getId)
-                                        .toList())
+                assignmentRepo.aggregateForClasses(classIds)
                         .stream()
                         .collect(Collectors
                                 .toMap(ClassCountRow::getClassId,
                                         Function.identity()));
+        // The student count is the number of ACTIVE Enrollments, the same roster ClassDto.studentIds exposes.
+        Map<Long, Long> students = enrollmentRepo.countActiveRosters(classIds).stream()
+                .collect(Collectors.toMap(EnrollmentRepository.RosterCountRow::getClassId,
+                        EnrollmentRepository.RosterCountRow::getStudentCount));
 
         /* -------- map to DTOs; fall back to 0 -------- */
         List<ClassCardDto> cards = page.getContent().stream()
@@ -284,8 +270,7 @@ public class ClassServiceImpl implements ClassService {
                     ClassCountRow row = counts.get(c.getId());
                     int teachers = row != null ? row.getTeacherCnt().intValue() : 0;
                     int courses  = row != null ? row.getCourseCnt().intValue()  : 0;
-                    int students = c.getStudents().size();     // already loaded
-                    return mapper.toCardDto(c, students, courses, teachers);
+                    return mapper.toCardDto(c, students.getOrDefault(c.getId(), 0L), courses, teachers);
                 })
                 .toList();
 
@@ -320,9 +305,7 @@ public class ClassServiceImpl implements ClassService {
         int end = Math.min((start + pageable.getPageSize()), classes.size());
         List<ClassEntity> pageContent = classes.subList(start, end);
         
-        List<ClassDto> classDtos = pageContent.stream()
-                .map(mapper::toClassDto)
-                .toList();
+        List<ClassDto> classDtos = toDtos(pageContent);
         
         log.debug("Returning {} classes for teacher {}", classDtos.size(), teacherId);
         return new PageImpl<>(classDtos, pageable, classes.size());
@@ -333,15 +316,18 @@ public class ClassServiceImpl implements ClassService {
     public Page<ClassDto> getClassesByStudentId(Long studentId, Pageable pageable) {
         log.debug("Getting classes for student: {}", studentId);
         
-        // Get classes through enrollments
+        // A student's current classes are the ones with an ACTIVE enrollment; history is not membership.
         Specification<ClassEntity> spec = (root, query, cb) -> {
-            var enrollmentJoin = root.join("enrollments");
-            var studentJoin = enrollmentJoin.join("student");
-            return cb.equal(studentJoin.get("id"), studentId);
+            Subquery<Long> active = query.subquery(Long.class);
+            Root<Enrollment> enrollment = active.from(Enrollment.class);
+            active.select(enrollment.get("id")).where(
+                    cb.equal(enrollment.get("classEntity"), root),
+                    cb.equal(enrollment.get("student").get("id"), studentId),
+                    cb.equal(enrollment.get("status"), EnrollmentStatus.ACTIVE));
+            return cb.exists(active);
         };
-        
-        Page<ClassEntity> classPage = classRepo.findAll(inCurrentSchool().and(spec), pageable);
-        return classPage.map(mapper::toClassDto);
+
+        return toDtoPage(classRepo.findAll(inCurrentSchool().and(spec), pageable));
     }
     
     @Override
@@ -358,6 +344,25 @@ public class ClassServiceImpl implements ClassService {
 
         log.debug("Found teacher with ID: {}", teacher.getId());
         return getClassesByTeacherId(teacher.getId(), pageable);
+    }
+
+    /** A Class with its current roster: the students holding an ACTIVE Enrollment in it. */
+    private ClassDto toDto(ClassEntity entity) {
+        return mapper.toClassDto(entity, new HashSet<>(enrollmentRepo.findActiveStudentIdsByClassId(entity.getId())));
+    }
+
+    /** Resolves the rosters of many classes in one query. */
+    private List<ClassDto> toDtos(List<ClassEntity> entities) {
+        Map<Long, Set<Long>> rosters = new HashMap<>();
+        enrollmentRepo.findActiveRosterRows(entities.stream().map(ClassEntity::getId).toList())
+                .forEach(row -> rosters.computeIfAbsent(row.getClassId(), id -> new HashSet<>()).add(row.getStudentId()));
+        return entities.stream()
+                .map(entity -> mapper.toClassDto(entity, rosters.getOrDefault(entity.getId(), Set.of())))
+                .toList();
+    }
+
+    private Page<ClassDto> toDtoPage(Page<ClassEntity> page) {
+        return new PageImpl<>(toDtos(page.getContent()), page.getPageable(), page.getTotalElements());
     }
 
     private ClassEntity findClass(Long id) {

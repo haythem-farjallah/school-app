@@ -1,6 +1,5 @@
 package com.example.school_management.feature.academic.entity;
 
-import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.Room;
@@ -57,17 +56,6 @@ public class ClassEntity {
     @ManyToOne
     @JoinColumn(name = "assigned_room_id")
     private Room assignedRoom;
-
-    // Many-to-Many relationship with Student (from userauth module)
-    @ManyToMany
-    @JoinTable(
-            name = "class_students",
-            joinColumns = @JoinColumn(name = "class_id"),
-            inverseJoinColumns = @JoinColumn(name = "student_id")
-    )
-    @Fetch(FetchMode.SUBSELECT)
-    @JsonIgnore
-    private Set<Student> students = new HashSet<>();
 
     // Many-to-Many relationship with Course
     @ManyToMany
@@ -143,8 +131,6 @@ public class ClassEntity {
     public Room getAssignedRoom() { return assignedRoom; }
     public void setAssignedRoom(Room assignedRoom) { this.assignedRoom = assignedRoom; }
     
-    public Set<Student> getStudents() { return students; }
-    public void setStudents(Set<Student> students) { this.students = students; }
     
     public Set<Course> getCourses() { return courses; }
     public void setCourses(Set<Course> courses) { this.courses = courses; }

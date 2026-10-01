@@ -476,7 +476,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         }
         
         // Get all students in the class
-        List<Student> students = new ArrayList<>(slot.getForClass().getStudents());
+        List<Student> students = studentRepository.findByClassIds(List.of(slot.getForClass().getId()));
         
         // Check for existing attendance records
         List<Attendance> existingAttendance = attendanceRepository.findStudentAttendanceBySlotAndDate(timetableSlotId, date);
@@ -645,7 +645,7 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private void requireSlotRoster(TimetableSlot slot, List<AttendanceDto> attendanceList) {
         Set<Long> roster = slot.getForClass() == null ? Set.of()
-                : slot.getForClass().getStudents().stream().map(Student::getId).collect(Collectors.toSet());
+                : new HashSet<>(enrollmentRepository.findActiveStudentIdsByClassId(slot.getForClass().getId()));
         for (AttendanceDto attendance : attendanceList) {
             if (!roster.contains(attendance.getUserId())) {
                 throw new AccessDeniedException("Attendance can only be marked for students of this slot's class");
@@ -872,7 +872,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             Student student = studentRepository.findById(attendanceDto.getUserId())
                     .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
             
-            if (!classEntity.getStudents().contains(student)) {
+            if (!enrollmentRepository.existsActiveInClass(student.getId(), classId)) {
                 throw new IllegalArgumentException("Student " + student.getId() + " is not enrolled in class " + classId);
             }
             

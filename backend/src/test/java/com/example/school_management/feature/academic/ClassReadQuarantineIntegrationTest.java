@@ -31,17 +31,19 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -123,8 +125,8 @@ class ClassReadQuarantineIntegrationTest {
         st.setIsEmailVerified(true);
         staff = staffRepository.save(st);
 
-        ownClass = classRepository.save(schoolClass("Own", studentA, teacher));
-        otherClass = classRepository.save(schoolClass("Other", studentB, null));
+        ownClass = classRepository.save(schoolClass("Own", teacher));
+        otherClass = classRepository.save(schoolClass("Other", null));
         enrollments = enrollmentRepository.saveAll(List.of(activeEnrollment(studentA, ownClass), activeEnrollment(studentB, otherClass)));
     }
 
@@ -198,10 +200,17 @@ class ClassReadQuarantineIntegrationTest {
     }
 
     @Test
-    void onlyAdministratorsAndStaffChangeClassMembership() throws Exception {
-        for (String caller : List.of(DevFixtureLoader.TEACHER_EMAIL, DevFixtureLoader.STUDENT_EMAIL)) {
-            expectForbidden(mockMvc.perform(post("/api/v1/classes/{classId}/students/{studentId}", ownClass.getId(), studentB.getId())
-                    .header(HttpHeaders.AUTHORIZATION, bearer(caller))));
+    void classMembershipCanOnlyBeChangedThroughEnrollments() throws Exception {
+        String admin = bearer(DevFixtureLoader.ADMIN_EMAIL);
+        String path = "/api/v1/classes/{classId}/students";
+
+        for (var request : List.of(
+                post(path + "/{studentId}", ownClass.getId(), studentB.getId()),
+                delete(path + "/{studentId}", ownClass.getId(), studentA.getId()),
+                patch(path, ownClass.getId()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"operation\":\"ADD\",\"ids\":[" + studentB.getId() + "]}"))) {
+            mockMvc.perform(request.header(HttpHeaders.AUTHORIZATION, admin))
+                    .andExpect(result -> assertThat(result.getResponse().getStatus()).isBetween(400, 499));
         }
 
         assertThat(studentIdsOf(ownClass)).containsExactly(studentA.getId());
@@ -217,15 +226,13 @@ class ClassReadQuarantineIntegrationTest {
     }
 
     private Set<Long> studentIdsOf(ClassEntity schoolClass) {
-        return transaction.execute(status -> classRepository.findById(schoolClass.getId()).orElseThrow()
-                .getStudents().stream().map(Student::getId).collect(Collectors.toSet()));
+        return new HashSet<>(enrollmentRepository.findActiveStudentIdsByClassId(schoolClass.getId()));
     }
 
-    private ClassEntity schoolClass(String name, Student student, Teacher teacher) {
+    private ClassEntity schoolClass(String name, Teacher teacher) {
         ClassEntity c = new ClassEntity();
         c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName(name + " " + UUID.randomUUID());
-        c.getStudents().add(student);
         if (teacher != null) {
             c.getTeachers().add(teacher);
         }

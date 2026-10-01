@@ -18,23 +18,33 @@ import com.example.school_management.feature.auth.repository.StaffRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.dto.TeacherAttendanceRequest;
+import com.example.school_management.feature.operational.dto.AttendanceDto;
 import com.example.school_management.feature.operational.entity.Attendance;
+import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.Period;
 import com.example.school_management.feature.operational.entity.TeacherAttendance;
 import com.example.school_management.feature.operational.entity.TimetableSlot;
+import com.example.school_management.feature.operational.entity.enums.AttendanceStatus;
 import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import com.example.school_management.feature.operational.repository.AttendanceRepository;
+import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.repository.PeriodRepository;
 import com.example.school_management.feature.operational.repository.TeacherAttendanceRepository;
 import com.example.school_management.feature.operational.repository.TimetableSlotRepository;
+import com.example.school_management.feature.operational.service.AttendanceService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -53,9 +63,11 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -68,7 +80,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Teachers keep the slot attendance workflow for their own slots only; broad attendance
  * reads and writes are administrative, and teacher-id routes are self-only. The fixture
  * teacher is teacher A and teaches Monday slot A; teacher B teaches Monday slot B. Both
- * slots are for a class whose only student is the fixture student; student B is outside it.
+ * slots are for a class whose only current student (ACTIVE enrollment) is the fixture student; student B is outside it.
  */
 @IntegrationTest
 class AttendanceQuarantineIntegrationTest {
@@ -111,6 +123,12 @@ class AttendanceQuarantineIntegrationTest {
     AttendanceRepository attendanceRepository;
 
     @Autowired
+    EnrollmentRepository enrollmentRepository;
+
+    @Autowired
+    AttendanceService attendanceService;
+
+    @Autowired
     TeacherAttendanceRepository teacherAttendanceRepository;
 
     @Autowired
@@ -129,6 +147,7 @@ class AttendanceQuarantineIntegrationTest {
     private Teacher teacherA;
     private Teacher teacherB;
     private ClassEntity schoolClass;
+    private Enrollment enrollmentA;
     private Course course;
     private Period period;
     private TimetableSlot slotA;
@@ -163,8 +182,13 @@ class AttendanceQuarantineIntegrationTest {
         ClassEntity c = new ClassEntity();
         c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
         c.setName("Attendance " + UUID.randomUUID());
-        c.getStudents().add(studentA);
         schoolClass = classRepository.save(c);
+
+        Enrollment e = new Enrollment();
+        e.setStudent(studentA);
+        e.setClassEntity(schoolClass);
+        e.setStatus(EnrollmentStatus.ACTIVE);
+        enrollmentA = enrollmentRepository.save(e);
 
         Course k = new Course();
         k.setSchool(currentSchool.resolve());
@@ -195,6 +219,7 @@ class AttendanceQuarantineIntegrationTest {
         teacherAttendanceRepository.deleteAllById(List.of(hrRecordA.getId(), hrRecordB.getId()));
         slotRepository.deleteAllById(List.of(slotA.getId(), slotB.getId()));
         periodRepository.deleteById(period.getId());
+        enrollmentRepository.deleteById(enrollmentA.getId());
         classRepository.deleteById(schoolClass.getId());
         academicYears.deleteById(schoolClass.getAcademicYear().getId());
         courseRepository.deleteById(course.getId());
@@ -320,6 +345,38 @@ class AttendanceQuarantineIntegrationTest {
                 SCHEDULED_DAY_ONLY);
 
         assertThat(slotAttendance()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"COMPLETED", "TRANSFERRED", "WITHDRAWN"})
+    void aStudentWhoLeftTheRosterIsNeitherListedNorMarkable(EnrollmentStatus left) throws Exception {
+        enrollmentA.setStatus(left);
+        enrollmentRepository.saveAndFlush(enrollmentA);
+        String teacher = bearer(DevFixtureLoader.TEACHER_EMAIL);
+
+        mockMvc.perform(get("/api/v1/attendance/slot/{id}/students", slotA.getId()).param("date", MONDAY.toString())
+                        .header(HttpHeaders.AUTHORIZATION, teacher))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].userId").value(not(hasItem(studentA.getId().intValue()))));
+        expectForbidden(mockMvc.perform(markSlot(slotA, MONDAY, studentA).header(HttpHeaders.AUTHORIZATION, teacher)),
+                "Attendance can only be marked for students of this slot's class");
+        var admin = org.springframework.security.core.userdetails.User.withUsername(DevFixtureLoader.ADMIN_EMAIL)
+                .password("unused").roles("ADMIN").build();
+        var markAsAdmin = new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(markAsAdmin);
+        try {
+            AttendanceDto entry = new AttendanceDto();
+            entry.setUserId(studentA.getId());
+            entry.setStatus(AttendanceStatus.LATE);
+            assertThatThrownBy(() -> attendanceService.markAttendanceForClass(schoolClass.getId(), MONDAY, List.of(entry)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("is not enrolled in class");
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(slotAttendance()).isEmpty();
+        assertThat(attendanceRepository.findByUserIdAndDateBetween(studentA.getId(), MONDAY, MONDAY)).isEmpty();
     }
 
     @Test

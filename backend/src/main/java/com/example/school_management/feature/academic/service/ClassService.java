@@ -17,13 +17,10 @@ public interface ClassService {
     Page<ClassDto> list(Pageable page,
                         String nameLike);        // nullable LIKE %name%
 
-    /* ─── BATCH ENROLMENT ─────────────────────────────── */
-    ClassDto mutateStudents(Long classId, BatchIdsRequest req);   // add/remove many
+    /* ─── BATCH COURSES ───────────────────────────────── */
     ClassDto mutateCourses (Long classId, BatchIdsRequest req);
 
     /* ─── SINGLE-ITEM SHORTCUTS (checkbox UX) ─────────── */
-    ClassDto addStudent   (Long classId, Long studentId);
-    ClassDto removeStudent(Long classId, Long studentId);
     ClassDto addCourse    (Long classId, Long courseId);
     ClassDto removeCourse (Long classId, Long courseId);
 

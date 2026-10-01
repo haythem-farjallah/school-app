@@ -9,7 +9,7 @@ import com.example.school_management.feature.academic.repository.TeachingAssignm
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
-import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.school.entity.School;
@@ -46,7 +46,7 @@ class ClassServiceImplTest {
     private final ClassServiceImpl service = new ClassServiceImpl(
             classes,
             mock(CourseRepository.class),
-            mock(StudentRepository.class),
+            mock(EnrollmentRepository.class),
             teachers,
             mock(AcademicMapper.class),
             mock(TeachingAssignmentRepository.class),

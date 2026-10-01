@@ -13,6 +13,7 @@ import com.example.school_management.feature.academic.service.CourseService;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.entity.Enrollment;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import com.example.school_management.feature.operational.entity.Period;
 import com.example.school_management.feature.operational.entity.Room;
 import com.example.school_management.feature.operational.entity.TimetableSlot;
@@ -147,7 +148,7 @@ class AcademicMasterSchoolAccessIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"get", "update", "delete", "details", "students", "courses"})
+    @ValueSource(strings = {"get", "update", "delete", "details", "courses"})
     void foreignClassIsNotFoundAndUnchanged(String operation) {
         var foreign = clazz(otherYear, "Foreign 7-A");
         assertThatThrownBy(() -> {
@@ -156,7 +157,6 @@ class AcademicMasterSchoolAccessIntegrationTest {
                 case "update" -> classService.update(foreign.getId(), new UpdateClassRequest("Changed"));
                 case "delete" -> classService.delete(foreign.getId());
                 case "details" -> classService.getDetails(foreign.getId());
-                case "students" -> classService.mutateStudents(foreign.getId(), new BatchIdsRequest(ADD, Set.of()));
                 case "courses" -> classService.mutateCourses(foreign.getId(), new BatchIdsRequest(ADD, Set.of()));
             }
         }).isInstanceOf(ResourceNotFoundException.class);
@@ -248,15 +248,12 @@ class AcademicMasterSchoolAccessIntegrationTest {
             var enrollment = new Enrollment();
             enrollment.setStudent(student);
             enrollment.setClassEntity(clazz);
+            enrollment.setStatus(EnrollmentStatus.ACTIVE);
             em.persist(enrollment);
         }
         em.flush();
         assertThat(classService.getClassesByStudentId(student.getId(), PageRequest.of(0, 10)).getContent())
                 .extracting(ClassDto::id).containsExactly(own.getId());
-        classService.addStudent(own.getId(), student.getId());
-        assertThat(own.getStudents()).contains(student);
-        classService.removeStudent(own.getId(), student.getId());
-        assertThat(own.getStudents()).isEmpty();
     }
 
     @ParameterizedTest

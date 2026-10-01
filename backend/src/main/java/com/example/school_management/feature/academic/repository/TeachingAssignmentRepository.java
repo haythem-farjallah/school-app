@@ -17,11 +17,9 @@ public interface TeachingAssignmentRepository
        SELECT
            c.id                      AS classId,
            COUNT(DISTINCT ta.id)     AS teacherCnt,
-           COUNT(DISTINCT cc.id)     AS courseCnt,
-           COUNT(DISTINCT cs.id)     AS studentCnt
+           COUNT(DISTINCT cc.id)     AS courseCnt
        FROM   ClassEntity     c
        LEFT JOIN c.courses    cc
-       LEFT JOIN c.students   cs
        LEFT JOIN TeachingAssignment ta
                 ON ta.clazz.id = c.id
        WHERE  c.id IN :ids

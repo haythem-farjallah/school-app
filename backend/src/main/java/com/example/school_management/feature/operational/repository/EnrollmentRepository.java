@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +47,43 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
 
     default long countActiveByClassId(Long classId) {
         return countByClassIdAndStatus(classId, EnrollmentStatus.ACTIVE);
+    }
+
+    // ---- The current roster of a Class is its ACTIVE Enrollments; every roster read goes through these.
+
+    interface RosterRow {
+        Long getClassId();
+        Long getStudentId();
+    }
+
+    interface RosterCountRow {
+        Long getClassId();
+        Long getStudentCount();
+    }
+
+    @Query("SELECT e.student.id FROM Enrollment e WHERE e.classEntity.id = :classId AND e.status = :status")
+    List<Long> findStudentIdsByClassIdAndStatus(@Param("classId") Long classId, @Param("status") EnrollmentStatus status);
+
+    @Query("SELECT e.classEntity.id AS classId, e.student.id AS studentId FROM Enrollment e "
+            + "WHERE e.classEntity.id IN :classIds AND e.status = :status")
+    List<RosterRow> findRosterRowsByClassIdsAndStatus(@Param("classIds") Collection<Long> classIds,
+                                                      @Param("status") EnrollmentStatus status);
+
+    @Query("SELECT e.classEntity.id AS classId, COUNT(e) AS studentCount FROM Enrollment e "
+            + "WHERE e.classEntity.id IN :classIds AND e.status = :status GROUP BY e.classEntity.id")
+    List<RosterCountRow> countRosterByClassIdsAndStatus(@Param("classIds") Collection<Long> classIds,
+                                                        @Param("status") EnrollmentStatus status);
+
+    default List<Long> findActiveStudentIdsByClassId(Long classId) {
+        return findStudentIdsByClassIdAndStatus(classId, EnrollmentStatus.ACTIVE);
+    }
+
+    default List<RosterRow> findActiveRosterRows(Collection<Long> classIds) {
+        return classIds.isEmpty() ? List.of() : findRosterRowsByClassIdsAndStatus(classIds, EnrollmentStatus.ACTIVE);
+    }
+
+    default List<RosterCountRow> countActiveRosters(Collection<Long> classIds) {
+        return classIds.isEmpty() ? List.of() : countRosterByClassIdsAndStatus(classIds, EnrollmentStatus.ACTIVE);
     }
 
     @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId AND e.status = :status ORDER BY e.enrolledAt DESC")

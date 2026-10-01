@@ -85,15 +85,6 @@ public class ClassController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
 
-    @Operation(summary = "Batch update students enrolment (add/remove)")
-    @Parameter(name = "classId", description = "ID of the class to update", required = true)
-    @PatchMapping("/{classId}/students")
-    public ResponseEntity<ApiSuccessResponse<ClassDto>> batchStudents(
-            @PathVariable Long classId,
-            @RequestBody @Valid BatchIdsRequest body) {
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.mutateStudents(classId, body)));
-    }
-
     @Operation(summary = "Batch update courses enrolled in a class")
     @Parameter(name = "classId", description = "ID of the class to update", required = true)
     @PatchMapping("/{classId}/courses")
@@ -101,26 +92,6 @@ public class ClassController {
             @PathVariable Long classId,
             @RequestBody @Valid BatchIdsRequest body) {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.mutateCourses(classId, body)));
-    }
-
-    @Operation(summary = "Add a single student to a class")
-    @Parameter(name = "classId", description = "ID of the class", required = true)
-    @Parameter(name = "studentId", description = "ID of the student to add", required = true)
-    @PostMapping("/{classId}/students/{studentId}")
-    public ResponseEntity<ApiSuccessResponse<ClassDto>> addStudent(
-            @PathVariable Long classId,
-            @PathVariable Long studentId) {
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.addStudent(classId, studentId)));
-    }
-
-    @Operation(summary = "Remove a single student from a class")
-    @Parameter(name = "classId", description = "ID of the class", required = true)
-    @Parameter(name = "studentId", description = "ID of the student to remove", required = true)
-    @DeleteMapping("/{classId}/students/{studentId}")
-    public ResponseEntity<ApiSuccessResponse<ClassDto>> removeStudent(
-            @PathVariable Long classId,
-            @PathVariable Long studentId) {
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.removeStudent(classId, studentId)));
     }
 
     @Operation(summary = "Add a single course to a class")
