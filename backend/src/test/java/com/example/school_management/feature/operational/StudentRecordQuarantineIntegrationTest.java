@@ -11,6 +11,10 @@ import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.entity.MembershipStatus;
+import com.example.school_management.feature.membership.entity.SchoolMembership;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
 import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
@@ -68,6 +72,9 @@ class StudentRecordQuarantineIntegrationTest {
     EnrollmentRepository enrollmentRepository;
 
     @Autowired
+    SchoolMembershipRepository membershipRepository;
+
+    @Autowired
     PasswordEncoder passwordEncoder;
 
     private static final AtomicInteger clientAddress = new AtomicInteger();
@@ -88,6 +95,12 @@ class StudentRecordQuarantineIntegrationTest {
         s.setPassword(passwordEncoder.encode(DevFixtureLoader.PASSWORD));
         s.setStatus(Status.ACTIVE);
         studentB = studentRepository.save(s);
+        SchoolMembership membership = new SchoolMembership();
+        membership.setUser(studentB);
+        membership.setSchool(currentSchool.resolve());
+        membership.setRoles(java.util.Set.of(MembershipRole.STUDENT));
+        membership.setStatus(MembershipStatus.ACTIVE);
+        membershipRepository.save(membership);
 
         ClassEntity c = new ClassEntity();
         c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
@@ -105,6 +118,7 @@ class StudentRecordQuarantineIntegrationTest {
         enrollmentRepository.deleteById(enrollmentB.getId());
         classRepository.deleteById(schoolClass.getId());
         academicYears.deleteById(schoolClass.getAcademicYear().getId());
+        membershipRepository.deleteAll(membershipRepository.findAllByUserId(studentB.getId()));
         studentRepository.deleteById(studentB.getId());
     }
 

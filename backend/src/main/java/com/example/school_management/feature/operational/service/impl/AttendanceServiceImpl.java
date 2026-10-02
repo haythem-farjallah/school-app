@@ -1,7 +1,12 @@
 package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
+import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.school.entity.School;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.academic.entity.ClassEntity;
@@ -77,6 +82,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final EnrollmentRepository enrollmentRepository;
     private final RealTimeNotificationService realTimeNotificationService;
     private final OperationalMapper mapper;
+    private final CurrentSchoolResolver currentSchool;
+    private final SchoolMembershipRepository memberships;
 
     private BaseUser getCurrentUser() {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -87,62 +94,33 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     public AttendanceDto recordAttendance(AttendanceDto attendanceDto) {
         log.debug("Recording attendance for user: {}", attendanceDto.getUserId());
-        
-        // Validate user exists
-        BaseUser user = userRepository.findById(attendanceDto.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        
-        // Check for existing attendance record
-        Attendance existingAttendance = findExistingAttendance(attendanceDto);
-        if (existingAttendance != null) {
-            log.warn("Attendance record already exists for user {} on date {}", 
-                    attendanceDto.getUserId(), attendanceDto.getDate());
-            return mapper.toAttendanceDto(existingAttendance);
-        }
-        
-        // Create new attendance record
+        School school = currentSchool.resolve();
+        BaseUser user = requireAttendanceUser(attendanceDto);
         Attendance attendance = new Attendance();
+        attendance.setSchool(school);
         attendance.setUser(user);
+        attendance.setUserType(attendanceDto.getUserType());
         attendance.setDate(attendanceDto.getDate());
         attendance.setStatus(attendanceDto.getStatus());
         attendance.setRemarks(attendanceDto.getRemarks());
         attendance.setExcuse(attendanceDto.getExcuse());
         attendance.setMedicalNote(attendanceDto.getMedicalNote());
         attendance.setRecordedAt(LocalDateTime.now());
-        
-        // Set course if provided
-        if (attendanceDto.getCourseId() != null) {
-            Course course = courseRepository.findById(attendanceDto.getCourseId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
-            attendance.setCourse(course);
+        applyAttendanceContext(attendance, attendanceDto, attendanceDto.getTimetableSlotId());
+
+        // Validate every supplied resource before an existing row can short-circuit the write.
+        Attendance existingAttendance = findExistingAttendance(attendance);
+        if (existingAttendance != null) {
+            log.warn("Attendance record already exists for user {} on date {}",
+                    attendanceDto.getUserId(), attendanceDto.getDate());
+            return mapper.toAttendanceDto(existingAttendance);
         }
-        
-        // Set class if provided
-        if (attendanceDto.getClassId() != null) {
-            ClassEntity classEntity = classRepository.findById(attendanceDto.getClassId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
-            attendance.setClassEntity(classEntity);
-        }
-        
-        // Set timetable slot if provided
-        if (attendanceDto.getTimetableSlotId() != null) {
-            TimetableSlot slot = timetableSlotRepository.findById(attendanceDto.getTimetableSlotId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
-            attendance.setTimetableSlot(slot);
-        }
-        
-        // Set recorded by (current user from security context)
-        BaseUser currentUser = getCurrentUser();
-        attendance.setRecordedBy(currentUser);
-        
+        attendance.setRecordedBy(getCurrentUser());
         Attendance savedAttendance = attendanceRepository.save(attendance);
         log.info("Attendance recorded for user {} on date {}", user.getId(), attendanceDto.getDate());
-        
-        // Send absence notifications if student is marked absent
-        if (user instanceof Student && savedAttendance.getStatus() == AttendanceStatus.ABSENT) {
-            sendAbsenceNotifications((Student) user, savedAttendance);
+        if (user instanceof Student student && savedAttendance.isAbsent()) {
+            sendAbsenceNotifications(student, savedAttendance);
         }
-        
         return mapper.toAttendanceDto(savedAttendance);
     }
 
@@ -159,7 +137,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     public List<AttendanceDto> getUserAttendance(Long userId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting attendance for user {} from {} to {}", userId, startDate, endDate);
         
-        List<Attendance> attendances = attendanceRepository.findByUserIdAndDateBetween(userId, startDate, endDate);
+        requireSchoolUserForRead(userId);
+        List<Attendance> attendances = attendanceRepository.findByUserIdAndDateBetweenAndSchoolId(userId, startDate, endDate, currentSchool.resolve().getId());
         return attendances.stream()
                 .map(mapper::toAttendanceDto)
                 .collect(Collectors.toList());
@@ -169,7 +148,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     public List<AttendanceDto> getClassAttendance(Long classId, LocalDate date) {
         log.debug("Getting class attendance for class {} on date {}", classId, date);
         
-        List<Attendance> attendances = attendanceRepository.findByClassIdAndDate(classId, date);
+        requireSchoolClass(classId);
+        List<Attendance> attendances = attendanceRepository.findByClassIdAndDateAndSchoolId(classId, date, currentSchool.resolve().getId());
         return attendances.stream()
                 .map(mapper::toAttendanceDto)
                 .collect(Collectors.toList());
@@ -179,7 +159,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     public List<AttendanceDto> getCourseAttendance(Long courseId, LocalDate date) {
         log.debug("Getting course attendance for course {} on date {}", courseId, date);
         
-        List<Attendance> attendances = attendanceRepository.findByCourseIdAndDate(courseId, date);
+        requireSchoolCourse(courseId);
+        List<Attendance> attendances = attendanceRepository.findByCourseIdAndDateAndSchoolId(courseId, date, currentSchool.resolve().getId());
         return attendances.stream()
                 .map(mapper::toAttendanceDto)
                 .collect(Collectors.toList());
@@ -197,7 +178,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             endDate = LocalDate.now();
         }
         
-        List<Attendance> attendances = attendanceRepository.findByDateBetween(startDate, endDate);
+        List<Attendance> attendances = attendanceRepository.findByDateBetweenAndSchoolId(startDate, endDate, currentSchool.resolve().getId());
         
         long totalRecords = attendances.size();
         long presentCount = attendances.stream().filter(Attendance::isPresent).count();
@@ -228,8 +209,14 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceStatisticsDto getUserAttendanceStatistics(Long userId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting attendance statistics for user {} from {} to {}", userId, startDate, endDate);
         
-        List<Attendance> attendances = attendanceRepository.findByUserIdAndDateBetween(userId, startDate, endDate);
-        
+        BaseUser user = requireSchoolUserForRead(userId);
+        List<Attendance> attendances = attendanceRepository.findByUserIdAndDateBetweenAndSchoolId(
+                userId, startDate, endDate, currentSchool.resolve().getId());
+        return userStatistics(user, attendances, startDate, endDate);
+    }
+
+    private AttendanceStatisticsDto userStatistics(BaseUser user, List<Attendance> attendances,
+                                                   LocalDate startDate, LocalDate endDate) {
         long totalDays = attendances.size();
         long presentDays = attendances.stream().filter(Attendance::isPresent).count();
         long absentDays = attendances.stream().filter(Attendance::isAbsent).count();
@@ -239,11 +226,8 @@ public class AttendanceServiceImpl implements AttendanceService {
         double attendancePercentage = totalDays > 0 ? (double) presentDays / totalDays * 100 : 0;
         double absencePercentage = totalDays > 0 ? (double) absentDays / totalDays * 100 : 0;
         
-        BaseUser user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        
         return new AttendanceStatisticsDto(
-                userId,
+                user.getId(),
                 user.getFirstName() + " " + user.getLastName(),
                 attendances.isEmpty() ? "UNKNOWN" : attendances.get(0).getUserType().name(),
                 startDate,
@@ -262,16 +246,13 @@ public class AttendanceServiceImpl implements AttendanceService {
     public List<AttendanceStatisticsDto> getClassAttendanceStatistics(Long classId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting class attendance statistics for class {} from {} to {}", classId, startDate, endDate);
         
-        List<Attendance> attendances = attendanceRepository.findByClassIdAndDate(classId, startDate);
-        
+        requireSchoolClass(classId);
+        List<Attendance> attendances = attendanceRepository.findByClassIdAndDateBetweenAndSchoolId(
+                classId, startDate, endDate, currentSchool.resolve().getId());
         return attendances.stream()
                 .collect(Collectors.groupingBy(a -> a.getUser().getId()))
-                .values()
-                .stream()
-                .map(userAttendances -> {
-                    Long userId = userAttendances.get(0).getUser().getId();
-                    return getUserAttendanceStatistics(userId, startDate, endDate);
-                })
+                .values().stream()
+                .map(rows -> userStatistics(rows.get(0).getUser(), rows, startDate, endDate))
                 .collect(Collectors.toList());
     }
 
@@ -279,8 +260,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceDto updateAttendance(Long attendanceId, AttendanceDto attendanceDto) {
         log.debug("Updating attendance {}", attendanceId);
         
-        Attendance attendance = attendanceRepository.findById(attendanceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Attendance not found"));
+        Attendance attendance = requireSchoolAttendance(attendanceId);
         
         attendance.setStatus(attendanceDto.getStatus());
         attendance.setRemarks(attendanceDto.getRemarks());
@@ -295,11 +275,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     public void deleteAttendance(Long attendanceId) {
         log.debug("Deleting attendance {}", attendanceId);
         
-        if (!attendanceRepository.existsById(attendanceId)) {
-            throw new ResourceNotFoundException("Attendance not found");
-        }
-        
-        attendanceRepository.deleteById(attendanceId);
+        attendanceRepository.delete(requireSchoolAttendance(attendanceId));
     }
 
     @Override
@@ -307,7 +283,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         FILTER_FIELDS.requireSortable(pageable.getSort());
         log.debug("Getting attendance by user type {} from {} to {}", userType, startDate, endDate);
         
-        Page<Attendance> attendances = attendanceRepository.findByUserTypeAndDateBetween(userType, startDate, endDate, pageable);
+        Page<Attendance> attendances = attendanceRepository.findByUserTypeAndDateBetweenAndSchoolId(userType, startDate, endDate, currentSchool.resolve().getId(), pageable);
         return attendances.map(mapper::toAttendanceDto);
     }
 
@@ -315,8 +291,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceDto markAsExcused(Long attendanceId, String excuse) {
         log.debug("Marking attendance {} as excused", attendanceId);
         
-        Attendance attendance = attendanceRepository.findById(attendanceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Attendance not found"));
+        Attendance attendance = requireSchoolAttendance(attendanceId);
         
         attendance.setStatus(AttendanceStatus.EXCUSED);
         attendance.setExcuse(excuse);
@@ -329,8 +304,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceDto markAsLate(Long attendanceId, String remarks) {
         log.debug("Marking attendance {} as late", attendanceId);
         
-        Attendance attendance = attendanceRepository.findById(attendanceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Attendance not found"));
+        Attendance attendance = requireSchoolAttendance(attendanceId);
         
         attendance.setStatus(AttendanceStatus.LATE);
         attendance.setRemarks(remarks);
@@ -347,7 +321,9 @@ public class AttendanceServiceImpl implements AttendanceService {
         FilterCriteria filterCriteria = FilterCriteriaParser.parseRequestParams(requestParams, pageable, FILTER_FIELDS);
         
         // Build JPA Specification from FilterCriteria
-        Specification<Attendance> specification = DynamicSpecificationBuilder.build(filterCriteria);
+        Long schoolId = currentSchool.resolve().getId();
+        Specification<Attendance> schoolSpec = (root, query, cb) -> cb.equal(root.get("school").get("id"), schoolId);
+        Specification<Attendance> specification = schoolSpec.and(DynamicSpecificationBuilder.build(filterCriteria));
         
         // Execute query with pagination
         Page<Attendance> attendances = attendanceRepository.findAll(specification, pageable);
@@ -356,15 +332,123 @@ public class AttendanceServiceImpl implements AttendanceService {
         return attendances.map(mapper::toAttendanceDto);
     }
 
-    private Attendance findExistingAttendance(AttendanceDto attendanceDto) {
-        if (attendanceDto.getCourseId() != null) {
-            return attendanceRepository.findByUserIdAndCourseIdAndDate(
-                    attendanceDto.getUserId(), attendanceDto.getCourseId(), attendanceDto.getDate()).orElse(null);
-        } else if (attendanceDto.getClassId() != null) {
-            return attendanceRepository.findByUserIdAndClassIdAndDate(
-                    attendanceDto.getUserId(), attendanceDto.getClassId(), attendanceDto.getDate()).orElse(null);
+    private Attendance findExistingAttendance(Attendance attendance) {
+        Long schoolId = attendance.getSchool().getId();
+        Long userId = attendance.getUser().getId();
+        if (attendance.getCourse() != null) {
+            return attendanceRepository.findByUserIdAndCourseIdAndDateAndSchoolId(
+                    userId, attendance.getCourse().getId(), attendance.getDate(), schoolId).orElse(null);
+        } else if (attendance.getClassEntity() != null) {
+            return attendanceRepository.findByUserIdAndClassIdAndDateAndSchoolId(
+                    userId, attendance.getClassEntity().getId(), attendance.getDate(), schoolId).orElse(null);
         }
         return null;
+    }
+
+    private Attendance requireSchoolAttendance(Long attendanceId) {
+        return attendanceRepository.findByIdAndSchoolId(attendanceId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Attendance not found"));
+    }
+
+    private ClassEntity requireSchoolClass(Long classId) {
+        return classRepository.findByIdAndAcademicYearSchoolId(classId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+    }
+
+    private Course requireSchoolCourse(Long courseId) {
+        return courseRepository.findByIdAndSchoolId(courseId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+    }
+
+    private void requireMembershipRole(Long userId, Long schoolId, MembershipRole role, String resource) {
+        memberships.findByUserIdAndSchoolId(userId, schoolId)
+                .filter(m -> m.getRoles().contains(role))
+                .orElseThrow(() -> new ResourceNotFoundException(resource + " not found"));
+    }
+
+    private Student requireSchoolStudent(Long studentId) {
+        requireMembershipRole(studentId, currentSchool.resolve().getId(), MembershipRole.STUDENT, "Student");
+        return studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+    }
+
+    private Teacher requireSchoolTeacher(Long teacherId) {
+        requireMembershipRole(teacherId, currentSchool.resolve().getId(), MembershipRole.TEACHER, "Teacher");
+        return teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+    }
+
+    private BaseUser requireAttendanceUser(AttendanceDto dto) {
+        return switch (dto.getUserType()) {
+            case STUDENT -> requireSchoolStudent(dto.getUserId());
+            case TEACHER -> requireSchoolTeacher(dto.getUserId());
+            // STAFF has no MembershipRole; preserve the generic legacy target-user behavior.
+            case STAFF -> {
+                BaseUser user = userRepository.findById(dto.getUserId())
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                // A client-supplied type cannot turn a foreign Student or Teacher into a STAFF resource.
+                Long schoolId = currentSchool.resolve().getId();
+                if (user instanceof Student) {
+                    requireMembershipRole(user.getId(), schoolId, MembershipRole.STUDENT, "Student");
+                } else if (user instanceof Teacher) {
+                    requireMembershipRole(user.getId(), schoolId, MembershipRole.TEACHER, "Teacher");
+                }
+                yield user;
+            }
+        };
+    }
+
+    private BaseUser requireSchoolUserForRead(Long userId) {
+        BaseUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Long schoolId = currentSchool.resolve().getId();
+        // Canonical School-owned history remains readable even if membership later disappears.
+        if (!attendanceRepository.existsByUserIdAndSchoolId(userId, schoolId)) {
+            if (user instanceof Student) {
+                requireMembershipRole(userId, schoolId, MembershipRole.STUDENT, "Student");
+            } else if (user instanceof Teacher) {
+                requireMembershipRole(userId, schoolId, MembershipRole.TEACHER, "Teacher");
+            }
+        }
+        return user;
+    }
+
+    private TimetableSlot requireSchoolSlot(Long slotId) {
+        Long schoolId = currentSchool.resolve().getId();
+        TimetableSlot slot = timetableSlotRepository.findByIdAndPeriodSchoolId(slotId, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
+        requireConsistentSlot(slot, schoolId);
+        return slot;
+    }
+
+    private void requireConsistentSlot(TimetableSlot slot, Long schoolId) {
+        if ((slot.getForClass() != null && !schoolId.equals(slot.getForClass().getAcademicYear().getSchool().getId()))
+                || (slot.getForCourse() != null && !schoolId.equals(slot.getForCourse().getSchool().getId()))) {
+            throw new ConflictException("Timetable slot has inconsistent School ownership");
+        }
+    }
+
+    private void applyAttendanceContext(Attendance attendance, AttendanceDto dto, Long slotId) {
+        ClassEntity clazz = dto.getClassId() == null ? null : requireSchoolClass(dto.getClassId());
+        Course course = dto.getCourseId() == null ? null : requireSchoolCourse(dto.getCourseId());
+        TimetableSlot slot = slotId == null ? null : requireSchoolSlot(slotId);
+        if (slot != null) {
+            requireMatchingSlotContext(slot, clazz, course);
+            if (clazz == null) clazz = slot.getForClass();
+            if (course == null) course = slot.getForCourse();
+        }
+        attendance.setClassEntity(clazz);
+        attendance.setCourse(course);
+        attendance.setTimetableSlot(slot);
+    }
+
+    private void requireMatchingSlotContext(TimetableSlot slot, ClassEntity clazz, Course course) {
+        if (clazz != null && slot.getForClass() != null && !clazz.getId().equals(slot.getForClass().getId())) {
+            throw new ConflictException("Class does not match the timetable slot");
+        }
+        if (course != null && slot.getForCourse() != null && !course.getId().equals(slot.getForCourse().getId())) {
+            throw new ConflictException("Course does not match the timetable slot");
+        }
     }
 
     // Teacher-specific attendance methods implementation
@@ -374,13 +458,13 @@ public class AttendanceServiceImpl implements AttendanceService {
         log.debug("Getting today's schedule with attendance for teacher {} on date {}", teacherId, date);
         
         // Verify teacher exists
-        Teacher teacher = teacherRepository.findById(teacherId)
-                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+        Teacher teacher = requireSchoolTeacher(teacherId);
         
         // Get teacher's timetable slots for today
         com.example.school_management.feature.operational.entity.enums.DayOfWeek dayOfWeek = convertToDayOfWeek(date.getDayOfWeek());
-        List<TimetableSlot> allSlots = timetableSlotRepository.findByTeacherId(teacherId);
+        List<TimetableSlot> allSlots = timetableSlotRepository.findByTeacherIdAndPeriodSchoolId(teacherId, currentSchool.resolve().getId());
 
+        allSlots.forEach(slot -> requireConsistentSlot(slot, currentSchool.resolve().getId()));
         List<TimetableSlot> todaySlots = allSlots.stream()
                 .filter(slot -> slot.getDayOfWeek() == dayOfWeek)
                 .collect(Collectors.toList());
@@ -394,7 +478,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             log.debug("No timetable slots for teacher {} on {}, creating virtual slots from assigned classes", teacherId, date);
             
             // Get teacher's assigned classes through teaching assignments
-            List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacherId);
+            List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherIdAndSchoolId(teacherId, currentSchool.resolve().getId());
             log.debug("Found {} teaching assignments for teacher {}", assignments.size(), teacherId);
             
             // Group assignments by class to avoid duplicates
@@ -425,7 +509,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             // Process existing timetable slots
             for (TimetableSlot slot : todaySlots) {
                 // Get existing attendance records for this slot
-                List<Attendance> existingAttendance = attendanceRepository.findStudentAttendanceBySlotAndDate(slot.getId(), date);
+                List<Attendance> existingAttendance = attendanceRepository.findStudentAttendanceBySlotAndDateAndSchoolId(slot.getId(), date, currentSchool.resolve().getId());
                 
                 if (existingAttendance.isEmpty()) {
                     // Create placeholder attendance record for the slot
@@ -458,28 +542,20 @@ public class AttendanceServiceImpl implements AttendanceService {
         
         List<AttendanceDto> result = new ArrayList<>();
         
-        // Handle virtual slots (when timetableSlotId is -1)
-        if (timetableSlotId == -1L) {
-            // For virtual slots, we need to get the class and course from the request context
-            // This is a simplified approach - in a real scenario, you might pass class/course info
-            throw new IllegalArgumentException("Virtual slots require additional context. Please use class-based attendance marking.");
-        }
-        
-        TimetableSlot slot = timetableSlotRepository.findById(timetableSlotId)
-                .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
+        TimetableSlot slot = requireSchoolSlot(timetableSlotId);
         BaseUser currentUser = getCurrentUser();
         requireOwnSlotForTeacher(slot, currentUser);
         requireScheduledDayForTeacher(slot, date, currentUser);
         
         if (slot.getForClass() == null) {
-            throw new IllegalArgumentException("Timetable slot must have an associated class");
+            throw new ConflictException("Timetable slot must have an associated class");
         }
         
         // Get all students in the class
         List<Student> students = studentRepository.findByClassIds(List.of(slot.getForClass().getId()));
         
         // Check for existing attendance records
-        List<Attendance> existingAttendance = attendanceRepository.findStudentAttendanceBySlotAndDate(timetableSlotId, date);
+        List<Attendance> existingAttendance = attendanceRepository.findStudentAttendanceBySlotAndDateAndSchoolId(timetableSlotId, date, currentSchool.resolve().getId());
         Map<Long, Attendance> attendanceMap = existingAttendance.stream()
                 .collect(Collectors.toMap(a -> a.getUser().getId(), a -> a));
         
@@ -513,8 +589,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         log.debug("Marking attendance for timetable slot {} on date {} for {} students", 
                 timetableSlotId, date, attendanceList.size());
         
-        TimetableSlot slot = timetableSlotRepository.findById(timetableSlotId)
-                .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
+        TimetableSlot slot = requireSchoolSlot(timetableSlotId);
         
         BaseUser currentUser = getCurrentUser();
         if (currentUser.getRole() == UserRole.TEACHER) {
@@ -522,16 +597,30 @@ public class AttendanceServiceImpl implements AttendanceService {
             requireScheduledDayForTeacher(slot, date, currentUser);
             requireSlotRoster(slot, attendanceList);
         }
+        if (slot.getForClass() == null) {
+            throw new ConflictException("Timetable slot must have an associated class");
+        }
+        School school = currentSchool.resolve();
         List<AttendanceDto> result = new ArrayList<>();
-        
+
         for (AttendanceDto attendanceDto : attendanceList) {
-            // Validate student exists
-            BaseUser student = userRepository.findById(attendanceDto.getUserId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-            
-            // Check for existing attendance record
+            Student student = requireSchoolStudent(attendanceDto.getUserId());
+            if (currentUser.getRole() != UserRole.TEACHER
+                    && !enrollmentRepository.existsActiveInClass(student.getId(), slot.getForClass().getId())) {
+                throw new ConflictException("Student is not actively enrolled in this class");
+            }
+            if (attendanceDto.getTimetableSlotId() != null) {
+                TimetableSlot suppliedSlot = requireSchoolSlot(attendanceDto.getTimetableSlotId());
+                if (!slot.getId().equals(suppliedSlot.getId())) {
+                    throw new ConflictException("Timetable slot does not match the marking route");
+                }
+            }
+            requireMatchingSlotContext(slot,
+                    attendanceDto.getClassId() == null ? null : requireSchoolClass(attendanceDto.getClassId()),
+                    attendanceDto.getCourseId() == null ? null : requireSchoolCourse(attendanceDto.getCourseId()));
+
             Optional<Attendance> existingAttendance = attendanceRepository
-                    .findByUserIdAndClassIdAndDate(attendanceDto.getUserId(), slot.getForClass().getId(), date);
+                    .findByUserIdAndClassIdAndDateAndSchoolId(student.getId(), slot.getForClass().getId(), date, school.getId());
             
             Attendance attendance;
             if (existingAttendance.isPresent()) {
@@ -544,6 +633,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             } else {
                 // Create new record
                 attendance = new Attendance();
+                attendance.setSchool(currentSchool.resolve());
                 attendance.setUser(student);
                 attendance.setTimetableSlot(slot);
                 attendance.setDate(date);
@@ -570,9 +660,9 @@ public class AttendanceServiceImpl implements AttendanceService {
     public boolean canTeacherMarkAttendance(Long teacherId, Long timetableSlotId, LocalDate date) {
         log.debug("Checking if teacher {} can mark attendance for slot {} on date {}", teacherId, timetableSlotId, date);
         
+        requireSchoolTeacher(teacherId);
         // Check if the timetable slot belongs to the teacher
-        TimetableSlot slot = timetableSlotRepository.findById(timetableSlotId)
-                .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
+        TimetableSlot slot = requireSchoolSlot(timetableSlotId);
         
         if (slot.getTeacher() == null || !slot.getTeacher().getId().equals(teacherId)) {
             return false;
@@ -594,7 +684,9 @@ public class AttendanceServiceImpl implements AttendanceService {
     public Map<String, List<AttendanceDto>> getTeacherWeeklyAttendanceSummary(Long teacherId, LocalDate startOfWeek) {
         log.debug("Getting weekly attendance summary for teacher {} starting from {}", teacherId, startOfWeek);
         
-        List<Attendance> weeklyAttendance = attendanceRepository.findStudentAttendanceByTeacherAndDate(teacherId, startOfWeek);
+        requireSchoolTeacher(teacherId);
+        List<Attendance> weeklyAttendance = attendanceRepository.findStudentAttendanceByTeacherAndDateAndSchoolId(teacherId, startOfWeek, currentSchool.resolve().getId());
+        weeklyAttendance.forEach(row -> requireConsistentSlot(row.getTimetableSlot(), currentSchool.resolve().getId()));
         
         Map<String, List<AttendanceDto>> summary = new HashMap<>();
         
@@ -617,7 +709,9 @@ public class AttendanceServiceImpl implements AttendanceService {
     public List<AttendanceDto> getAbsentStudentsForTeacher(Long teacherId, LocalDate date) {
         log.debug("Getting absent students for teacher {} on date {}", teacherId, date);
         
-        List<Attendance> absentStudents = attendanceRepository.findAbsentStudentsByTeacherAndDate(teacherId, date);
+        requireSchoolTeacher(teacherId);
+        List<Attendance> absentStudents = attendanceRepository.findAbsentStudentsByTeacherAndDateAndSchoolId(teacherId, date, currentSchool.resolve().getId());
+        absentStudents.forEach(row -> requireConsistentSlot(row.getTimetableSlot(), currentSchool.resolve().getId()));
         
         return absentStudents.stream()
                 .map(mapper::toAttendanceDto)
@@ -626,13 +720,15 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     /*
      * Temporary guards for the teacher slot workflow only, until attendance is authorized through
-     * canonical TeachingAssignment and Enrollment: they rely on the slot's recorded teacher and its
-     * class's student list, and are not an ownership rule for any other feature.
+     * canonical TeachingAssignment authorization: the slot's teacher guards authorization and ACTIVE
+     * Enrollment supplies its current roster. These guards apply only to Attendance.
      */
     private void requireOwnSlotForTeacher(TimetableSlot slot, BaseUser caller) {
-        if (caller.getRole() == UserRole.TEACHER
-                && (slot.getTeacher() == null || !slot.getTeacher().getId().equals(caller.getId()))) {
-            throw new AccessDeniedException("You can only take attendance for your own timetable slots");
+        if (caller.getRole() == UserRole.TEACHER) {
+            requireSchoolTeacher(caller.getId());
+            if (slot.getTeacher() == null || !slot.getTeacher().getId().equals(caller.getId())) {
+                throw new AccessDeniedException("You can only take attendance for your own timetable slots");
+            }
         }
     }
 
@@ -740,14 +836,13 @@ public class AttendanceServiceImpl implements AttendanceService {
         log.debug("Getting students for class {} on date {}", classId, date);
         
         // Get class entity
-        ClassEntity classEntity = classRepository.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+        ClassEntity classEntity = requireSchoolClass(classId);
         
         // Get all students in the class through enrollments (the correct way)
         List<Student> students = studentRepository.findByClassIds(List.of(classId));
         
         // Check for existing attendance records for this class on this date
-        List<Attendance> existingAttendance = attendanceRepository.findByClassIdAndDate(classId, date);
+        List<Attendance> existingAttendance = attendanceRepository.findByClassIdAndDateAndSchoolId(classId, date, currentSchool.resolve().getId());
         Map<Long, Attendance> attendanceMap = existingAttendance.stream()
                 .collect(Collectors.toMap(a -> a.getUser().getId(), a -> a));
         
@@ -780,8 +875,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         log.debug("Getting students for class {} (simple)", classId);
         
         // Get class entity
-        ClassEntity classEntity = classRepository.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+        ClassEntity classEntity = requireSchoolClass(classId);
         
         // Get all students in the class through enrollments (the correct way)
         List<Student> students = studentRepository.findByClassIds(List.of(classId));
@@ -809,8 +903,11 @@ public class AttendanceServiceImpl implements AttendanceService {
     public TeacherAttendanceClassView getTeacherAttendanceClass(Long teacherId, Long classId, Long courseId) {
         log.debug("Getting attendance class view for teacher: {}, class: {}, course: {}", teacherId, classId, courseId);
         
+        requireSchoolTeacher(teacherId);
+        requireSchoolClass(classId);
+        requireSchoolCourse(courseId);
         // Verify teaching assignment exists (similar to grade system)
-        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacherId);
+        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherIdAndSchoolId(teacherId, currentSchool.resolve().getId());
         TeachingAssignment assignment = assignments.stream()
                 .filter(ta -> ta.getClazz().getId().equals(classId) && ta.getCourse().getId().equals(courseId))
                 .findFirst()
@@ -861,24 +958,33 @@ public class AttendanceServiceImpl implements AttendanceService {
         log.debug("Marking attendance for class {} on date {} for {} students", classId, date, attendanceList.size());
         
         // Verify class exists
-        ClassEntity classEntity = classRepository.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+        ClassEntity classEntity = requireSchoolClass(classId);
         
         BaseUser currentUser = getCurrentUser();
         List<AttendanceDto> result = new ArrayList<>();
         
         for (AttendanceDto attendanceDto : attendanceList) {
             // Verify student is in the class
-            Student student = studentRepository.findById(attendanceDto.getUserId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+            Student student = requireSchoolStudent(attendanceDto.getUserId());
             
             if (!enrollmentRepository.existsActiveInClass(student.getId(), classId)) {
-                throw new IllegalArgumentException("Student " + student.getId() + " is not enrolled in class " + classId);
+                throw new ConflictException("Student is not actively enrolled in this class");
             }
             
+            Attendance requestedContext = new Attendance();
+            // Class roster DTOs use -1 to identify their virtual slot, with no persisted slot relationship.
+            Long slotId = Long.valueOf(-1L).equals(attendanceDto.getTimetableSlotId())
+                    ? null : attendanceDto.getTimetableSlotId();
+            applyAttendanceContext(requestedContext, attendanceDto, slotId);
+            if (requestedContext.getClassEntity() != null
+                    && !classId.equals(requestedContext.getClassEntity().getId())) {
+                throw new ConflictException("Class does not match the marking route");
+            }
+            requestedContext.setClassEntity(classEntity);
+
             // Check if attendance record already exists
-            Attendance existingAttendance = attendanceRepository.findByUserIdAndClassIdAndDate(
-                    attendanceDto.getUserId(), classId, date).orElse(null);
+            Attendance existingAttendance = attendanceRepository.findByUserIdAndClassIdAndDateAndSchoolId(
+                    attendanceDto.getUserId(), classId, date, currentSchool.resolve().getId()).orElse(null);
             
             Attendance attendance;
             if (existingAttendance != null) {
@@ -889,8 +995,9 @@ public class AttendanceServiceImpl implements AttendanceService {
                 attendance.setExcuse(attendanceDto.getExcuse());
                 attendance.setUpdatedAt(LocalDateTime.now());
             } else {
-                // Create new record
-                attendance = new Attendance();
+                // Create new record with validated, normalized context.
+                attendance = requestedContext;
+                attendance.setSchool(currentSchool.resolve());
                 attendance.setUser(student);
                 attendance.setDate(date);
                 attendance.setStatus(attendanceDto.getStatus());
@@ -927,4 +1034,4 @@ public class AttendanceServiceImpl implements AttendanceService {
         // TODO: Implement proper last attendance date lookup when needed
         return LocalDate.now().toString();
     }
-} 
+}

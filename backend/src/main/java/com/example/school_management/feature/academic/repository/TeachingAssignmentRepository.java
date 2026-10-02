@@ -53,6 +53,17 @@ public interface TeachingAssignmentRepository
     """)
     List<TeachingAssignment> findByTeacherId(@Param("teacherId") Long teacherId);
     
+    // Attendance consumes only assignments whose Class and Course both belong to its current School.
+    @Query("""
+        SELECT ta FROM TeachingAssignment ta
+        JOIN FETCH ta.clazz c
+        JOIN FETCH ta.course co
+        WHERE ta.teacher.id = :teacherId
+          AND c.academicYear.school.id = :schoolId AND co.school.id = :schoolId
+        ORDER BY c.name, co.name
+    """)
+    List<TeachingAssignment> findByTeacherIdAndSchoolId(@Param("teacherId") Long teacherId, @Param("schoolId") Long schoolId);
+
     // Additional query methods for teacher-course linking
     List<TeachingAssignment> findByCourseId(Long courseId);
     List<TeachingAssignment> findByClazzId(Long classId);

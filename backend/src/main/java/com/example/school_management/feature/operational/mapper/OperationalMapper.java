@@ -140,6 +140,7 @@ public interface OperationalMapper {
     @Mapping(target = "timetableSlot", ignore = true)
     @Mapping(target = "recordedBy", ignore = true)
     @Mapping(target = "recordedAt", ignore = true)
+    @Mapping(target = "school", ignore = true)
     Attendance toAttendance(AttendanceDto dto);
 
     /* ─────────────────────── UPDATE PATCHERS ───────────────────── */
@@ -186,6 +187,7 @@ public interface OperationalMapper {
     @Mapping(target = "timetableSlot", ignore = true)
     @Mapping(target = "recordedBy", ignore = true)
     @Mapping(target = "recordedAt", ignore = true)
+    @Mapping(target = "school", ignore = true)
     void updateAttendance(AttendanceDto src, @MappingTarget Attendance target);
 
     /* ─────────────────────── HELPERS ───────────────────────────── */
@@ -197,4 +199,4 @@ public interface OperationalMapper {
         long minutes = duration.toMinutesPart();
         return String.format("%02d:%02d", hours, minutes);
     }
-} 
+}

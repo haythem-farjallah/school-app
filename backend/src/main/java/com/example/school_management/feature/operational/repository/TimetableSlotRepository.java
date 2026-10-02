@@ -10,9 +10,14 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, Long>, JpaSpecificationExecutor<TimetableSlot> {
+
+    Optional<TimetableSlot> findByIdAndPeriodSchoolId(Long id, Long schoolId);
+
+    List<TimetableSlot> findByTeacherIdAndPeriodSchoolId(Long teacherId, Long schoolId);
 
     @Query("SELECT ts FROM TimetableSlot ts WHERE ts.forClass.id = :classId ORDER BY ts.dayOfWeek, ts.period.index")
     List<TimetableSlot> findByClassId(@Param("classId") Long classId);
@@ -47,4 +52,4 @@ public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, Lo
     @Modifying
     @Query("DELETE FROM TimetableSlot ts WHERE ts.timetable.id = :timetableId")
     void deleteByTimetableId(@Param("timetableId") Long timetableId);
-} 
+}

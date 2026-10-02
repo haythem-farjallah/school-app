@@ -5,7 +5,10 @@ import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.operational.entity.enums.AttendanceStatus;
 import com.example.school_management.feature.operational.entity.enums.UserType;
+import com.example.school_management.feature.school.entity.School;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.hibernate.annotations.ColumnTransformer;
 import org.springframework.data.annotation.CreatedDate;
@@ -23,6 +26,12 @@ public class Attendance {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "school_id", nullable = false, updatable = false)
+    @JsonIgnore
+    private School school;
 
     // The user (could be a teacher or student)
     @ManyToOne

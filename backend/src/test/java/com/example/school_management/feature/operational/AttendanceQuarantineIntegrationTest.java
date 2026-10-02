@@ -14,6 +14,10 @@ import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
+import com.example.school_management.feature.membership.entity.SchoolMembership;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.entity.MembershipStatus;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
 import com.example.school_management.feature.auth.repository.StaffRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
@@ -27,12 +31,12 @@ import com.example.school_management.feature.operational.entity.TimetableSlot;
 import com.example.school_management.feature.operational.entity.enums.AttendanceStatus;
 import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
+import com.example.school_management.feature.operational.entity.enums.UserType;
 import com.example.school_management.feature.operational.repository.AttendanceRepository;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.repository.PeriodRepository;
 import com.example.school_management.feature.operational.repository.TeacherAttendanceRepository;
 import com.example.school_management.feature.operational.repository.TimetableSlotRepository;
-import com.example.school_management.feature.operational.service.AttendanceService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -43,8 +47,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -63,7 +65,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
@@ -126,7 +127,7 @@ class AttendanceQuarantineIntegrationTest {
     EnrollmentRepository enrollmentRepository;
 
     @Autowired
-    AttendanceService attendanceService;
+    SchoolMembershipRepository membershipRepository;
 
     @Autowired
     TeacherAttendanceRepository teacherAttendanceRepository;
@@ -168,6 +169,12 @@ class AttendanceQuarantineIntegrationTest {
         s.setPassword(passwordEncoder.encode(DevFixtureLoader.PASSWORD));
         s.setStatus(Status.ACTIVE);
         studentB = studentRepository.save(s);
+        SchoolMembership membership = new SchoolMembership();
+        membership.setUser(studentB);
+        membership.setSchool(currentSchool.resolve());
+        membership.setRoles(java.util.Set.of(MembershipRole.STUDENT));
+        membership.setStatus(MembershipStatus.ACTIVE);
+        membershipRepository.save(membership);
 
         Teacher t = new Teacher();
         t.setRole(UserRole.TEACHER);
@@ -223,6 +230,7 @@ class AttendanceQuarantineIntegrationTest {
         classRepository.deleteById(schoolClass.getId());
         academicYears.deleteById(schoolClass.getAcademicYear().getId());
         courseRepository.deleteById(course.getId());
+        membershipRepository.deleteAll(membershipRepository.findAllByUserId(studentB.getId()));
         studentRepository.deleteById(studentB.getId());
         teacherRepository.deleteById(teacherB.getId());
     }
@@ -360,23 +368,21 @@ class AttendanceQuarantineIntegrationTest {
                 .andExpect(jsonPath("$.data[*].userId").value(not(hasItem(studentA.getId().intValue()))));
         expectForbidden(mockMvc.perform(markSlot(slotA, MONDAY, studentA).header(HttpHeaders.AUTHORIZATION, teacher)),
                 "Attendance can only be marked for students of this slot's class");
-        var admin = org.springframework.security.core.userdetails.User.withUsername(DevFixtureLoader.ADMIN_EMAIL)
-                .password("unused").roles("ADMIN").build();
-        var markAsAdmin = new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities());
-        SecurityContextHolder.getContext().setAuthentication(markAsAdmin);
-        try {
-            AttendanceDto entry = new AttendanceDto();
-            entry.setUserId(studentA.getId());
-            entry.setStatus(AttendanceStatus.LATE);
-            assertThatThrownBy(() -> attendanceService.markAttendanceForClass(schoolClass.getId(), MONDAY, List.of(entry)))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("is not enrolled in class");
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        AttendanceDto entry = new AttendanceDto();
+        entry.setUserId(studentA.getId());
+        entry.setStatus(AttendanceStatus.LATE);
+        entry.setDate(MONDAY);
+        entry.setUserType(UserType.STUDENT);
+        mockMvc.perform(post("/api/v1/attendance/class/{id}/mark", schoolClass.getId())
+                        .param("date", MONDAY.toString())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL))
+                        .contentType(MediaType.APPLICATION_JSON).content(json(List.of(entry))))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").value("Student is not actively enrolled in this class"));
 
         assertThat(slotAttendance()).isEmpty();
-        assertThat(attendanceRepository.findByUserIdAndDateBetween(studentA.getId(), MONDAY, MONDAY)).isEmpty();
+        assertThat(attendanceRepository.findByUserIdAndDateBetweenAndSchoolId(studentA.getId(), MONDAY, MONDAY, currentSchool.resolve().getId())).isEmpty();
     }
 
     @Test
@@ -386,7 +392,7 @@ class AttendanceQuarantineIntegrationTest {
                 "Attendance can only be marked for students of this slot's class");
 
         assertThat(slotAttendance()).isEmpty();
-        assertThat(attendanceRepository.findByUserIdAndDateBetween(studentB.getId(), MONDAY, MONDAY)).isEmpty();
+        assertThat(attendanceRepository.findByUserIdAndDateBetweenAndSchoolId(studentB.getId(), MONDAY, MONDAY, currentSchool.resolve().getId())).isEmpty();
     }
 
     @Test
@@ -415,13 +421,13 @@ class AttendanceQuarantineIntegrationTest {
                 get("/api/v1/attendance/class/{id}/students-simple", classId))) {
             expectForbidden(mockMvc.perform(route.header(HttpHeaders.AUTHORIZATION, teacher)), "ACCESS_DENIED");
         }
-        assertThat(attendanceRepository.findByUserIdAndDateBetween(studentB.getId(), MONDAY, MONDAY)).isEmpty();
+        assertThat(attendanceRepository.findByUserIdAndDateBetweenAndSchoolId(studentB.getId(), MONDAY, MONDAY, currentSchool.resolve().getId())).isEmpty();
 
-        // Administrators keep recording attendance for any user.
+        // Administrators keep recording attendance for current-School students.
         mockMvc.perform(post("/api/v1/attendance").header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL))
                         .contentType(MediaType.APPLICATION_JSON).content(record))
                 .andExpect(status().isCreated());
-        assertThat(attendanceRepository.findByUserIdAndDateBetween(studentB.getId(), MONDAY, MONDAY)).hasSize(1);
+        assertThat(attendanceRepository.findByUserIdAndDateBetweenAndSchoolId(studentB.getId(), MONDAY, MONDAY, currentSchool.resolve().getId())).hasSize(1);
     }
 
     @Test
