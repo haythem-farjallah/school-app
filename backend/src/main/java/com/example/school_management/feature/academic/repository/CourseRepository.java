@@ -9,6 +9,7 @@ import java.util.List;
 
 public interface CourseRepository extends JpaRepository<Course, Long>, JpaSpecificationExecutor<Course> {
     List<Course> findBySchoolId(Long schoolId);
+    long countBySchoolId(Long schoolId);
     boolean existsByNameIgnoreCase(String name);
 
     boolean existsBySchoolIdAndNameIgnoreCase(Long schoolId, String name);

@@ -12,6 +12,14 @@ public interface TeacherRepository extends BaseUserRepository<Teacher>, JpaSpeci
     Optional<Teacher> findByEmail(String email);
 
     @Query("""
+        SELECT t FROM Teacher t WHERE t.email = :email AND EXISTS (
+            SELECT m.id FROM SchoolMembership m JOIN m.roles role
+            WHERE m.user.id = t.id AND m.school.id = :schoolId
+              AND role = com.example.school_management.feature.membership.entity.MembershipRole.TEACHER)
+        """)
+    Optional<Teacher> findByEmailAndSchoolId(@Param("email") String email, @Param("schoolId") Long schoolId);
+
+    @Query("""
         SELECT t FROM Teacher t WHERE t.id = :id AND EXISTS (
             SELECT m.id FROM SchoolMembership m JOIN m.roles role
             WHERE m.user.id = t.id AND m.school.id = :schoolId

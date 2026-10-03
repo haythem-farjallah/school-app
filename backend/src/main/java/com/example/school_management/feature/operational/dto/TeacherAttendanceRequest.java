@@ -29,10 +29,8 @@ public class TeacherAttendanceRequest {
     private Long substituteTeacherId;
     private String substituteTeacherName;
     
-    @NotNull(message = "Recorded by ID is required")
     private Long recordedById;
     
-    @NotNull(message = "Recorded by name is required")
     private String recordedByName;
     
     public enum TeacherAttendanceStatus {

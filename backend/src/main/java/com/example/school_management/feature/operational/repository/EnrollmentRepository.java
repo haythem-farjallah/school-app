@@ -111,6 +111,12 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
     @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId ORDER BY e.enrolledAt DESC")
     List<Enrollment> findByStudentId(@Param("studentId") Long studentId);
     
+    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.student.id = :studentId AND e.classEntity.academicYear.school.id = :schoolId")
+    long countByStudentIdAndSchoolId(@Param("studentId") Long studentId, @Param("schoolId") Long schoolId);
+
+    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.classEntity.academicYear.school.id = :schoolId AND e.status = :status")
+    long countBySchoolIdAndStatus(@Param("schoolId") Long schoolId, @Param("status") EnrollmentStatus status);
+
     // ---- Enrollment administration is limited to one School: Enrollment -> Class -> AcademicYear -> School.
     // The School constraint is part of every query, so paging and totals never include foreign rows.
 

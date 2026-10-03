@@ -82,6 +82,12 @@ class ClassEnrollmentRosterIntegrationTest {
         school = schools.saveAndFlush(school);
         year = year();
         teacher = teachers.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow();
+        SchoolMembership teacherMembership = new SchoolMembership();
+        teacherMembership.setUser(teacher);
+        teacherMembership.setSchool(school);
+        teacherMembership.setStatus(MembershipStatus.ACTIVE);
+        teacherMembership.setRoles(Set.of(MembershipRole.TEACHER));
+        memberships.saveAndFlush(teacherMembership);
         classA = clazz("Roster A");
         classB = clazz("Roster B");
         doReturn(school).when(currentSchool).resolve();

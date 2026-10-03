@@ -1,7 +1,10 @@
 package com.example.school_management.feature.operational.entity;
 
 import com.example.school_management.feature.operational.dto.TeacherAttendanceRequest;
+import com.example.school_management.feature.school.entity.School;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -20,6 +23,12 @@ public class TeacherAttendance {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "school_id", nullable = false, updatable = false)
+    @JsonIgnore
+    private School school;
+
     @Column(name = "teacher_id", nullable = false)
     private Long teacherId;
     

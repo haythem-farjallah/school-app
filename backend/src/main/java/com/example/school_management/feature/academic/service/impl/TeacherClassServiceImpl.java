@@ -1,10 +1,11 @@
 package com.example.school_management.feature.academic.service.impl;
 
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.academic.controller.TeacherClassController.TeacherClassStatsDto;
 import com.example.school_management.feature.academic.dto.TeacherClassDto;
 import com.example.school_management.feature.academic.entity.ClassEntity;
+import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.entity.TeachingAssignment;
-
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
 import com.example.school_management.feature.academic.service.TeacherClassService;
@@ -13,246 +14,103 @@ import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.entity.Grade;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.repository.GradeRepository;
-import com.example.school_management.commons.exceptions.ResourceNotFoundException;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class TeacherClassServiceImpl implements TeacherClassService {
-    
     private final TeacherRepository teacherRepository;
     private final TeachingAssignmentRepository teachingAssignmentRepository;
     private final ClassRepository classRepository;
     private final GradeRepository gradeRepository;
     private final EnrollmentRepository enrollmentRepository;
-    
+    private final CurrentSchoolResolver currentSchool;
+
     @Override
     public Page<TeacherClassDto> getTeacherClasses(String teacherEmail, Pageable pageable, String search) {
-        log.debug("Getting classes for teacher: {}, search: {}", teacherEmail, search);
-        
-        Teacher teacher = findTeacherByEmail(teacherEmail);
-        List<TeacherClassDto> allClasses = buildTeacherClassDtos(teacher, search);
-        
-        // Manual pagination
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), allClasses.size());
-        List<TeacherClassDto> pageContent = allClasses.subList(start, end);
-        
-        return new PageImpl<>(pageContent, pageable, allClasses.size());
+        List<TeacherClassDto> allClasses = getAllTeacherClasses(teacherEmail, search);
+        int start = (int) Math.min(pageable.getOffset(), allClasses.size());
+        int end = Math.min(start + pageable.getPageSize(), allClasses.size());
+        return new PageImpl<>(allClasses.subList(start, end), pageable, allClasses.size());
     }
-    
+
     @Override
     public List<TeacherClassDto> getAllTeacherClasses(String teacherEmail, String search) {
-        Teacher teacher = findTeacherByEmail(teacherEmail);
-        return buildTeacherClassDtos(teacher, search);
+        Long schoolId = currentSchool.resolve().getId();
+        Teacher teacher = teacherRepository.findByEmailAndSchoolId(teacherEmail, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+        return buildTeacherClassDtos(teacher, schoolId, search);
     }
-    
+
     @Override
     public TeacherClassStatsDto getTeacherClassStats(String teacherEmail) {
-        log.debug("Getting class stats for teacher: {}", teacherEmail);
-        
-        Teacher teacher = findTeacherByEmail(teacherEmail);
-        List<TeacherClassDto> classes = buildTeacherClassDtos(teacher, null);
-        
-        int totalClasses = classes.size();
-        int totalStudents = classes.stream()
-                .mapToInt(c -> c.enrolled() != null ? c.enrolled() : 0)
-                .sum();
-        int totalCapacity = classes.stream()
-                .mapToInt(c -> c.capacity() != null ? c.capacity() : 0)
-                .sum();
-        
-        double averageGrade = classes.stream()
-                .filter(c -> c.averageGrade() != null)
-                .mapToDouble(TeacherClassDto::averageGrade)
-                .average()
-                .orElse(0.0);
-        
-        double capacityUsed = totalCapacity > 0 ? (totalStudents * 100.0 / totalCapacity) : 0.0;
-        
-        return new TeacherClassStatsDto(
-                totalClasses,
-                totalStudents,
-                averageGrade,
-                totalCapacity,
-                capacityUsed
-        );
+        List<TeacherClassDto> classes = getAllTeacherClasses(teacherEmail, null);
+        int totalStudents = classes.stream().mapToInt(c -> c.enrolled() != null ? c.enrolled() : 0).sum();
+        int totalCapacity = classes.stream().mapToInt(c -> c.capacity() != null ? c.capacity() : 0).sum();
+        double averageGrade = classes.stream().filter(c -> c.averageGrade() != null)
+                .mapToDouble(TeacherClassDto::averageGrade).average().orElse(0.0);
+        double capacityUsed = totalCapacity > 0 ? totalStudents * 100.0 / totalCapacity : 0.0;
+        return new TeacherClassStatsDto(classes.size(), totalStudents, averageGrade, totalCapacity, capacityUsed);
     }
-    
-    private Teacher findTeacherByEmail(String email) {
-        return teacherRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with email: " + email));
+
+    private List<TeacherClassDto> buildTeacherClassDtos(Teacher teacher, Long schoolId, String search) {
+        Map<Long, List<TeachingAssignment>> assignmentsByClass = teachingAssignmentRepository
+                .findByTeacherIdAndSchoolId(teacher.getId(), schoolId).stream()
+                .collect(Collectors.groupingBy(assignment -> assignment.getClazz().getId()));
+        // This scoped query includes assignments, timetable links and the legacy class_teachers relationship.
+        List<TeacherClassDto> classes = classRepository.findByTeacherIdAndSchoolId(teacher.getId(), schoolId).stream()
+                .map(clazz -> toDto(clazz, assignmentsByClass.getOrDefault(clazz.getId(), List.of()), schoolId))
+                .toList();
+        if (search == null || search.isBlank()) return classes;
+        String query = search.trim().toLowerCase();
+        return classes.stream().filter(dto ->
+                contains(dto.name(), query) || contains(dto.grade(), query) || contains(dto.room(), query)
+                        || dto.courses().stream().anyMatch(course -> contains(course.name(), query) || contains(course.code(), query)))
+                .toList();
     }
-    
-    private List<TeacherClassDto> buildTeacherClassDtos(Teacher teacher, String search) {
-        // Get all teaching assignments for this teacher
-        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacher.getId());
-        
-        // Also get classes directly assigned to teacher (many-to-many relationship)
-        // We need to fetch this fresh from the database to avoid lazy loading issues
-        Teacher freshTeacher = teacherRepository.findById(teacher.getId()).orElse(teacher);
-        Set<ClassEntity> directClasses = freshTeacher.getClasses();
-        
-        // Also check using a direct query to the class_teachers junction table
-        List<ClassEntity> classesFromJunction = classRepository.findByTeacherId(teacher.getId());
-        
-        // Combine all approaches
-        Set<Long> allClassIds = new HashSet<>();
-        
-        // Add classes from teaching assignments
-        assignments.forEach(ta -> allClassIds.add(ta.getClazz().getId()));
-        
-        // Add direct class assignments
-        if (directClasses != null) {
-            directClasses.forEach(clazz -> allClassIds.add(clazz.getId()));
-        }
-        
-        // Add classes from junction table query
-        classesFromJunction.forEach(clazz -> allClassIds.add(clazz.getId()));
-        
-        if (allClassIds.isEmpty()) {
-            log.debug("No classes found for teacher {}", teacher.getId());
-            return new ArrayList<>();
-        }
-        
-        // Group teaching assignments by class
-        Map<Long, List<TeachingAssignment>> assignmentsByClass = assignments.stream()
-                .collect(Collectors.groupingBy(ta -> ta.getClazz().getId()));
-        
-        // Build DTOs for each class
-        List<TeacherClassDto> classDtos = allClassIds.stream()
-                .map(classId -> {
-                    // Get class entity
-                    ClassEntity classEntity = null;
-                    List<TeacherClassDto.CourseInfo> courses = new ArrayList<>();
-                    
-                    // Try to get from teaching assignments first
-                    List<TeachingAssignment> classAssignments = assignmentsByClass.get(classId);
-                    if (classAssignments != null && !classAssignments.isEmpty()) {
-                        classEntity = classAssignments.get(0).getClazz();
-                        courses = classAssignments.stream()
-                                .map(ta -> new TeacherClassDto.CourseInfo(
-                                        ta.getCourse().getId(),
-                                        ta.getCourse().getName(),
-                                        ta.getCourse().getCode(),
-                                        ta.getWeeklyHours()
-                                ))
-                                .collect(Collectors.toList());
-                    } else {
-                        // Get from direct class assignment
-                        if (directClasses != null) {
-                            classEntity = directClasses.stream()
-                                    .filter(c -> c.getId().equals(classId))
-                                    .findFirst()
-                                    .orElse(null);
-                        }
-                        
-                        // If still null, try to fetch from database
-                        if (classEntity == null) {
-                            classEntity = classRepository.findById(classId).orElse(null);
-                            if (classEntity == null) {
-                                log.warn("Could not find class entity for ID: {}", classId);
-                                return null;
-                            }
-                        }
-                        
-                        // For direct assignments without teaching assignments, 
-                        // we'll show the class courses but without specific teacher assignment info
-                        if (classEntity.getCourses() != null) {
-                            courses = classEntity.getCourses().stream()
-                                    .map(course -> new TeacherClassDto.CourseInfo(
-                                            course.getId(),
-                                            course.getName(),
-                                            course.getCode(),
-                                            0 // No specific weekly hours assigned
-                                    ))
-                                    .collect(Collectors.toList());
-                        }
-                    }
-                    
-                    if (classEntity == null) {
-                        return null;
-                    }
-                    
-                    // Calculate average grade for this class
-                    Double averageGrade = calculateClassAverageGrade(classId);
-                    
-                    // Build schedule string (simplified for now)
-                    String schedule = buildScheduleString(classEntity);
-                    
-                    return new TeacherClassDto(
-                            classEntity.getId(),
-                            classEntity.getName(),
-                            classEntity.getGradeLevel(),
-                            classEntity.getCapacity(),
-                            (int) enrollmentRepository.countActiveByClassId(classEntity.getId()),
-                            classEntity.getAssignedRoom() != null ? classEntity.getAssignedRoom().getName() : "TBD",
-                            schedule,
-                            averageGrade,
-                            "active", // Assuming all classes are active
-                            courses,
-                            null, // createdAt - not available in ClassEntity
-                            null  // updatedAt - not available in ClassEntity
-                    );
-                })
-                .filter(dto -> dto != null) // Remove null entries
-                .collect(Collectors.toList());
-        
-        // Apply search filter if provided
-        if (search != null && !search.trim().isEmpty()) {
-            String searchLower = search.toLowerCase().trim();
-            classDtos = classDtos.stream()
-                    .filter(dto -> 
-                            dto.name().toLowerCase().contains(searchLower) ||
-                            dto.grade().toLowerCase().contains(searchLower) ||
-                            (dto.room() != null && dto.room().toLowerCase().contains(searchLower)) ||
-                            dto.courses().stream().anyMatch(course -> 
-                                    course.name().toLowerCase().contains(searchLower) ||
-                                    course.code().toLowerCase().contains(searchLower)
-                            )
-                    )
-                    .collect(Collectors.toList());
-        }
-        
-        return classDtos;
-    }
-    
-    private Double calculateClassAverageGrade(Long classId) {
-        try {
-            List<Grade> grades = gradeRepository.findByClassId(classId);
-            if (grades.isEmpty()) {
-                return null;
+
+    private TeacherClassDto toDto(ClassEntity clazz, List<TeachingAssignment> assignments, Long schoolId) {
+        for (Course course : clazz.getCourses()) {
+            if (!schoolId.equals(course.getSchool().getId())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has a Course from a different School");
             }
-            
-            return grades.stream()
-                    .filter(grade -> grade.getScore() != null)
-                    .mapToDouble(grade -> grade.getScore().doubleValue())
-                    .average()
-                    .orElse(0.0);
-        } catch (Exception e) {
-            log.warn("Error calculating average grade for class {}: {}", classId, e.getMessage());
-            return null;
         }
+        if (clazz.getAssignedRoom() != null && !schoolId.equals(clazz.getAssignedRoom().getSchool().getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has a Room from a different School");
+        }
+        List<TeacherClassDto.CourseInfo> courses = assignments.isEmpty()
+                ? clazz.getCourses().stream().map(course -> new TeacherClassDto.CourseInfo(
+                        course.getId(), course.getName(), course.getCode(), 0)).toList()
+                : assignments.stream().map(assignment -> new TeacherClassDto.CourseInfo(
+                        assignment.getCourse().getId(), assignment.getCourse().getName(),
+                        assignment.getCourse().getCode(), assignment.getWeeklyHours())).toList();
+        return new TeacherClassDto(clazz.getId(), clazz.getName(), clazz.getGradeLevel(), clazz.getCapacity(),
+                (int) enrollmentRepository.countActiveByClassId(clazz.getId()),
+                clazz.getAssignedRoom() != null ? clazz.getAssignedRoom().getName() : "TBD", "",
+                calculateClassAverageGrade(clazz.getId(), schoolId), "active", courses, null, null);
     }
-    
-    private String buildScheduleString(ClassEntity classEntity) {
-        // This is a simplified implementation
-        // In a real system, you'd query the timetable for this class
-        return "Mon, Wed, Fri - 8:00 AM"; // Placeholder
+
+    private Double calculateClassAverageGrade(Long classId, Long schoolId) {
+        List<Grade> grades = gradeRepository.findByClassIdAndSchoolId(classId, schoolId);
+        if (grades.isEmpty()) return null;
+        return grades.stream().filter(grade -> grade.getScore() != null)
+                .mapToDouble(grade -> grade.getScore().doubleValue()).average().orElse(0.0);
+    }
+
+    private boolean contains(String value, String query) {
+        return value != null && value.toLowerCase().contains(query);
     }
 }

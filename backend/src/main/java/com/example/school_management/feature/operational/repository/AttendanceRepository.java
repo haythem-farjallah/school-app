@@ -2,6 +2,7 @@ package com.example.school_management.feature.operational.repository;
 
 import com.example.school_management.feature.operational.entity.Attendance;
 import com.example.school_management.feature.operational.entity.enums.UserType;
+import com.example.school_management.feature.operational.entity.enums.AttendanceStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,8 @@ import java.util.Optional;
 
 public interface AttendanceRepository extends JpaRepository<Attendance, Long>, JpaSpecificationExecutor<Attendance> {
     Optional<Attendance> findByIdAndSchoolId(Long id, Long schoolId);
+
+    long countByUserIdAndStatusAndUserTypeAndSchoolId(Long userId, AttendanceStatus status, UserType userType, Long schoolId);
 
     boolean existsByUserIdAndSchoolId(Long userId, Long schoolId);
 

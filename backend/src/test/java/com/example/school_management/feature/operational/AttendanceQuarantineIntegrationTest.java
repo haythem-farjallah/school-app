@@ -470,8 +470,9 @@ class AttendanceQuarantineIntegrationTest {
         return slot;
     }
 
-    private static TeacherAttendance hrRecord(Teacher teacher) {
+    private TeacherAttendance hrRecord(Teacher teacher) {
         TeacherAttendance record = new TeacherAttendance();
+        record.setSchool(currentSchool.resolve());
         record.setTeacherId(teacher.getId());
         record.setDate(MONDAY);
         record.setStatus(TeacherAttendanceRequest.TeacherAttendanceStatus.PRESENT);

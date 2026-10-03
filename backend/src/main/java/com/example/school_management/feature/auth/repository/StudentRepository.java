@@ -9,9 +9,27 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface StudentRepository extends BaseUserRepository<Student>, JpaSpecificationExecutor<Student> {
     long countByStatus(Status status);
+
+    @Query("""
+        SELECT s FROM Student s WHERE s.id = :id AND EXISTS (
+            SELECT m.id FROM SchoolMembership m JOIN m.roles role
+            WHERE m.user.id = s.id AND m.school.id = :schoolId
+              AND role = com.example.school_management.feature.membership.entity.MembershipRole.STUDENT)
+        """)
+    Optional<Student> findByIdAndSchoolId(@Param("id") Long id, @Param("schoolId") Long schoolId);
+
+    @Query("""
+        SELECT s FROM Student s, Parent p WHERE s MEMBER OF p.children AND p.id = :parentId
+          AND EXISTS (SELECT m.id FROM SchoolMembership m JOIN m.roles role
+              WHERE m.user.id = s.id AND m.school.id = :schoolId
+                AND role = com.example.school_management.feature.membership.entity.MembershipRole.STUDENT)
+        ORDER BY s.id
+        """)
+    List<Student> findByParentIdAndSchoolId(@Param("parentId") Long parentId, @Param("schoolId") Long schoolId);
     
     // Find students by parent ID through the parent_students join table
     @Query("SELECT s FROM Student s, Parent p WHERE s MEMBER OF p.children AND p.id = :parentId")

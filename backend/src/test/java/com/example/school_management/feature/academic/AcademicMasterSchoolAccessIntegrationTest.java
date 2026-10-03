@@ -10,6 +10,7 @@ import com.example.school_management.feature.academic.entity.*;
 import com.example.school_management.feature.academic.repository.*;
 import com.example.school_management.feature.academic.service.ClassService;
 import com.example.school_management.feature.academic.service.CourseService;
+import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.membership.entity.MembershipRole;
@@ -456,6 +457,12 @@ class AcademicMasterSchoolAccessIntegrationTest {
         assignment.setCourse(course);
         var teacher = teachers.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow();
         var school = clazz.getAcademicYear().getSchool();
+        teacherMembership(teacher, school);
+        assignment.setTeacher(teacher);
+        em.persist(assignment);
+    }
+
+    private void teacherMembership(Teacher teacher, School school) {
         if (teachers.findByIdAndSchoolId(teacher.getId(), school.getId()).isEmpty()) {
             var membership = new SchoolMembership();
             membership.setUser(teacher);
@@ -464,13 +471,12 @@ class AcademicMasterSchoolAccessIntegrationTest {
             membership.setStatus(MembershipStatus.ACTIVE);
             em.persist(membership);
         }
-        assignment.setTeacher(teacher);
-        em.persist(assignment);
     }
 
     private void teacherLink(ClassEntity clazz, String relation) {
         var teacher = teachers.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow();
         var school = clazz.getAcademicYear().getSchool();
+        teacherMembership(teacher, school);
         switch (relation) {
             case "assignment" -> assignment(clazz, course(school, "Math"));
             case "legacy" -> clazz.getTeachers().add(teacher);
