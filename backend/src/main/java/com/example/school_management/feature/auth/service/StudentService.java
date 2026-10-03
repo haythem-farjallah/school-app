@@ -12,6 +12,9 @@ import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.auth.util.PasswordUtil;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.feature.auth.repository.PeopleDirectorySpecifications;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.commons.dto.FilterCriteria;
 import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
@@ -27,12 +30,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -46,6 +48,7 @@ public class StudentService extends AbstractUserCrudService<
             Set.of("firstName", "lastName", "email", "enrolledAt"));
 
     private final StudentRepository studentRepo;
+    private final CurrentSchoolResolver currentSchoolResolver;
 
     public StudentService(StudentRepository repo,
                          StudentMapper mapper,
@@ -54,9 +57,28 @@ public class StudentService extends AbstractUserCrudService<
                          ApplicationEventPublisher ev,
                          AuditService auditService,
                          UserRepository userRepository,
-                         SchoolMembershipProvisioningService membershipProvisioner) {
+                         SchoolMembershipProvisioningService membershipProvisioner,
+                         CurrentSchoolResolver currentSchoolResolver) {
         super(repo, mapper, enc, pw, ev, auditService, userRepository, membershipProvisioner);
         this.studentRepo = repo;
+        this.currentSchoolResolver = currentSchoolResolver;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Student find(long id) {
+        return studentRepo.findByIdAndSchoolId(id, currentSchoolResolver.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User id " + id + " not found"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Student> findAll(Pageable pageable) {
+        return studentRepo.findAll(schoolMembershipSpecification(), pageable);
+    }
+
+    private Specification<Student> schoolMembershipSpecification() {
+        return PeopleDirectorySpecifications.studentsInSchool(currentSchoolResolver.resolve().getId());
     }
 
     /* ---------- Enhanced filtering methods ---------- */
@@ -70,7 +92,7 @@ public class StudentService extends AbstractUserCrudService<
                                           Integer enrollmentYear,
                                           String status) {
         
-        Specification<Student> spec = Specification.where(null);
+        Specification<Student> spec = schoolMembershipSpecification();
         
         if (firstNameLike != null && !firstNameLike.isBlank()) {
             spec = spec.and((root, query, cb) -> 
@@ -125,7 +147,8 @@ public class StudentService extends AbstractUserCrudService<
     @Transactional(readOnly = true)
     public Page<Student> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
         FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, FILTER_FIELDS);
-        Specification<Student> spec = DynamicSpecificationBuilder.build(criteria);
+        Specification<Student> spec = schoolMembershipSpecification()
+                .and(DynamicSpecificationBuilder.build(criteria));
         return studentRepo.findAll(spec, pageable);
     }
 
@@ -134,7 +157,7 @@ public class StudentService extends AbstractUserCrudService<
     @Transactional(readOnly = true)
     public Page<Student> search(Pageable pageable, String query) {
         if (query == null || query.isBlank()) {
-            return studentRepo.findAll(pageable);
+            return findAll(pageable);
         }
         
         String searchTerm = "%" + query.toLowerCase() + "%";
@@ -146,7 +169,7 @@ public class StudentService extends AbstractUserCrudService<
                 cb.like(cb.lower(root.get("email")), searchTerm)
             );
         
-        return studentRepo.findAll(spec, pageable);
+        return studentRepo.findAll(schoolMembershipSpecification().and(spec), pageable);
     }
 
     /* ---------- Bulk operations ---------- */
@@ -157,7 +180,7 @@ public class StudentService extends AbstractUserCrudService<
         }
         
         log.info("Bulk deleting {} students", ids.size());
-        List<Student> students = studentRepo.findAllById(ids);
+        List<Student> students = findByIds(ids);
         
         for (Student student : students) {
             student.setStatus(Status.DELETED);
@@ -170,7 +193,7 @@ public class StudentService extends AbstractUserCrudService<
     @Transactional
     public void bulkUpdateStatus(List<Long> ids, String status) {
         log.debug("Bulk updating status for {} students to {}", ids.size(), status);
-        List<Student> students = studentRepo.findAllById(ids);
+        List<Student> students = findByIds(ids);
         for (Student student : students) {
             student.setStatus(Status.valueOf(status.toUpperCase()));
         }
@@ -180,38 +203,34 @@ public class StudentService extends AbstractUserCrudService<
     
     @Transactional(readOnly = true)
     public List<Student> findByIds(List<Long> ids) {
-        return studentRepo.findAllById(ids);
+        List<Student> students = studentRepo.findAll(schoolMembershipSpecification()
+                .and((root, query, cb) -> root.get("id").in(ids)));
+        if (students.size() != new HashSet<>(ids).size()) {
+            throw new ResourceNotFoundException("Student not found");
+        }
+        return students;
     }
     
     @Transactional(readOnly = true)
     public List<Student> findAll() {
-        return studentRepo.findAll();
+        return studentRepo.findAll(schoolMembershipSpecification());
     }
 
     /* ---------- Statistics ---------- */
     
     @Transactional(readOnly = true)
     public StudentStatsDto getStats() {
-        long totalStudents = studentRepo.count();
-        long activeStudents = studentRepo.countByStatus(Status.ACTIVE);
-        long suspendedStudents = studentRepo.countByStatus(Status.SUSPENDED);
-        
-        // Get students by grade level
-        Map<String, Long> studentsByGradeLevel = studentRepo.findAll().stream()
-                .filter(student -> student.getGradeLevel() != null)
-                .collect(Collectors.groupingBy(
-                    student -> student.getGradeLevel().name(),
-                    Collectors.counting()
-                ));
-        
-        // Get students by enrollment year
-        Map<Integer, Long> studentsByEnrollmentYear = studentRepo.findAll().stream()
-                .filter(student -> student.getEnrolledAt() != null)
-                .collect(Collectors.groupingBy(
-                    student -> student.getEnrolledAt().getYear(),
-                    Collectors.counting()
-                ));
-        
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        Specification<Student> school = PeopleDirectorySpecifications.studentsInSchool(schoolId);
+        long totalStudents = studentRepo.count(school);
+        long activeStudents = studentRepo.countByStatusAndSchoolId(Status.ACTIVE.name(), schoolId);
+        long suspendedStudents = studentRepo.countByStatusAndSchoolId(Status.SUSPENDED.name(), schoolId);
+
+        Map<String, Long> studentsByGradeLevel = studentRepo.countByGradeLevelAndSchoolId(schoolId).stream()
+                .collect(Collectors.toMap(row -> ((GradeLevel) row[0]).name(), row -> ((Number) row[1]).longValue()));
+        Map<Integer, Long> studentsByEnrollmentYear = studentRepo.countByEnrollmentYearAndSchoolId(schoolId).stream()
+                .collect(Collectors.toMap(row -> ((Number) row[0]).intValue(), row -> ((Number) row[1]).longValue()));
+
         return new StudentStatsDto(
             totalStudents,
             activeStudents,

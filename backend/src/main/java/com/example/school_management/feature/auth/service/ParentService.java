@@ -15,6 +15,9 @@ import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.auth.util.PasswordUtil;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.feature.auth.repository.PeopleDirectorySpecifications;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.service.AuditService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -43,6 +46,7 @@ public class ParentService extends AbstractUserCrudService<
 
     private final StudentRepository studentRepository;
     private final ParentRepository parentRepository;
+    private final CurrentSchoolResolver currentSchoolResolver;
 
     public ParentService(ParentRepository repo,
                         ParentMapper mapper,
@@ -52,24 +56,24 @@ public class ParentService extends AbstractUserCrudService<
                         AuditService auditService,
                         StudentRepository studentRepository,
                         UserRepository userRepository,
-                        SchoolMembershipProvisioningService membershipProvisioner) {
+                        SchoolMembershipProvisioningService membershipProvisioner,
+                        CurrentSchoolResolver currentSchoolResolver) {
         super(repo, mapper, enc, pw, ev, auditService, userRepository, membershipProvisioner);
         this.studentRepository = studentRepository;
         this.parentRepository = repo;
+        this.currentSchoolResolver = currentSchoolResolver;
     }
 
     @Override
     public Parent create(ParentCreateDto dto) {
         log.debug("Creating parent with {} children", dto.childrenEmails() == null ? 0 : dto.childrenEmails().size());
         
-        // Create the parent first
+        Set<Student> children = resolveChildren(dto.childrenEmails());
         Parent parent = super.create(dto);
-        
-        // Assign children if emails are provided
-        if (dto.childrenEmails() != null && !dto.childrenEmails().isEmpty()) {
-            assignChildrenToParent(parent, dto.childrenEmails());
+        if (!children.isEmpty()) {
+            parent.setChildren(children);
         }
-        
+
         return parent;
     }
     
@@ -77,17 +81,33 @@ public class ParentService extends AbstractUserCrudService<
     public Parent patch(long id, ParentUpdateDto dto) {
         log.debug("Updating parent {} with {} children", id, dto.getChildren() == null ? 0 : dto.getChildren().size());
         
-        // Update the parent first using the parent class method
+        find(id);
+        Set<Student> children = resolveChildren(dto.getChildren());
         Parent parent = super.patch(id, dto);
-        
-        // Handle children assignment if provided
-        if (dto.getChildren() != null && !dto.getChildren().isEmpty()) {
-            assignChildrenToParent(parent, dto.getChildren());
+        if (!children.isEmpty()) {
+            parent.setChildren(children);
         }
-        
+
         return parent;
     }
     
+    @Override
+    @Transactional(readOnly = true)
+    public Parent find(long id) {
+        return parentRepository.findByIdAndSchoolId(id, currentSchoolResolver.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User id " + id + " not found"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Parent> findAll(Pageable pageable) {
+        return parentRepository.findAll(schoolMembershipSpecification(), pageable);
+    }
+
+    private Specification<Parent> schoolMembershipSpecification() {
+        return PeopleDirectorySpecifications.guardiansInSchool(currentSchoolResolver.resolve().getId());
+    }
+
     /* ---------- Enhanced filtering methods ---------- */
     
     @Transactional(readOnly = true)
@@ -98,7 +118,7 @@ public class ParentService extends AbstractUserCrudService<
                                          String telephoneLike,
                                          String preferredContactMethodLike) {
         
-        Specification<Parent> spec = Specification.where(null);
+        Specification<Parent> spec = schoolMembershipSpecification();
         
         if (firstNameLike != null && !firstNameLike.isBlank()) {
             spec = spec.and((root, query, cb) -> 
@@ -133,7 +153,8 @@ public class ParentService extends AbstractUserCrudService<
     @Transactional(readOnly = true)
     public Page<Parent> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
         FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, FILTER_FIELDS);
-        Specification<Parent> spec = DynamicSpecificationBuilder.build(criteria);
+        Specification<Parent> spec = schoolMembershipSpecification()
+                .and(DynamicSpecificationBuilder.build(criteria));
         return parentRepository.findAll(spec, pageable);
     }
 
@@ -142,7 +163,7 @@ public class ParentService extends AbstractUserCrudService<
     @Transactional(readOnly = true)
     public Page<Parent> search(Pageable pageable, String query) {
         if (query == null || query.isBlank()) {
-            return parentRepository.findAll(pageable);
+            return findAll(pageable);
         }
         
         String searchTerm = "%" + query.toLowerCase() + "%";
@@ -155,27 +176,19 @@ public class ParentService extends AbstractUserCrudService<
                 cb.like(cb.lower(root.get("telephone")), searchTerm)
             );
         
-        return parentRepository.findAll(spec, pageable);
+        return parentRepository.findAll(schoolMembershipSpecification().and(spec), pageable);
     }
     
-    private void assignChildrenToParent(Parent parent, List<String> childrenEmails) {
-        log.debug("Assigning {} children to parent {}", childrenEmails.size(), parent.getId());
-        
+    private Set<Student> resolveChildren(List<String> childrenEmails) {
         Set<Student> children = new HashSet<>();
-        
+        if (childrenEmails == null || childrenEmails.isEmpty()) {
+            return children;
+        }
+        Long schoolId = currentSchoolResolver.resolve().getId();
         for (String email : childrenEmails) {
-            studentRepository.findByEmail(email).ifPresentOrElse(
-                student -> {
-                    children.add(student);
-                    log.debug("Found student id={} for parent {}", student.getId(), parent.getId());
-                },
-                () -> log.warn("Child student not found for parent {}", parent.getId())
-            );
+            children.add(studentRepository.findByEmailAndSchoolId(email, schoolId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Student not found")));
         }
-        
-        if (!children.isEmpty()) {
-            parent.setChildren(children);
-            log.info("Assigned {} children to parent {}", children.size(), parent.getId());
-        }
+        return children;
     }
-} 
+}

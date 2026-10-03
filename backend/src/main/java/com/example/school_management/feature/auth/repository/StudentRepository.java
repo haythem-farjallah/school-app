@@ -23,6 +23,40 @@ public interface StudentRepository extends BaseUserRepository<Student>, JpaSpeci
     Optional<Student> findByIdAndSchoolId(@Param("id") Long id, @Param("schoolId") Long schoolId);
 
     @Query("""
+        SELECT s FROM Student s WHERE s.email = :email AND EXISTS (
+            SELECT m.id FROM SchoolMembership m JOIN m.roles role
+            WHERE m.user.id = s.id AND m.school.id = :schoolId
+              AND role = com.example.school_management.feature.membership.entity.MembershipRole.STUDENT)
+        """)
+    Optional<Student> findByEmailAndSchoolId(@Param("email") String email, @Param("schoolId") Long schoolId);
+
+    @Query("""
+        SELECT COUNT(s) FROM Student s WHERE CAST(s.status AS string) = :status AND EXISTS (
+            SELECT m.id FROM SchoolMembership m JOIN m.roles role
+            WHERE m.user.id = s.id AND m.school.id = :schoolId
+              AND role = com.example.school_management.feature.membership.entity.MembershipRole.STUDENT)
+        """)
+    long countByStatusAndSchoolId(@Param("status") String status, @Param("schoolId") Long schoolId);
+
+    @Query("""
+        SELECT s.gradeLevel, COUNT(s) FROM Student s WHERE s.gradeLevel IS NOT NULL AND EXISTS (
+            SELECT m.id FROM SchoolMembership m JOIN m.roles role
+            WHERE m.user.id = s.id AND m.school.id = :schoolId
+              AND role = com.example.school_management.feature.membership.entity.MembershipRole.STUDENT)
+        GROUP BY s.gradeLevel
+        """)
+    List<Object[]> countByGradeLevelAndSchoolId(@Param("schoolId") Long schoolId);
+
+    @Query("""
+        SELECT YEAR(s.enrolledAt), COUNT(s) FROM Student s WHERE s.enrolledAt IS NOT NULL AND EXISTS (
+            SELECT m.id FROM SchoolMembership m JOIN m.roles role
+            WHERE m.user.id = s.id AND m.school.id = :schoolId
+              AND role = com.example.school_management.feature.membership.entity.MembershipRole.STUDENT)
+        GROUP BY YEAR(s.enrolledAt)
+        """)
+    List<Object[]> countByEnrollmentYearAndSchoolId(@Param("schoolId") Long schoolId);
+
+    @Query("""
         SELECT s FROM Student s, Parent p WHERE s MEMBER OF p.children AND p.id = :parentId
           AND EXISTS (SELECT m.id FROM SchoolMembership m JOIN m.roles role
               WHERE m.user.id = s.id AND m.school.id = :schoolId

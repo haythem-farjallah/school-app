@@ -13,6 +13,9 @@ import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
 import com.example.school_management.feature.auth.util.PasswordUtil;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.feature.auth.repository.PeopleDirectorySpecifications;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.service.AuditService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -22,6 +25,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
+import java.util.HashSet;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +44,7 @@ public class TeacherService extends AbstractUserCrudService<
             Set.of("firstName", "lastName", "email"));
 
     private final TeacherRepository teacherRepo;
+    private final CurrentSchoolResolver currentSchoolResolver;
 
     public TeacherService(TeacherRepository repo,
                           TeacherMapper mapper,
@@ -48,9 +53,28 @@ public class TeacherService extends AbstractUserCrudService<
                           ApplicationEventPublisher ev,
                           AuditService auditService,
                           UserRepository userRepository,
-                          SchoolMembershipProvisioningService membershipProvisioner) {
+                          SchoolMembershipProvisioningService membershipProvisioner,
+                          CurrentSchoolResolver currentSchoolResolver) {
         super(repo, mapper, enc, pw, ev, auditService, userRepository, membershipProvisioner);
         this.teacherRepo = repo;
+        this.currentSchoolResolver = currentSchoolResolver;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Teacher find(long id) {
+        return teacherRepo.findByIdAndSchoolId(id, currentSchoolResolver.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User id " + id + " not found"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Teacher> findAll(Pageable pageable) {
+        return teacherRepo.findAll(schoolMembershipSpecification(), pageable);
+    }
+
+    private Specification<Teacher> schoolMembershipSpecification() {
+        return PeopleDirectorySpecifications.teachersInSchool(currentSchoolResolver.resolve().getId());
     }
 
     /* ---------- Enhanced filtering methods ---------- */
@@ -65,7 +89,7 @@ public class TeacherService extends AbstractUserCrudService<
                                           Integer availableHours,
                                           String schedulePreferencesLike) {
         
-        Specification<Teacher> spec = Specification.where(null);
+        Specification<Teacher> spec = schoolMembershipSpecification();
         
         if (firstNameLike != null && !firstNameLike.isBlank()) {
             spec = spec.and((root, query, cb) -> 
@@ -110,7 +134,8 @@ public class TeacherService extends AbstractUserCrudService<
     @Transactional(readOnly = true)
     public Page<Teacher> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
         FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, FILTER_FIELDS);
-        Specification<Teacher> spec = DynamicSpecificationBuilder.build(criteria);
+        Specification<Teacher> spec = schoolMembershipSpecification()
+                .and(DynamicSpecificationBuilder.build(criteria));
         return teacherRepo.findAll(spec, pageable);
     }
 
@@ -119,7 +144,7 @@ public class TeacherService extends AbstractUserCrudService<
     @Transactional(readOnly = true)
     public Page<Teacher> search(Pageable pageable, String query) {
         if (query == null || query.isBlank()) {
-            return teacherRepo.findAll(pageable);
+            return findAll(pageable);
         }
         
         String searchTerm = "%" + query.toLowerCase() + "%";
@@ -133,7 +158,7 @@ public class TeacherService extends AbstractUserCrudService<
                 cb.like(cb.lower(root.get("subjectsTaught")), searchTerm)
             );
         
-        return teacherRepo.findAll(spec, pageable);
+        return teacherRepo.findAll(schoolMembershipSpecification().and(spec), pageable);
     }
 
     /* ---------- Bulk operations ---------- */
@@ -141,8 +166,9 @@ public class TeacherService extends AbstractUserCrudService<
     @Transactional
     public void bulkDelete(List<Long> ids) {
         log.debug("Bulk deleting {} teachers", ids.size());
-        for (Long id : ids) {
-            delete(id); // Uses the existing soft delete method
+        List<Teacher> teachers = findByIds(ids);
+        for (Teacher teacher : teachers) {
+            delete(teacher.getId());
         }
         log.info("Bulk deleted {} teachers", ids.size());
     }
@@ -150,7 +176,7 @@ public class TeacherService extends AbstractUserCrudService<
     @Transactional
     public void bulkUpdateStatus(List<Long> ids, String status) {
         log.debug("Bulk updating status for {} teachers to {}", ids.size(), status);
-        List<Teacher> teachers = teacherRepo.findAllById(ids);
+        List<Teacher> teachers = findByIds(ids);
         for (Teacher teacher : teachers) {
             teacher.setStatus(com.example.school_management.feature.auth.entity.Status.valueOf(status.toUpperCase()));
         }
@@ -160,11 +186,16 @@ public class TeacherService extends AbstractUserCrudService<
     
     @Transactional(readOnly = true)
     public List<Teacher> findByIds(List<Long> ids) {
-        return teacherRepo.findAllById(ids);
+        List<Teacher> teachers = teacherRepo.findAll(schoolMembershipSpecification()
+                .and((root, query, cb) -> root.get("id").in(ids)));
+        if (teachers.size() != new HashSet<>(ids).size()) {
+            throw new ResourceNotFoundException("Teacher not found");
+        }
+        return teachers;
     }
     
     @Transactional(readOnly = true)
     public List<Teacher> findAll() {
-        return teacherRepo.findAll();
+        return teacherRepo.findAll(schoolMembershipSpecification());
     }
 }
