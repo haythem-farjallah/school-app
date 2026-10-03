@@ -32,6 +32,12 @@ import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.academic.entity.TeachingAssignment;
 import com.example.school_management.feature.academic.entity.Course;
+import com.example.school_management.feature.academic.entity.ClassEntity;
+import com.example.school_management.feature.academic.repository.ClassRepository;
+import com.example.school_management.feature.academic.service.CurrentAcademicYearResolver;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
 import com.example.school_management.feature.academic.repository.TeachingAssignmentRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
 import org.springframework.security.access.AccessDeniedException;
@@ -44,6 +50,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 @Slf4j
 public class GradeServiceImpl implements GradeService {
     /** Paths accepted by GET /api/v1/grades/filter; its sortable paths also bound every paged grade read. */
@@ -60,6 +67,10 @@ public class GradeServiceImpl implements GradeService {
     private final StudentRepository studentRepository;
     private final TeachingAssignmentRepository teachingAssignmentRepository;
     private final CourseRepository courseRepository;
+    private final ClassRepository classRepository;
+    private final CurrentSchoolResolver currentSchool;
+    private final CurrentAcademicYearResolver currentAcademicYear;
+    private final SchoolMembershipRepository memberships;
 
     private final AuditService auditService;
     private final OperationalMapper mapper;
@@ -71,7 +82,10 @@ public class GradeServiceImpl implements GradeService {
         // Get current teacher from security context
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Teacher teacher = teacherRepository.findByEmail(email)
-            .orElseThrow(() -> new IllegalArgumentException("Teacher not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+        requireSchoolTeacher(teacher.getId());
+        requireSchoolClass(request.getClassId());
+        if (request.getCourseId() != null) requireSchoolCourse(request.getCourseId());
         for (BulkGradeEntryRequest.StudentGradeEntry entry : request.getGrades()) {
             if (entry.getStudentId() == null || entry.getValue() == null) {
                 throw new IllegalArgumentException("Student ID and grade value are required");
@@ -82,8 +96,7 @@ public class GradeServiceImpl implements GradeService {
             if (!seen.add(entry.getStudentId())) {
                 throw new IllegalArgumentException("Duplicate grade for student ID: " + entry.getStudentId());
             }
-            Enrollment enrollment = enrollmentRepository.findActiveByStudentIdAndClassId(entry.getStudentId(), request.getClassId())
-                .orElseThrow(() -> new IllegalArgumentException("Enrollment not found for student " + entry.getStudentId()));
+            Enrollment enrollment = requireSchoolActiveEnrollment(entry.getStudentId(), request.getClassId());
             Grade grade = new Grade();
             grade.setEnrollment(enrollment);
             grade.setScore(entry.getValue().floatValue());
@@ -98,10 +111,9 @@ public class GradeServiceImpl implements GradeService {
     @Override
     @Transactional
     public void updateGrade(Long gradeId, UpdateGradeRequest request) {
-        Grade grade = gradeRepository.findById(gradeId)
-            .orElseThrow(() -> new ResourceNotFoundException("Grade not found with id: " + gradeId));
+        Grade grade = requireSchoolGrade(gradeId);
         BaseUser currentUser = getCurrentUser();
-        if (!canEditGrade(gradeId, currentUser.getId())) {
+        if (!canEditGrade(grade, currentUser.getId())) {
             throw new AccessDeniedException("You can only update grades you assigned");
         }
         
@@ -130,10 +142,9 @@ public class GradeServiceImpl implements GradeService {
     @Override
     @Transactional
     public void deleteGrade(Long gradeId, DeleteGradeRequest request) {
-        Grade grade = gradeRepository.findById(gradeId)
-            .orElseThrow(() -> new ResourceNotFoundException("Grade not found with id: " + gradeId));
+        Grade grade = requireSchoolGrade(gradeId);
         BaseUser currentUser = getCurrentUser();
-        if (!canDeleteGrade(gradeId, currentUser.getId())) {
+        if (!canDeleteGrade(grade, currentUser.getId())) {
             throw new AccessDeniedException("You can only delete grades you assigned in the last 24 hours");
         }
         
@@ -154,20 +165,20 @@ public class GradeServiceImpl implements GradeService {
 
     @Override
     public GradeResponse getGradeById(Long gradeId) {
-        Grade grade = gradeRepository.findById(gradeId)
-            .orElseThrow(() -> new ResourceNotFoundException("Grade not found with id: " + gradeId));
+        Grade grade = requireSchoolGrade(gradeId);
         
         GradeResponse response = mapper.toGradeResponse(grade);
         BaseUser currentUser = getCurrentUser();
-        response.setCanEdit(canEditGrade(gradeId, currentUser.getId()));
-        response.setCanDelete(canDeleteGrade(gradeId, currentUser.getId()));
+        response.setCanEdit(canEditGrade(grade, currentUser.getId()));
+        response.setCanDelete(canDeleteGrade(grade, currentUser.getId()));
         
         return response;
     }
 
     @Override
     public List<GradeResponse> getGradesByStudentId(Long studentId) {
-        List<Grade> grades = gradeRepository.findByStudentId(studentId);
+        requireSchoolStudent(studentId);
+        List<Grade> grades = gradeRepository.findByStudentIdAndSchoolId(studentId, currentSchool.resolve().getId());
         return grades.stream()
             .map(this::mapGradeToResponse)
             .collect(Collectors.toList());
@@ -175,7 +186,8 @@ public class GradeServiceImpl implements GradeService {
 
     @Override
     public List<GradeResponse> getGradesByClassId(Long classId) {
-        List<Grade> grades = gradeRepository.findByClassId(classId);
+        requireSchoolClass(classId);
+        List<Grade> grades = gradeRepository.findByClassIdAndSchoolId(classId, currentSchool.resolve().getId());
         return grades.stream()
             .map(this::mapGradeToResponse)
             .collect(Collectors.toList());
@@ -183,7 +195,8 @@ public class GradeServiceImpl implements GradeService {
 
     @Override
     public List<GradeResponse> getGradesByTeacherId(Long teacherId) {
-        List<Grade> grades = gradeRepository.findByTeacherId(teacherId);
+        requireSchoolTeacher(teacherId);
+        List<Grade> grades = gradeRepository.findByTeacherIdAndSchoolId(teacherId, currentSchool.resolve().getId());
         return grades.stream()
             .map(this::mapGradeToResponse)
             .collect(Collectors.toList());
@@ -191,7 +204,8 @@ public class GradeServiceImpl implements GradeService {
 
     @Override
     public List<GradeResponse> getGradesByEnrollmentId(Long enrollmentId) {
-        List<Grade> grades = gradeRepository.findByEnrollmentId(enrollmentId);
+        requireSchoolEnrollment(enrollmentId);
+        List<Grade> grades = gradeRepository.findByEnrollmentIdAndSchoolId(enrollmentId, currentSchool.resolve().getId());
         return grades.stream()
             .map(this::mapGradeToResponse)
             .collect(Collectors.toList());
@@ -200,83 +214,88 @@ public class GradeServiceImpl implements GradeService {
     @Override
     public Page<GradeResponse> getGradesByStudentId(Long studentId, Pageable pageable) {
         FILTER_FIELDS.requireSortable(pageable.getSort());
-        Page<Grade> grades = gradeRepository.findByStudentIdOrderByGradedAtDesc(studentId, pageable);
+        requireSchoolStudent(studentId);
+        Page<Grade> grades = gradeRepository.findByStudentIdAndSchoolId(studentId, currentSchool.resolve().getId(), pageable);
         return grades.map(this::mapGradeToResponse);
     }
 
     @Override
     public Page<GradeResponse> getGradesByClassId(Long classId, Pageable pageable) {
         FILTER_FIELDS.requireSortable(pageable.getSort());
-        Page<Grade> grades = gradeRepository.findByClassIdOrderByGradedAtDesc(classId, pageable);
+        requireSchoolClass(classId);
+        Page<Grade> grades = gradeRepository.findByClassIdAndSchoolId(classId, currentSchool.resolve().getId(), pageable);
         return grades.map(this::mapGradeToResponse);
     }
 
     @Override
     public Page<GradeResponse> getGradesByEnrollmentId(Long enrollmentId, Pageable pageable) {
         FILTER_FIELDS.requireSortable(pageable.getSort());
-        Page<Grade> grades = gradeRepository.findByEnrollmentIdOrderByGradedAtDesc(enrollmentId, pageable);
+        requireSchoolEnrollment(enrollmentId);
+        Page<Grade> grades = gradeRepository.findByEnrollmentIdAndSchoolId(enrollmentId, currentSchool.resolve().getId(), pageable);
         return grades.map(this::mapGradeToResponse);
     }
 
     @Override
     public GradeStatistics getStudentGradeStatistics(Long studentId) {
-        List<Grade> grades = gradeRepository.findByStudentId(studentId);
+        requireSchoolStudent(studentId);
+        List<Grade> grades = gradeRepository.findByStudentIdAndSchoolId(studentId, currentSchool.resolve().getId());
         return calculateGradeStatistics(grades, studentId, null, null);
     }
 
     @Override
     public GradeStatistics getStudentGradeStatisticsForClass(Long studentId, Long classId) {
-        List<Grade> grades = gradeRepository.findByStudentIdAndClassId(studentId, classId);
+        requireSchoolStudent(studentId);
+        requireSchoolClass(classId);
+        List<Grade> grades = gradeRepository.findByStudentIdAndClassIdAndSchoolId(studentId, classId, currentSchool.resolve().getId());
         return calculateGradeStatistics(grades, studentId, classId, null);
     }
 
     @Override
     public GradeStatistics getClassGradeStatistics(Long classId) {
-        List<Grade> grades = gradeRepository.findByClassId(classId);
+        requireSchoolClass(classId);
+        List<Grade> grades = gradeRepository.findByClassIdAndSchoolId(classId, currentSchool.resolve().getId());
         return calculateGradeStatistics(grades, null, classId, null);
     }
 
     @Override
     public GradeStatistics getGradeStatisticsForDateRange(Long studentId, LocalDateTime startDate, LocalDateTime endDate) {
-        List<Grade> grades = gradeRepository.findByGradedAtBetween(startDate, endDate)
-            .stream()
-            .filter(grade -> grade.getEnrollment().getStudent().getId().equals(studentId))
-            .collect(Collectors.toList());
+        requireSchoolStudent(studentId);
+        List<Grade> grades = gradeRepository.findByStudentIdAndDateRangeAndSchoolId(
+                studentId, startDate, endDate, currentSchool.resolve().getId());
         return calculateGradeStatistics(grades, studentId, null, null);
     }
 
     @Override
     public List<AuditEvent> getGradeAuditHistory(Long gradeId) {
+        requireSchoolGrade(gradeId);
         return auditService.getGradeAuditHistory(gradeId);
     }
 
     @Override
     public boolean canEditGrade(Long gradeId, Long userId) {
-        Grade grade = gradeRepository.findById(gradeId).orElse(null);
-        if (grade == null) return false;
-        
-        // Teachers can edit their own grades
-        return grade.getAssignedBy().getId().equals(userId);
+        return canEditGrade(requireSchoolGrade(gradeId), userId);
     }
 
     @Override
     public boolean canDeleteGrade(Long gradeId, Long userId) {
-        Grade grade = gradeRepository.findById(gradeId).orElse(null);
-        if (grade == null) return false;
-        
-        // Only the teacher who assigned it can delete within 24 hours
-        if (grade.getAssignedBy().getId().equals(userId)) {
-            LocalDateTime cutoff = grade.getGradedAt().plusHours(24);
-            return LocalDateTime.now().isBefore(cutoff);
-        }
-        
-        return false;
+        return canDeleteGrade(requireSchoolGrade(gradeId), userId);
+    }
+
+    private boolean canEditGrade(Grade grade, Long userId) {
+        return grade.getAssignedBy().getId().equals(userId);
+    }
+
+    private boolean canDeleteGrade(Grade grade, Long userId) {
+        return canEditGrade(grade, userId) && LocalDateTime.now().isBefore(grade.getGradedAt().plusHours(24));
     }
 
     @Override
     public Page<GradeResponse> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
         FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, pageable, FILTER_FIELDS);
-        Specification<Grade> spec = DynamicSpecificationBuilder.build(criteria);
+        Long schoolId = currentSchool.resolve().getId();
+        Specification<Grade> schoolSpec = (root, query, cb) -> cb.equal(
+                root.get("enrollment").get("classEntity").get("academicYear").get("school").get("id"), schoolId);
+        Specification<Grade> spec = schoolSpec.and(DynamicSpecificationBuilder.build(criteria));
         Page<Grade> grades = gradeRepository.findAll(spec, pageable);
         return grades.map(this::mapGradeToResponse);
     }
@@ -284,20 +303,22 @@ public class GradeServiceImpl implements GradeService {
     @Override
     public Page<GradeResponse> getAllGrades(Pageable pageable, String search, Long courseId) {
         FILTER_FIELDS.requireSortable(pageable.getSort());
+        Long schoolId = currentSchool.resolve().getId();
+        if (courseId != null) requireSchoolCourse(courseId);
         Page<Grade> grades;
-        
+
         if (search != null && !search.trim().isEmpty() && courseId != null) {
             // Both search and courseId filters
-            grades = gradeRepository.findBySearchAndCourseId(search.trim(), courseId, pageable);
+            grades = gradeRepository.findBySearchAndCourseIdAndSchoolId(search.trim(), courseId, schoolId, pageable);
         } else if (search != null && !search.trim().isEmpty()) {
             // Only search filter
-            grades = gradeRepository.findBySearch(search.trim(), pageable);
+            grades = gradeRepository.findBySearchAndSchoolId(search.trim(), schoolId, pageable);
         } else if (courseId != null) {
             // Only courseId filter
-            grades = gradeRepository.findByCourseId(courseId, pageable);
+            grades = gradeRepository.findByCourseIdAndSchoolId(courseId, schoolId, pageable);
         } else {
             // No filters - get all
-            grades = gradeRepository.findAll(pageable);
+            grades = gradeRepository.findBySchoolId(schoolId, pageable);
         }
         
         return grades.map(this::mapGradeToResponse);
@@ -307,11 +328,57 @@ public class GradeServiceImpl implements GradeService {
     private GradeResponse mapGradeToResponse(Grade grade) {
         GradeResponse response = mapper.toGradeResponse(grade);
         BaseUser currentUser = getCurrentUser();
-        response.setCanEdit(canEditGrade(grade.getId(), currentUser.getId()));
-        response.setCanDelete(canDeleteGrade(grade.getId(), currentUser.getId()));
+        response.setCanEdit(canEditGrade(grade, currentUser.getId()));
+        response.setCanDelete(canDeleteGrade(grade, currentUser.getId()));
         return response;
     }
     
+    private Grade requireSchoolGrade(Long gradeId) {
+        return gradeRepository.findByIdAndSchoolId(gradeId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Grade not found"));
+    }
+
+    private void requireMembershipRole(Long userId, MembershipRole role, String resource) {
+        memberships.findByUserIdAndSchoolId(userId, currentSchool.resolve().getId())
+                .filter(m -> m.getRoles().contains(role))
+                .orElseThrow(() -> new ResourceNotFoundException(resource + " not found"));
+    }
+
+    private Student requireSchoolStudent(Long studentId) {
+        requireMembershipRole(studentId, MembershipRole.STUDENT, "Student");
+        return studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+    }
+
+    private Teacher requireSchoolTeacher(Long teacherId) {
+        requireMembershipRole(teacherId, MembershipRole.TEACHER, "Teacher");
+        return teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+    }
+
+    private ClassEntity requireSchoolClass(Long classId) {
+        return classRepository.findByIdAndAcademicYearSchoolId(classId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+    }
+
+    private Course requireSchoolCourse(Long courseId) {
+        return courseRepository.findByIdAndSchoolId(courseId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+    }
+
+    private Enrollment requireSchoolEnrollment(Long enrollmentId) {
+        return enrollmentRepository.findByIdAndSchoolId(enrollmentId, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found"));
+    }
+
+    private Enrollment requireSchoolActiveEnrollment(Long studentId, Long classId) {
+        requireSchoolStudent(studentId);
+        requireSchoolClass(classId);
+        Enrollment enrollment = enrollmentRepository.findActiveByStudentIdAndClassId(studentId, classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Active enrollment not found"));
+        return requireSchoolEnrollment(enrollment.getId());
+    }
+
     /** The authenticated account of any role; edit and delete flags are true only for the assigning teacher. */
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -400,7 +467,8 @@ public class GradeServiceImpl implements GradeService {
         log.debug("Getting grade classes for teacher: {}", teacherId);
         
         // Get all teaching assignments for this teacher
-        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacherId);
+        requireSchoolTeacher(teacherId);
+        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherIdAndSchoolId(teacherId, currentSchool.resolve().getId());
         
         // Group by class and course to create class views
         Map<String, TeacherGradeClassView> classViewMap = new HashMap<>();
@@ -433,13 +501,15 @@ public class GradeServiceImpl implements GradeService {
     public TeacherGradeClassView getTeacherGradeClass(Long teacherId, Long classId, Long courseId) {
         log.debug("Getting grade class view for teacher: {}, class: {}, course: {}", teacherId, classId, courseId);
         
-        // Verify teaching assignment exists
-        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacherId);
-        TeachingAssignment assignment = assignments.stream()
+        requireSchoolTeacher(teacherId);
+        requireSchoolClass(classId);
+        requireSchoolCourse(courseId);
+        TeachingAssignment assignment = teachingAssignmentRepository
+                .findByTeacherIdAndSchoolId(teacherId, currentSchool.resolve().getId()).stream()
                 .filter(ta -> ta.getClazz().getId().equals(classId) && ta.getCourse().getId().equals(courseId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Teaching assignment not found for teacher " + teacherId + ", class " + classId + ", course " + courseId));
-        
+                .orElseThrow(() -> new AccessDeniedException("Teacher is not assigned to this class and course"));
+
         // Get all students enrolled in this class
         List<Enrollment> enrollments = enrollmentRepository.findByClassIdAndStatus(classId, EnrollmentStatus.ACTIVE);
         
@@ -447,7 +517,8 @@ public class GradeServiceImpl implements GradeService {
         
         for (Enrollment enrollment : enrollments) {
             // Get existing grades for this student in this course
-            List<EnhancedGrade> existingGrades = enhancedGradeRepository.findByStudentIdAndCourseId(enrollment.getStudent().getId(), courseId);
+            List<EnhancedGrade> existingGrades = enhancedGradeRepository.findByStudentIdAndClassIdAndCourseIdAndSemester(
+                    enrollment.getStudent().getId(), classId, courseId, CreateEnhancedGradeRequest.Semester.FIRST);
             
             // Calculate attendance rate (simplified - you might want to integrate with actual attendance system)
             Double attendanceRate = calculateStudentAttendanceRate(enrollment.getStudent().getId());
@@ -490,19 +561,18 @@ public class GradeServiceImpl implements GradeService {
     public List<EnhancedGradeResponse> createBulkEnhancedGrades(BulkEnhancedGradeEntryRequest request) {
         log.debug("Creating bulk enhanced grades for class: {}, course: {}", request.getClassId(), request.getCourseId());
         
+        Teacher teacher = requireSchoolTeacher(getCurrentUser().getId());
+        requireSchoolClass(request.getClassId());
+        Course course = requireSchoolCourse(request.getCourseId());
         List<EnhancedGradeResponse> responses = new ArrayList<>();
         
         for (BulkEnhancedGradeEntryRequest.StudentGradeEntry gradeEntry : request.getGrades()) {
             // Get student and course information
-            Enrollment enrollment = enrollmentRepository.findActiveByStudentIdAndClassId(gradeEntry.getStudentId(), request.getClassId())
-                    .orElseThrow(() -> new IllegalArgumentException("Student " + gradeEntry.getStudentId() + " not enrolled in class " + request.getClassId()));
-            
-            Course course = courseRepository.findById(request.getCourseId())
-                    .orElseThrow(() -> new IllegalArgumentException("Course not found: " + request.getCourseId()));
-            
+            Enrollment enrollment = requireSchoolActiveEnrollment(gradeEntry.getStudentId(), request.getClassId());
+
             // Check if grade already exists
-            Optional<EnhancedGrade> existingGrade = enhancedGradeRepository.findByStudentIdAndCourseIdAndExamTypeAndSemester(
-                    gradeEntry.getStudentId(), request.getCourseId(), request.getExamType(), request.getSemester());
+            Optional<EnhancedGrade> existingGrade = enhancedGradeRepository.findByStudentIdAndClassIdAndCourseIdAndExamTypeAndSemester(
+                    gradeEntry.getStudentId(), request.getClassId(), request.getCourseId(), request.getExamType(), request.getSemester());
             
             EnhancedGrade grade;
             if (existingGrade.isPresent()) {
@@ -534,15 +604,10 @@ public class GradeServiceImpl implements GradeService {
                 grade.setTeacherSignature(request.getTeacherSignature());
                 grade.setGradedAt(LocalDateTime.now());
                 
-                // Set teacher information (you might want to get this from security context)
-                BaseUser currentUser = getCurrentUser();
-                if (currentUser instanceof Teacher) {
-                    Teacher teacher = (Teacher) currentUser;
-                    grade.setTeacherId(teacher.getId());
-                    grade.setTeacherFirstName(teacher.getFirstName());
-                    grade.setTeacherLastName(teacher.getLastName());
-                    grade.setTeacherEmail(teacher.getEmail());
-                }
+                grade.setTeacherId(teacher.getId());
+                grade.setTeacherFirstName(teacher.getFirstName());
+                grade.setTeacherLastName(teacher.getLastName());
+                grade.setTeacherEmail(teacher.getEmail());
             }
             
             EnhancedGrade savedGrade = enhancedGradeRepository.save(grade);
@@ -558,16 +623,13 @@ public class GradeServiceImpl implements GradeService {
     public EnhancedGradeResponse createEnhancedGrade(CreateEnhancedGradeRequest request) {
         log.debug("Creating enhanced grade for student: {}, course: {}", request.getStudentId(), request.getCourseId());
         
-        // Get student and course information
-        Enrollment enrollment = enrollmentRepository.findActiveByStudentIdAndClassId(request.getStudentId(), request.getClassId())
-                .orElseThrow(() -> new IllegalArgumentException("Student " + request.getStudentId() + " not enrolled in class " + request.getClassId()));
-        
-        Course course = courseRepository.findById(request.getCourseId())
-                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + request.getCourseId()));
-        
+        Teacher teacher = requireSchoolTeacher(getCurrentUser().getId());
+        Enrollment enrollment = requireSchoolActiveEnrollment(request.getStudentId(), request.getClassId());
+        Course course = requireSchoolCourse(request.getCourseId());
+
         // Check if grade already exists
-        Optional<EnhancedGrade> existingGrade = enhancedGradeRepository.findByStudentIdAndCourseIdAndExamTypeAndSemester(
-                request.getStudentId(), request.getCourseId(), request.getExamType(), request.getSemester());
+        Optional<EnhancedGrade> existingGrade = enhancedGradeRepository.findByStudentIdAndClassIdAndCourseIdAndExamTypeAndSemester(
+                request.getStudentId(), request.getClassId(), request.getCourseId(), request.getExamType(), request.getSemester());
         
         if (existingGrade.isPresent()) {
             throw new IllegalArgumentException("Grade already exists for this student, course, exam type, and semester");
@@ -593,16 +655,11 @@ public class GradeServiceImpl implements GradeService {
         grade.setTeacherSignature(request.getTeacherSignature());
         grade.setGradedAt(LocalDateTime.now());
         
-        // Set teacher information
-        BaseUser currentUser = getCurrentUser();
-        if (currentUser instanceof Teacher) {
-            Teacher teacher = (Teacher) currentUser;
-            grade.setTeacherId(teacher.getId());
-            grade.setTeacherFirstName(teacher.getFirstName());
-            grade.setTeacherLastName(teacher.getLastName());
-            grade.setTeacherEmail(teacher.getEmail());
-        }
-        
+        grade.setTeacherId(teacher.getId());
+        grade.setTeacherFirstName(teacher.getFirstName());
+        grade.setTeacherLastName(teacher.getLastName());
+        grade.setTeacherEmail(teacher.getEmail());
+
         EnhancedGrade savedGrade = enhancedGradeRepository.save(grade);
         log.info("Created enhanced grade with ID: {}", savedGrade.getId());
         
@@ -614,13 +671,15 @@ public class GradeServiceImpl implements GradeService {
     public List<StaffGradeReview> getStaffGradeReviews(Long classId, CreateEnhancedGradeRequest.Semester semester) {
         log.debug("Getting staff grade reviews for class: {}, semester: {}", classId, semester);
         
+        requireSchoolClass(classId);
         // Get all students in the class
         List<Enrollment> enrollments = enrollmentRepository.findByClassIdAndStatus(classId, EnrollmentStatus.ACTIVE);
         List<StaffGradeReview> reviews = new ArrayList<>();
         
         for (Enrollment enrollment : enrollments) {
             // Get all grades for this student in this semester
-            List<EnhancedGrade> studentGrades = enhancedGradeRepository.findByStudentIdAndSemester(enrollment.getStudent().getId(), semester);
+            List<EnhancedGrade> studentGrades = enhancedGradeRepository.findByStudentIdAndClassIdAndSemesterAndSchoolId(
+                    enrollment.getStudent().getId(), classId, semester, currentSchool.resolve().getId());
             
             // Group grades by course
             Map<Long, List<EnhancedGrade>> gradesByCourse = studentGrades.stream()
@@ -707,8 +766,12 @@ public class GradeServiceImpl implements GradeService {
         // The approver is the authenticated account, recorded by its e-mail.
         String approvedBy = SecurityContextHolder.getContext().getAuthentication().getName();
         
+        // Validate the entire request before mutating any rows.
+        request.getStudentIds().forEach(this::requireSchoolStudent);
+        Long schoolId = currentSchool.resolve().getId();
         for (Long studentId : request.getStudentIds()) {
-            List<EnhancedGrade> studentGrades = enhancedGradeRepository.findByStudentIdAndSemester(studentId, request.getSemester());
+            List<EnhancedGrade> studentGrades = enhancedGradeRepository.findByStudentIdAndSemesterAndSchoolId(
+                    studentId, request.getSemester(), schoolId);
             
             for (EnhancedGrade grade : studentGrades) {
                 grade.setIsApproved(true);
@@ -727,21 +790,14 @@ public class GradeServiceImpl implements GradeService {
     public StudentGradeSheet getStudentGradeSheet(Long studentId, CreateEnhancedGradeRequest.Semester semester) {
         log.debug("Generating grade sheet for student: {}, semester: {}", studentId, semester);
         
-        // Get student information
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new IllegalArgumentException("Student not found: " + studentId));
-        
-        // Get student's active enrollment (assuming one active enrollment)
-        List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndStatus(studentId, EnrollmentStatus.ACTIVE);
-        if (enrollments.isEmpty()) {
-            throw new IllegalArgumentException("No active enrollment found for student: " + studentId);
-        }
-        
-        Enrollment enrollment = enrollments.get(0); // Take the first active enrollment
-        
-        // Get all grades for this student in this semester
-        List<EnhancedGrade> studentGrades = enhancedGradeRepository.findByStudentIdAndSemester(studentId, semester);
-        
+        Student student = requireSchoolStudent(studentId);
+        Long schoolId = currentSchool.resolve().getId();
+        Enrollment enrollment = enrollmentRepository.findActiveByStudentIdAndAcademicYearIdAndSchoolId(
+                        studentId, currentAcademicYear.resolve().getId(), schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("No active enrollment found for student in current academic year"));
+        List<EnhancedGrade> studentGrades = enhancedGradeRepository.findByStudentIdAndClassIdAndSemesterAndSchoolId(
+                studentId, enrollment.getClassEntity().getId(), semester, schoolId);
+
         // Group grades by course
         Map<Long, List<EnhancedGrade>> gradesByCourse = studentGrades.stream()
                 .collect(Collectors.groupingBy(EnhancedGrade::getCourseId));
@@ -801,7 +857,8 @@ public class GradeServiceImpl implements GradeService {
         
         // Calculate class rank and total students
         Integer classRank = calculateClassRank(studentId, enrollment.getClassEntity().getId(), semester);
-        Long totalStudents = enhancedGradeRepository.countDistinctStudentsByClassIdAndSemester(enrollment.getClassEntity().getId(), semester);
+        Long totalStudents = enhancedGradeRepository.countDistinctStudentsByClassIdAndSemesterAndSchoolId(
+                enrollment.getClassEntity().getId(), semester, schoolId);
         
         // Calculate attendance
         Double attendanceRate = calculateStudentAttendanceRate(studentId);

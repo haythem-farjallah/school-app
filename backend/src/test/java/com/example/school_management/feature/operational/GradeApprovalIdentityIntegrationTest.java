@@ -1,11 +1,19 @@
 package com.example.school_management.feature.operational;
 
 import com.example.school_management.IntegrationTest;
+import com.example.school_management.AcademicYearTestFixtures;
 import com.example.school_management.dev.DevFixtureLoader;
+import com.example.school_management.feature.academic.entity.ClassEntity;
+import com.example.school_management.feature.academic.entity.Course;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
+import com.example.school_management.feature.academic.repository.ClassRepository;
+import com.example.school_management.feature.academic.repository.CourseRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.operational.dto.CreateEnhancedGradeRequest;
 import com.example.school_management.feature.operational.entity.EnhancedGrade;
 import com.example.school_management.feature.operational.repository.EnhancedGradeRepository;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,17 +52,34 @@ class GradeApprovalIdentityIntegrationTest {
     @Autowired
     EnhancedGradeRepository enhancedGradeRepository;
 
+    @Autowired CurrentSchoolResolver currentSchool;
+    @Autowired AcademicYearRepository academicYears;
+    @Autowired ClassRepository classes;
+    @Autowired CourseRepository courses;
+    @Autowired TeacherRepository teachers;
+
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     private EnhancedGrade grade;
+    private ClassEntity schoolClass;
+    private Course schoolCourse;
 
     @BeforeEach
     void createUnapprovedGrade() {
+        ClassEntity clazz = new ClassEntity();
+        clazz.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
+        clazz.setName("Approval identity " + UUID.randomUUID());
+        schoolClass = classes.save(clazz);
+        Course course = new Course();
+        course.setSchool(currentSchool.resolve());
+        course.setName("Approval identity course");
+        course.setCode(UUID.randomUUID().toString().substring(0, 8));
+        schoolCourse = courses.save(course);
         EnhancedGrade g = new EnhancedGrade();
         g.setStudentId(studentRepository.findByEmail(DevFixtureLoader.STUDENT_EMAIL).orElseThrow().getId());
-        g.setClassId(1L);
-        g.setCourseId(1L);
-        g.setTeacherId(1L);
+        g.setClassId(schoolClass.getId());
+        g.setCourseId(schoolCourse.getId());
+        g.setTeacherId(teachers.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow().getId());
         g.setExamType(CreateEnhancedGradeRequest.ExamType.FIRST_EXAM);
         g.setSemester(CreateEnhancedGradeRequest.Semester.THIRD);
         g.setScore(15.0);
@@ -64,6 +90,9 @@ class GradeApprovalIdentityIntegrationTest {
     @AfterEach
     void deleteGrade() {
         enhancedGradeRepository.deleteById(grade.getId());
+        courses.deleteById(schoolCourse.getId());
+        classes.deleteById(schoolClass.getId());
+        academicYears.deleteById(schoolClass.getAcademicYear().getId());
     }
 
     @Test

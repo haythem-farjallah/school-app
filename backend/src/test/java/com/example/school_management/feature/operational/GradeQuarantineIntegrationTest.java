@@ -13,6 +13,10 @@ import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.entity.MembershipStatus;
+import com.example.school_management.feature.membership.entity.SchoolMembership;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
 import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.Grade;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
@@ -34,6 +38,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -89,6 +94,8 @@ class GradeQuarantineIntegrationTest {
     @Autowired
     PasswordEncoder passwordEncoder;
 
+    @Autowired SchoolMembershipRepository memberships;
+
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     private Student studentA;
@@ -115,6 +122,12 @@ class GradeQuarantineIntegrationTest {
         s.setStatus(Status.ACTIVE);
         s.setIsEmailVerified(true);
         studentB = studentRepository.save(s);
+        SchoolMembership studentMembership = new SchoolMembership();
+        studentMembership.setUser(studentB);
+        studentMembership.setSchool(currentSchool.resolve());
+        studentMembership.setRoles(Set.of(MembershipRole.STUDENT));
+        studentMembership.setStatus(MembershipStatus.ACTIVE);
+        memberships.save(studentMembership);
 
         Teacher t = new Teacher();
         t.setRole(UserRole.TEACHER);
@@ -143,6 +156,7 @@ class GradeQuarantineIntegrationTest {
         enrollmentRepository.deleteAll(enrollmentRepository.findAllById(List.of(enrollmentA.getId(), enrollmentB.getId())));
         classRepository.deleteById(schoolClass.getId());
         academicYears.deleteById(schoolClass.getAcademicYear().getId());
+        memberships.deleteAll(memberships.findAllByUserId(studentB.getId()));
         studentRepository.deleteById(studentB.getId());
         teacherRepository.deleteById(teacherB.getId());
     }

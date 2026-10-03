@@ -12,6 +12,10 @@ import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.entity.MembershipStatus;
+import com.example.school_management.feature.membership.entity.SchoolMembership;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
 import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
@@ -31,6 +35,7 @@ import org.springframework.util.MultiValueMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -76,6 +81,8 @@ class StudentSelfAccessIntegrationTest {
     @Autowired
     PasswordEncoder passwordEncoder;
 
+    @Autowired SchoolMembershipRepository memberships;
+
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     private Student studentA;
@@ -83,6 +90,7 @@ class StudentSelfAccessIntegrationTest {
     private ClassEntity schoolClass;
     private Enrollment enrollmentA;
     private Enrollment enrollmentB;
+    private boolean createdAcademicYear;
 
     @BeforeEach
     void enrollTwoStudents() {
@@ -97,9 +105,22 @@ class StudentSelfAccessIntegrationTest {
         other.setStatus(Status.ACTIVE);
         other.setIsEmailVerified(true);
         studentB = studentRepository.save(other);
+        SchoolMembership studentMembership = new SchoolMembership();
+        studentMembership.setUser(studentB);
+        studentMembership.setSchool(currentSchool.resolve());
+        studentMembership.setRoles(Set.of(MembershipRole.STUDENT));
+        studentMembership.setStatus(MembershipStatus.ACTIVE);
+        memberships.save(studentMembership);
 
+        createdAcademicYear = false;
+        var year = academicYears.findBySchoolIdAndActiveTrue(currentSchool.resolve().getId()).orElseGet(() -> {
+            var fixture = AcademicYearTestFixtures.create(academicYears, currentSchool);
+            fixture.setActive(true);
+            createdAcademicYear = true;
+            return academicYears.save(fixture);
+        });
         ClassEntity c = new ClassEntity();
-        c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
+        c.setAcademicYear(year);
         c.setName("Self access " + UUID.randomUUID());
         schoolClass = classRepository.save(c);
 
@@ -111,7 +132,8 @@ class StudentSelfAccessIntegrationTest {
     void removeEnrollments() {
         enrollmentRepository.deleteAll(enrollmentRepository.findAllById(List.of(enrollmentA.getId(), enrollmentB.getId())));
         classRepository.deleteById(schoolClass.getId());
-        academicYears.deleteById(schoolClass.getAcademicYear().getId());
+        if (createdAcademicYear) academicYears.deleteById(schoolClass.getAcademicYear().getId());
+        memberships.deleteAll(memberships.findAllByUserId(studentB.getId()));
         studentRepository.deleteById(studentB.getId());
     }
 

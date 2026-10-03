@@ -162,4 +162,8 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long>, J
     // Get all enrollments for a class (regardless of status)
     @Query("SELECT e FROM Enrollment e WHERE e.classEntity.id = :classId ORDER BY e.enrolledAt DESC")
     List<Enrollment> findAllByClassId(@Param("classId") Long classId);
+    @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId AND e.status = com.example.school_management.feature.operational.entity.enums.EnrollmentStatus.ACTIVE "
+            + "AND e.classEntity.academicYear.id = :academicYearId AND e.classEntity.academicYear.school.id = :schoolId")
+    Optional<Enrollment> findActiveByStudentIdAndAcademicYearIdAndSchoolId(@Param("studentId") Long studentId,
+            @Param("academicYearId") Long academicYearId, @Param("schoolId") Long schoolId);
 } 

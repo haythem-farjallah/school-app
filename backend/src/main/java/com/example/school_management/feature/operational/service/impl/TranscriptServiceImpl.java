@@ -1,19 +1,25 @@
 package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
-import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.auth.entity.Student;
 import com.example.school_management.feature.auth.repository.StudentRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
 import com.example.school_management.feature.operational.dto.*;
 import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.Grade;
+import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
+import com.example.school_management.feature.operational.repository.GradeRepository;
 import com.example.school_management.feature.operational.service.AttendanceService;
 import com.example.school_management.feature.operational.service.TranscriptService;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 import org.xhtmlrenderer.pdf.ITextRenderer;
@@ -22,98 +28,111 @@ import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@Transactional
+@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class TranscriptServiceImpl implements TranscriptService {
 
     private final StudentRepository studentRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final GradeRepository gradeRepository;
+    private final SchoolMembershipRepository memberships;
+    private final CurrentSchoolResolver currentSchool;
     private final AttendanceService attendanceService;
     private final TemplateEngine templateEngine;
 
     @Override
     public TranscriptDto generateTranscript(Long studentId) {
-        log.debug("Generating transcript for student: {}", studentId);
-        
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-        
-        // Get all enrollments for the student
-        List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndStatus(studentId, 
-                com.example.school_management.feature.operational.entity.enums.EnrollmentStatus.ACTIVE);
-        
-        if (enrollments.isEmpty()) {
-            throw new ResourceNotFoundException("No active enrollments found for student");
-        }
-        
-        // Generate transcript data
-        List<TranscriptCourseDto> allCourses = generateAllCoursesData(enrollments);
-        TranscriptSummaryDto summary = generateSummary(student, enrollments);
-        
-        // Calculate overall GPA
-        double overallGPA = calculateOverallGPA(allCourses);
-        int totalCredits = allCourses.stream().mapToInt(course -> course.getCredits().intValue()).sum();
-        
-        return new TranscriptDto(
-                studentId,
-                student.getFirstName() + " " + student.getLastName(),
-                student.getEmail(),
-                student.getEnrolledAt() != null ? student.getEnrolledAt().toLocalDate() : LocalDate.now(),
-                LocalDate.now(),
-                overallGPA,
-                totalCredits,
-                determineAcademicStanding(overallGPA),
-                allCourses,
-                summary
-        );
+        Long schoolId = currentSchool.resolve().getId();
+        Student student = requireSchoolStudent(studentId, schoolId);
+        List<Enrollment> enrollments = requireSchoolEnrollmentHistory(studentId, schoolId);
+        List<Grade> grades = gradeRepository.findByStudentIdAndSchoolId(studentId, schoolId);
+        LocalDate enrollmentDate = earliestEnrollmentDate(enrollments);
+        return buildTranscript(student, enrollments, grades, enrollmentDate, LocalDate.now());
     }
 
     @Override
     public TranscriptDto generateTranscriptForPeriod(Long studentId, LocalDate startDate, LocalDate endDate) {
-        log.debug("Generating transcript for student {} from {} to {}", studentId, startDate, endDate);
-        
-        // For now, return the full transcript - can be enhanced later to filter by date
-        return generateTranscript(studentId);
+        Long schoolId = currentSchool.resolve().getId();
+        Student student = requireSchoolStudent(studentId, schoolId);
+        if (startDate.isAfter(endDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date must not be after end date");
+        }
+        List<Enrollment> enrollments = requireSchoolEnrollmentHistory(studentId, schoolId);
+        List<Grade> grades = gradeRepository.findByStudentIdAndPeriodAndSchoolId(
+                studentId, startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay(), schoolId);
+        return buildTranscript(student, enrollments, grades, startDate, endDate);
     }
 
     @Override
     public TranscriptSummaryDto generateTranscriptSummary(Long studentId) {
-        log.debug("Generating transcript summary for student: {}", studentId);
-        
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-        
-        List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndStatus(studentId, 
-                com.example.school_management.feature.operational.entity.enums.EnrollmentStatus.ACTIVE);
-        
-        return generateSummary(student, enrollments);
+        return generateTranscript(studentId).getSummary();
     }
 
     @Override
     public byte[] exportTranscriptAsPdf(Long studentId) {
-        log.debug("Exporting transcript as PDF for student: {}", studentId);
-        
         TranscriptDto transcript = generateTranscript(studentId);
         return generatePdfFromTranscript(transcript);
     }
 
     @Override
     public byte[] exportTranscriptAsPdf(Long studentId, LocalDate startDate, LocalDate endDate) {
-        log.debug("Exporting transcript as PDF for student {} from {} to {}", studentId, startDate, endDate);
-        
         TranscriptDto transcript = generateTranscriptForPeriod(studentId, startDate, endDate);
         return generatePdfFromTranscript(transcript);
     }
 
-    private List<TranscriptCourseDto> generateAllCoursesData(List<Enrollment> enrollments) {
+    private Student requireSchoolStudent(Long studentId, Long schoolId) {
+        // Membership status does not erase access to a Student's academic history.
+        memberships.findByUserIdAndSchoolId(studentId, schoolId)
+                .filter(membership -> membership.getRoles().contains(MembershipRole.STUDENT))
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+        return studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+    }
+
+    private List<Enrollment> requireSchoolEnrollmentHistory(Long studentId, Long schoolId) {
+        List<Enrollment> enrollments = enrollmentRepository.findAllByStudentIdAndSchoolId(studentId, schoolId);
+        if (enrollments.isEmpty()) {
+            throw new ResourceNotFoundException("No enrollment history found for student");
+        }
+        return enrollments;
+    }
+
+    private LocalDate earliestEnrollmentDate(List<Enrollment> enrollments) {
         return enrollments.stream()
-                .flatMap(enrollment -> enrollment.getGrades().stream())
+                .map(Enrollment::getEnrolledAt)
+                .filter(Objects::nonNull)
+                .map(enrolledAt -> enrolledAt.toLocalDate())
+                .min(LocalDate::compareTo)
+                .orElse(LocalDate.now());
+    }
+
+    private TranscriptDto buildTranscript(Student student, List<Enrollment> enrollments, List<Grade> grades,
+                                          LocalDate attendanceStart, LocalDate attendanceEnd) {
+        List<TranscriptCourseDto> courses = grades.stream()
                 .map(this::convertGradeToCourseDto)
                 .collect(Collectors.toList());
+        double overallGPA = calculateOverallGPA(courses);
+        int totalCredits = courses.stream().mapToInt(course -> course.getCredits().intValue()).sum();
+        LocalDate enrollmentDate = earliestEnrollmentDate(enrollments);
+        TranscriptSummaryDto summary = generateSummary(student, enrollments, courses, enrollmentDate,
+                overallGPA, totalCredits, attendanceStart, attendanceEnd);
+        return new TranscriptDto(
+                student.getId(),
+                student.getFirstName() + " " + student.getLastName(),
+                student.getEmail(),
+                enrollmentDate,
+                LocalDate.now(),
+                overallGPA,
+                totalCredits,
+                determineAcademicStanding(overallGPA),
+                courses,
+                summary
+        );
     }
 
     private TranscriptCourseDto convertGradeToCourseDto(Grade grade) {
@@ -128,33 +147,26 @@ public class TranscriptServiceImpl implements TranscriptService {
         );
     }
 
-    private TranscriptSummaryDto generateSummary(Student student, List<Enrollment> enrollments) {
-        // Get attendance statistics for the last year
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusYears(1);
-        
+    private TranscriptSummaryDto generateSummary(Student student, List<Enrollment> enrollments,
+                                                  List<TranscriptCourseDto> courses, LocalDate enrollmentDate,
+                                                  double overallGPA, int totalCredits,
+                                                  LocalDate attendanceStart, LocalDate attendanceEnd) {
         AttendanceStatisticsDto attendanceStats = attendanceService.getUserAttendanceStatistics(
-                student.getId(), startDate, endDate);
-        
-        // Get current class
+                student.getId(), attendanceStart, attendanceEnd);
         String currentClass = enrollments.stream()
+                .filter(enrollment -> enrollment.getStatus() == EnrollmentStatus.ACTIVE)
                 .map(enrollment -> enrollment.getClassEntity().getName())
                 .findFirst()
                 .orElse("Not Enrolled");
-        
-        // Calculate overall GPA and credits
-        List<TranscriptCourseDto> allCourses = generateAllCoursesData(enrollments);
-        double overallGPA = calculateOverallGPA(allCourses);
-        int totalCredits = allCourses.stream().mapToInt(course -> course.getCredits().intValue()).sum();
-        
+
         return new TranscriptSummaryDto(
                 student.getId(),
                 student.getFirstName() + " " + student.getLastName(),
-                student.getEnrolledAt() != null ? student.getEnrolledAt().toLocalDate() : LocalDate.now(),
+                enrollmentDate,
                 LocalDate.now(),
                 overallGPA,
                 totalCredits,
-                allCourses.size(),
+                courses.size(),
                 determineAcademicStanding(overallGPA),
                 attendanceStats.getAttendancePercentage(),
                 attendanceStats.getAbsentDays().intValue(),
@@ -222,4 +234,4 @@ public class TranscriptServiceImpl implements TranscriptService {
             throw new RuntimeException("Failed to generate PDF transcript", e);
         }
     }
-} 
+}

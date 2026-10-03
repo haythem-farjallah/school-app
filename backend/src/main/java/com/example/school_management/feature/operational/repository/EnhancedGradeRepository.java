@@ -59,4 +59,41 @@ public interface EnhancedGradeRepository extends JpaRepository<EnhancedGrade, Lo
     
     @Query("SELECT COUNT(DISTINCT eg.studentId) FROM EnhancedGrade eg WHERE eg.classId = :classId AND eg.semester = :semester")
     Long countDistinctStudentsByClassIdAndSemester(@Param("classId") Long classId, @Param("semester") CreateEnhancedGradeRequest.Semester semester);
+
+    // Scalar Class/Course references must both resolve inside the current School.
+    @Query("""
+        SELECT eg FROM EnhancedGrade eg WHERE eg.studentId = :studentId AND eg.semester = :semester AND
+        eg.classId IN (SELECT c.id FROM ClassEntity c WHERE c.academicYear.school.id = :schoolId) AND
+        eg.courseId IN (SELECT co.id FROM Course co WHERE co.school.id = :schoolId)
+        """)
+    List<EnhancedGrade> findByStudentIdAndSemesterAndSchoolId(@Param("studentId") Long studentId,
+            @Param("semester") CreateEnhancedGradeRequest.Semester semester,
+            @Param("schoolId") Long schoolId);
+
+    @Query("""
+        SELECT eg FROM EnhancedGrade eg WHERE eg.studentId = :studentId AND eg.classId = :classId AND
+        eg.semester = :semester AND eg.classId IN (SELECT c.id FROM ClassEntity c WHERE
+        c.academicYear.school.id = :schoolId) AND eg.courseId IN (SELECT co.id FROM Course co WHERE
+        co.school.id = :schoolId)
+        """)
+    List<EnhancedGrade> findByStudentIdAndClassIdAndSemesterAndSchoolId(@Param("studentId") Long studentId,
+            @Param("classId") Long classId,
+            @Param("semester") CreateEnhancedGradeRequest.Semester semester,
+            @Param("schoolId") Long schoolId);
+
+    List<EnhancedGrade> findByStudentIdAndClassIdAndCourseIdAndSemester(Long studentId, Long classId, Long courseId,
+            CreateEnhancedGradeRequest.Semester semester);
+
+    Optional<EnhancedGrade> findByStudentIdAndClassIdAndCourseIdAndExamTypeAndSemester(Long studentId, Long classId, Long courseId,
+            CreateEnhancedGradeRequest.ExamType examType,
+            CreateEnhancedGradeRequest.Semester semester);
+
+    @Query("""
+        SELECT COUNT(DISTINCT eg.studentId) FROM EnhancedGrade eg WHERE eg.classId = :classId AND eg.semester
+        = :semester AND eg.classId IN (SELECT c.id FROM ClassEntity c WHERE c.academicYear.school.id =
+        :schoolId) AND eg.courseId IN (SELECT co.id FROM Course co WHERE co.school.id = :schoolId)
+        """)
+    Long countDistinctStudentsByClassIdAndSemesterAndSchoolId(@Param("classId") Long classId,
+            @Param("semester") CreateEnhancedGradeRequest.Semester semester,
+            @Param("schoolId") Long schoolId);
 }
