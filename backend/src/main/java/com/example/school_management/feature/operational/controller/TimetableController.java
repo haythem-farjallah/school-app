@@ -2,13 +2,11 @@ package com.example.school_management.feature.operational.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
-import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.operational.dto.CreateTimetableRequest;
 import com.example.school_management.feature.operational.dto.TimetableDto;
 // import com.example.school_management.feature.operational.dto.UpdateTimetableRequest;
 import com.example.school_management.feature.operational.entity.Timetable;
 import com.example.school_management.feature.operational.entity.TimetableSlot;
-import com.example.school_management.feature.operational.repository.TimetableRepository;
 import com.example.school_management.feature.operational.service.TimetablePdfService;
 import com.example.school_management.feature.operational.service.TimetableService;
 import com.example.school_management.feature.operational.service.TimetableSlotService;
@@ -50,7 +48,6 @@ public class TimetableController {
     private final TimetableService timetableService;
     private final TimetableSlotService timetableSlotService;
     private final TimetableResponseMapper timetableResponseMapper;
-    private final TimetableRepository timetableRepository;
 
     // Timetable CRUD operations
     @Operation(summary = "Create a new timetable")
@@ -135,8 +132,7 @@ public class TimetableController {
         log.debug("Optimizing timetable: {}", timetableId);
         
         // Get the timetable and find the associated classes
-        Timetable timetable = timetableRepository.findById(timetableId)
-            .orElseThrow(() -> new ResourceNotFoundException("Timetable not found"));
+        Timetable timetable = timetableService.requireSchoolTimetable(timetableId);
         
         if (timetable.getClasses() != null && !timetable.getClasses().isEmpty()) {
             // Optimize for the first class (in practice, you might want to optimize all classes)
@@ -200,8 +196,7 @@ public class TimetableController {
     @GetMapping("/{timetableId}/export/pdf")
     public ResponseEntity<byte[]> exportTimetablePdf(@PathVariable Long timetableId) {
         log.debug("Exporting timetable as PDF: {}", timetableId);
-        Timetable timetable = timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new IllegalArgumentException("Timetable not found"));
+        Timetable timetable = timetableService.requireSchoolTimetable(timetableId);
         byte[] pdfBytes = pdfService.generateTimetablePdf(timetable);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"timetable-" + timetableId + ".pdf\"")

@@ -17,7 +17,14 @@ public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, Lo
 
     Optional<TimetableSlot> findByIdAndPeriodSchoolId(Long id, Long schoolId);
 
-    List<TimetableSlot> findByTeacherIdAndPeriodSchoolId(Long teacherId, Long schoolId);
+    @Query("SELECT ts FROM TimetableSlot ts WHERE ts.teacher.id = :teacherId AND ts.period.school.id = :schoolId ORDER BY ts.dayOfWeek, ts.period.index")
+    List<TimetableSlot> findByTeacherIdAndPeriodSchoolId(@Param("teacherId") Long teacherId, @Param("schoolId") Long schoolId);
+
+    @Query("SELECT ts FROM TimetableSlot ts WHERE ts.forClass.id = :classId AND ts.period.school.id = :schoolId ORDER BY ts.dayOfWeek, ts.period.index")
+    List<TimetableSlot> findByClassIdAndPeriodSchoolId(@Param("classId") Long classId, @Param("schoolId") Long schoolId);
+
+    @Query("SELECT ts FROM TimetableSlot ts WHERE ts.timetable.id = :timetableId AND ts.timetable.school.id = :schoolId AND ts.period.school.id = :schoolId ORDER BY ts.dayOfWeek, ts.period.index")
+    List<TimetableSlot> findByTimetableIdAndPeriodSchoolId(@Param("timetableId") Long timetableId, @Param("schoolId") Long schoolId);
 
     @Query("SELECT ts FROM TimetableSlot ts WHERE ts.forClass.id = :classId ORDER BY ts.dayOfWeek, ts.period.index")
     List<TimetableSlot> findByClassId(@Param("classId") Long classId);

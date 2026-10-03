@@ -131,6 +131,7 @@ public interface OperationalMapper {
     @Mapping(target = "classes", ignore = true)
     @Mapping(target = "teachers", ignore = true)
     @Mapping(target = "rooms", ignore = true)
+    @Mapping(target = "school", ignore = true)
     Timetable toTimetable(CreateTimetableRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -178,6 +179,7 @@ public interface OperationalMapper {
     @Mapping(target = "classes", ignore = true)
     @Mapping(target = "teachers", ignore = true)
     @Mapping(target = "rooms", ignore = true)
+    @Mapping(target = "school", ignore = true)
     void updateTimetable(UpdateTimetableRequest src, @MappingTarget Timetable target);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

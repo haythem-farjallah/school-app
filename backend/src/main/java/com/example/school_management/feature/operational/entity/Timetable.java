@@ -2,10 +2,12 @@ package com.example.school_management.feature.operational.entity;
 
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.auth.entity.Teacher;
+import com.example.school_management.feature.school.entity.School;
 import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.springframework.data.annotation.CreatedDate;
@@ -26,6 +28,12 @@ public class Timetable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "school_id", nullable = false)
+    @JsonIgnore
+    private School school;
 
     @EqualsAndHashCode.Include
     private String name;

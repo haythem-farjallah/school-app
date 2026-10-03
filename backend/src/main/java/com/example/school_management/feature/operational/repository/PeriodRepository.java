@@ -14,6 +14,8 @@ import java.util.Optional;
 @Repository
 public interface PeriodRepository extends JpaRepository<Period, Long>, JpaSpecificationExecutor<Period> {
 
+    Optional<Period> findByIdAndSchoolId(Long id, Long schoolId);
+
     Optional<Period> findBySchoolIdAndIndex(Long schoolId, Integer index);
 
     List<Period> findBySchoolIdOrderByIndex(Long schoolId);

@@ -16,6 +16,8 @@ import java.util.Optional;
 @Repository
 public interface RoomRepository extends JpaRepository<Room, Long>, JpaSpecificationExecutor<Room> {
 
+    List<Room> findBySchoolId(Long schoolId);
+
     Optional<Room> findByIdAndSchoolId(Long id, Long schoolId);
 
     Page<Room> findAllBySchoolId(Long schoolId, Pageable pageable);

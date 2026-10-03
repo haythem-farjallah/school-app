@@ -12,6 +12,9 @@ import com.example.school_management.feature.academic.service.ClassService;
 import com.example.school_management.feature.academic.service.CourseService;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.entity.MembershipStatus;
+import com.example.school_management.feature.membership.entity.SchoolMembership;
 import com.example.school_management.feature.operational.entity.Enrollment;
 import com.example.school_management.feature.operational.entity.enums.EnrollmentStatus;
 import com.example.school_management.feature.operational.entity.Period;
@@ -451,7 +454,17 @@ class AcademicMasterSchoolAccessIntegrationTest {
         var assignment = new TeachingAssignment();
         assignment.setClazz(clazz);
         assignment.setCourse(course);
-        assignment.setTeacher(teachers.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow());
+        var teacher = teachers.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow();
+        var school = clazz.getAcademicYear().getSchool();
+        if (teachers.findByIdAndSchoolId(teacher.getId(), school.getId()).isEmpty()) {
+            var membership = new SchoolMembership();
+            membership.setUser(teacher);
+            membership.setSchool(school);
+            membership.setRoles(Set.of(MembershipRole.TEACHER));
+            membership.setStatus(MembershipStatus.ACTIVE);
+            em.persist(membership);
+        }
+        assignment.setTeacher(teacher);
         em.persist(assignment);
     }
 

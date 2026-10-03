@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ClassRepository extends JpaRepository<ClassEntity, Long> , JpaSpecificationExecutor<ClassEntity> {
+    List<ClassEntity> findByAcademicYearSchoolId(Long schoolId);
     boolean existsByAcademicYearIdAndNameIgnoreCase(Long academicYearId, String name);
     boolean existsByAcademicYearIdAndNameIgnoreCaseAndIdNot(Long academicYearId, String name, Long id);
     Optional<ClassEntity> findByIdAndAcademicYearSchoolId(Long id, Long schoolId);

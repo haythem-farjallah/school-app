@@ -17,6 +17,7 @@ public interface TimetableService {
     TimetableDto update(Long id, UpdateTimetableRequest request);
     void delete(Long id);
     TimetableDto get(Long id);
+    Timetable requireSchoolTimetable(Long id);
     Page<TimetableDto> list(Pageable pageable, String academicYear, String semester);
     List<TimetableDto> findByAcademicYear(String academicYear);
     List<TimetableDto> findByAcademicYearAndSemester(String academicYear, String semester);

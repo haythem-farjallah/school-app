@@ -15,6 +15,16 @@ import java.util.Optional;
 @Repository
 public interface TimetableRepository extends JpaRepository<Timetable, Long>, JpaSpecificationExecutor<Timetable> {
 
+    Optional<Timetable> findByIdAndSchoolId(Long id, Long schoolId);
+    Page<Timetable> findBySchoolId(Long schoolId, Pageable pageable);
+    Page<Timetable> findBySchoolIdAndAcademicYear(Long schoolId, String academicYear, Pageable pageable);
+    List<Timetable> findBySchoolIdAndAcademicYear(Long schoolId, String academicYear);
+    Page<Timetable> findBySchoolIdAndAcademicYearAndSemester(Long schoolId, String academicYear, String semester, Pageable pageable);
+    List<Timetable> findBySchoolIdAndAcademicYearAndSemester(Long schoolId, String academicYear, String semester);
+
+    @Query("SELECT t FROM Timetable t JOIN t.classes c WHERE t.school.id = :schoolId AND c.id = :classId")
+    List<Timetable> findBySchoolIdAndClassId(@Param("schoolId") Long schoolId, @Param("classId") Long classId);
+
     @Query("SELECT t FROM Timetable t WHERE t.academicYear = :academicYear")
     List<Timetable> findByAcademicYear(@Param("academicYear") String academicYear);
 

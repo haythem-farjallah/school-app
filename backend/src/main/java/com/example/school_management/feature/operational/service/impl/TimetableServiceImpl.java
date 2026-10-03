@@ -18,9 +18,11 @@ import com.example.school_management.commons.exceptions.ResourceNotFoundExceptio
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 @Slf4j
 public class TimetableServiceImpl implements TimetableService {
     
@@ -39,395 +42,309 @@ public class TimetableServiceImpl implements TimetableService {
     private final RoomRepository roomRepository;
     private final CourseRepository courseRepository;
     private final OperationalMapper mapper;
+    private final CurrentSchoolResolver currentSchoolResolver;
     
     @Override
     @Transactional
     public TimetableDto create(CreateTimetableRequest request) {
-        log.debug("Creating new timetable: {}", request.getName());
-        
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        Set<ClassEntity> classes = schoolClasses(request.getClassIds(), schoolId);
+        Set<Teacher> teachers = schoolTeachers(request.getTeacherIds(), schoolId);
+        Set<Room> rooms = schoolRooms(request.getRoomIds(), schoolId);
         Timetable timetable = new Timetable();
+        timetable.setSchool(currentSchoolResolver.resolve());
         timetable.setName(request.getName());
         timetable.setDescription(request.getDescription());
         timetable.setAcademicYear(request.getAcademicYear());
         timetable.setSemester(request.getSemester());
-        
-        // Set classes
-        if (request.getClassIds() != null && !request.getClassIds().isEmpty()) {
-            Set<ClassEntity> classes = new HashSet<>(classRepository.findAllById(request.getClassIds()));
-            timetable.setClasses(classes);
-        }
-        
-        // Set teachers
-        if (request.getTeacherIds() != null && !request.getTeacherIds().isEmpty()) {
-            Set<Teacher> teachers = new HashSet<>(teacherRepository.findAllById(request.getTeacherIds()));
-            timetable.setTeachers(teachers);
-        }
-        
-        // Set rooms
-        if (request.getRoomIds() != null && !request.getRoomIds().isEmpty()) {
-            Set<Room> rooms = new HashSet<>(roomRepository.findAllById(request.getRoomIds()));
-            timetable.setRooms(rooms);
-        }
-        
-        Timetable saved = timetableRepository.save(timetable);
-        log.info("Created timetable with ID: {}", saved.getId());
-        
-        return mapper.toTimetableDto(saved);
+        timetable.setClasses(classes);
+        timetable.setTeachers(teachers);
+        timetable.setRooms(rooms);
+        return mapper.toTimetableDto(timetableRepository.save(timetable));
     }
-    
+
     @Override
     @Transactional
     public TimetableDto update(Long id, UpdateTimetableRequest request) {
-        log.debug("Updating timetable ID: {}", id);
-        
-        Timetable timetable = timetableRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Timetable not found with id: " + id));
-        
-        if (request.getName() != null) {
-            timetable.setName(request.getName());
-        }
-        if (request.getDescription() != null) {
-            timetable.setDescription(request.getDescription());
-        }
-        if (request.getAcademicYear() != null) {
-            timetable.setAcademicYear(request.getAcademicYear());
-        }
-        if (request.getSemester() != null) {
-            timetable.setSemester(request.getSemester());
-        }
-        
-        // Update classes
-        if (request.getClassIds() != null) {
-            Set<ClassEntity> classes = new HashSet<>(classRepository.findAllById(request.getClassIds()));
-            timetable.setClasses(classes);
-        }
-        
-        // Update teachers
-        if (request.getTeacherIds() != null) {
-            Set<Teacher> teachers = new HashSet<>(teacherRepository.findAllById(request.getTeacherIds()));
-            timetable.setTeachers(teachers);
-        }
-        
-        // Update rooms
-        if (request.getRoomIds() != null) {
-            Set<Room> rooms = new HashSet<>(roomRepository.findAllById(request.getRoomIds()));
-            timetable.setRooms(rooms);
-        }
-        
-        Timetable updated = timetableRepository.save(timetable);
-        log.info("Updated timetable ID: {}", id);
-        
-        return mapper.toTimetableDto(updated);
+        Timetable timetable = requireSchoolTimetable(id);
+        Long schoolId = timetable.getSchool().getId();
+        Set<ClassEntity> classes = request.getClassIds() == null ? null : schoolClasses(request.getClassIds(), schoolId);
+        Set<Teacher> teachers = request.getTeacherIds() == null ? null : schoolTeachers(request.getTeacherIds(), schoolId);
+        Set<Room> rooms = request.getRoomIds() == null ? null : schoolRooms(request.getRoomIds(), schoolId);
+        if (request.getName() != null) timetable.setName(request.getName());
+        if (request.getDescription() != null) timetable.setDescription(request.getDescription());
+        if (request.getAcademicYear() != null) timetable.setAcademicYear(request.getAcademicYear());
+        if (request.getSemester() != null) timetable.setSemester(request.getSemester());
+        if (classes != null) timetable.setClasses(classes);
+        if (teachers != null) timetable.setTeachers(teachers);
+        if (rooms != null) timetable.setRooms(rooms);
+        return mapper.toTimetableDto(timetableRepository.save(timetable));
     }
-    
+
     @Override
     @Transactional
     public void delete(Long id) {
-        log.debug("Deleting timetable ID: {}", id);
-        
-        if (!timetableRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Timetable not found with id: " + id);
-        }
-        
-        timetableRepository.deleteById(id);
-        log.info("Deleted timetable ID: {}", id);
+        timetableRepository.delete(requireSchoolTimetable(id));
     }
-    
+
     @Override
     public TimetableDto get(Long id) {
-        log.debug("Getting timetable ID: {}", id);
-        
-        Timetable timetable = timetableRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Timetable not found with id: " + id));
-        
-        return mapper.toTimetableDto(timetable);
+        return mapper.toTimetableDto(requireSchoolTimetable(id));
     }
-    
+
+    @Override
+    public Timetable requireSchoolTimetable(Long id) {
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        Timetable timetable = timetableRepository.findByIdAndSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found with id: " + id));
+        validateTimetableResources(timetable, schoolId);
+        return timetable;
+    }
+
     @Override
     public Page<TimetableDto> list(Pageable pageable, String academicYear, String semester) {
-        log.debug("Listing timetables - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
-        
-        Page<Timetable> timetables;
-        
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        Page<Timetable> result;
         if (academicYear != null && semester != null) {
-            timetables = timetableRepository.findByAcademicYearAndSemester(academicYear, semester, pageable);
+            result = timetableRepository.findBySchoolIdAndAcademicYearAndSemester(schoolId, academicYear, semester, pageable);
         } else if (academicYear != null) {
-            timetables = timetableRepository.findByAcademicYear(academicYear, pageable);
+            result = timetableRepository.findBySchoolIdAndAcademicYear(schoolId, academicYear, pageable);
         } else {
-            timetables = timetableRepository.findAll(pageable);
+            result = timetableRepository.findBySchoolId(schoolId, pageable);
         }
-        
-        return timetables.map(mapper::toTimetableDto);
+        return result.map(timetable -> {
+            validateTimetableResources(timetable, schoolId);
+            return mapper.toTimetableDto(timetable);
+        });
     }
-    
+
     @Override
     public List<TimetableDto> findByAcademicYear(String academicYear) {
-        log.debug("Finding timetables by academic year: {}", academicYear);
-        
-        List<Timetable> timetables = timetableRepository.findByAcademicYear(academicYear);
-        return timetables.stream()
-            .map(mapper::toTimetableDto)
-            .collect(Collectors.toList());
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        return timetableRepository.findBySchoolIdAndAcademicYear(schoolId, academicYear).stream().map(timetable -> {
+            validateTimetableResources(timetable, schoolId);
+            return mapper.toTimetableDto(timetable);
+        }).toList();
     }
-    
+
     @Override
     public List<TimetableDto> findByAcademicYearAndSemester(String academicYear, String semester) {
-        log.debug("Finding timetables by academic year: {} and semester: {}", academicYear, semester);
-        
-        List<Timetable> timetables = timetableRepository.findByAcademicYearAndSemester(academicYear, semester);
-        return timetables.stream()
-            .map(mapper::toTimetableDto)
-            .collect(Collectors.toList());
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        return timetableRepository.findBySchoolIdAndAcademicYearAndSemester(schoolId, academicYear, semester).stream().map(timetable -> {
+            validateTimetableResources(timetable, schoolId);
+            return mapper.toTimetableDto(timetable);
+        }).toList();
     }
-    
+
     @Override
     public List<TimetableSlot> getSlotsByClassId(Long classId) {
-        log.debug("Getting timetable slots for class ID: {}", classId);
-        return timetableSlotRepository.findByClassId(classId);
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        requireSchoolClass(classId, schoolId);
+        List<TimetableSlot> result = timetableSlotRepository.findByClassIdAndPeriodSchoolId(classId, schoolId);
+        result.forEach(slot -> validateSlotResources(slot, schoolId));
+        return result;
     }
-    
+
     @Override
     public List<TimetableSlot> getSlotsByTeacherId(Long teacherId) {
-        log.debug("Getting timetable slots for teacher ID: {}", teacherId);
-        return timetableSlotRepository.findByTeacherId(teacherId);
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        requireSchoolTeacher(teacherId, schoolId);
+        List<TimetableSlot> result = timetableSlotRepository.findByTeacherIdAndPeriodSchoolId(teacherId, schoolId);
+        result.forEach(slot -> validateSlotResources(slot, schoolId));
+        return result;
     }
-    
+
     @Override
     @Transactional
     public TimetableSlot updateSlot(Long slotId, TimetableSlot updatedSlot) {
-        log.debug("Updating timetable slot ID: {}", slotId);
-        
-        TimetableSlot slot = timetableSlotRepository.findById(slotId)
-            .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found with id: " + slotId));
-        
-        slot.setDayOfWeek(updatedSlot.getDayOfWeek());
-        slot.setPeriod(updatedSlot.getPeriod());
-        slot.setTeacher(updatedSlot.getTeacher());
-        slot.setRoom(updatedSlot.getRoom());
-        slot.setForCourse(updatedSlot.getForCourse());
-        slot.setDescription(updatedSlot.getDescription());
-        
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        TimetableSlot slot = requireSchoolSlot(slotId, schoolId);
+        TimetableSlot canonical = canonicalSlot(updatedSlot, schoolId);
+        copySlotFields(canonical, slot);
+        // These legacy duplicate update methods do not change the slot's Class or parent.
+        validateSlotResources(slot, schoolId);
         return timetableSlotRepository.save(slot);
     }
-    
+
     @Override
     @Transactional
     public TimetableSlot createSlot(TimetableSlot newSlot) {
-        log.debug("Creating new timetable slot");
-        return timetableSlotRepository.save(newSlot);
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        if (newSlot.getId() != null) requireSchoolSlot(newSlot.getId(), schoolId);
+        TimetableSlot canonical = canonicalSlot(newSlot, schoolId);
+        canonical.setId(newSlot.getId());
+        return timetableSlotRepository.save(canonical);
     }
-    
+
     @Override
     @Transactional
     public void deleteSlot(Long slotId) {
-        log.debug("Deleting timetable slot ID: {}", slotId);
-        
-        if (!timetableSlotRepository.existsById(slotId)) {
-            throw new ResourceNotFoundException("Timetable slot not found with id: " + slotId);
-        }
-        
-        timetableSlotRepository.deleteById(slotId);
+        timetableSlotRepository.delete(requireSchoolSlot(slotId, currentSchoolResolver.resolve().getId()));
     }
-    
+
     @Override
     @Transactional
-    public void saveSlotsForClass(Long classId, List<TimetableSlot> slots) {
-        log.info("Saving {} slots for class ID: {}", slots.size(), classId);
-        
-        // Get the class entity first
-        var classEntity = classRepository.findById(classId)
-            .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-        log.info("Found class: {} with name: {}", classId, classEntity.getName());
-        
-        // Find or create a timetable for this class
-        List<Timetable> timetables = timetableRepository.findByClassId(classId);
-        Timetable timetable;
-        
-        if (timetables.isEmpty()) {
-            log.info("No existing timetable found for class {}, creating new one", classId);
-            // Create a new timetable for this class
-            timetable = new Timetable();
-            timetable.setName("Timetable for " + classEntity.getName());
-            timetable.setDescription("Auto-generated timetable for " + classEntity.getName());
-            timetable.setAcademicYear("2024-2025");
-            timetable.setSemester("Fall");
-            
-            // Link the class to the timetable
-            timetable.getClasses().add(classEntity);
-            
-            // Add all teachers and rooms to the timetable
-            var teachers = teacherRepository.findAll();
-            var rooms = roomRepository.findAll();
-            log.info("Found {} rooms and {} teachers for timetable", rooms.size(), teachers.size());
-            
-            timetable.setRooms(rooms.stream().collect(Collectors.toSet()));
-            timetable.setTeachers(teachers.stream().collect(Collectors.toSet()));
-            
-            timetable = timetableRepository.save(timetable);
-            log.info("Created new timetable with ID: {}", timetable.getId());
-        } else {
-            timetable = timetables.get(0);
-            log.info("Using existing timetable with ID: {}", timetable.getId());
-        }
-        
-        // Delete existing slots for this class
-        List<TimetableSlot> existingSlots = timetableSlotRepository.findByClassId(classId);
-        timetableSlotRepository.deleteAll(existingSlots);
-        log.info("Deleted {} existing slots for class {}", existingSlots.size(), classId);
-        
-        // Save new slots and associate them with the timetable
-        if (!slots.isEmpty()) {
-            for (TimetableSlot slot : slots) {
-                // Ensure the slot is properly associated with the timetable and class
-                slot.setTimetable(timetable);
-                slot.setForClass(classEntity);
-                
-                // Ensure all references are properly set
-                if (slot.getPeriod() != null && slot.getPeriod().getId() != null) {
-                    var period = periodRepository.findById(slot.getPeriod().getId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Period not found: " + slot.getPeriod().getId()));
-                    slot.setPeriod(period);
+    public void saveSlotsForClass(Long classId, List<TimetableSlot> submitted) {
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        ClassEntity classEntity = requireSchoolClass(classId, schoolId);
+        List<TimetableSlot> canonical = new ArrayList<>();
+        Map<Long, TimetableSlot> retained = new HashMap<>();
+        // Resolve the whole request before changing any persisted entity or deleting existing slots.
+        for (TimetableSlot input : submitted) {
+            if (input == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slot is required");
+            if (input.getId() != null) {
+                TimetableSlot existing = requireSchoolSlot(input.getId(), schoolId);
+                if (existing.getForClass() != null && !existing.getForClass().getId().equals(classId)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Slot belongs to a different Class");
                 }
-                
-                if (slot.getTeacher() != null && slot.getTeacher().getId() != null) {
-                    var teacher = teacherRepository.findById(slot.getTeacher().getId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Teacher not found: " + slot.getTeacher().getId()));
-                    slot.setTeacher(teacher);
-                }
-                
-                if (slot.getForCourse() != null && slot.getForCourse().getId() != null) {
-                    var course = courseRepository.findById(slot.getForCourse().getId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + slot.getForCourse().getId()));
-                    slot.setForCourse(course);
-                }
-                
-                if (slot.getRoom() != null && slot.getRoom().getId() != null) {
-                    var room = roomRepository.findById(slot.getRoom().getId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Room not found: " + slot.getRoom().getId()));
-                    slot.setRoom(room);
+                if (retained.put(input.getId(), existing) != null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Slot ID is repeated");
                 }
             }
-            
-            List<TimetableSlot> savedSlots = timetableSlotRepository.saveAll(slots);
-            log.info("Saved {} new slots for class {} with timetable ID {}", savedSlots.size(), classId, timetable.getId());
+            TimetableSlot candidate = canonicalSlot(input, schoolId);
+            if (candidate.getForClass() != null && !candidate.getForClass().getId().equals(classId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Slot Class must match the route Class");
+            }
+            candidate.setForClass(classEntity);
+            candidate.setId(input.getId());
+            canonical.add(candidate);
         }
-        
-        // Debug: Verify save
-        List<TimetableSlot> verifySlots = timetableSlotRepository.findByClassId(classId);
-        log.info("Verification: Found {} slots for class {} after save, {} have teachers, {} have timetable", 
-            verifySlots.size(), classId, 
-            slots.stream().filter(s -> s.getTeacher() != null).count(),
-            verifySlots.stream().filter(s -> s.getTimetable() != null).count()
-        );
-        
-        // Also verify through timetable relationship
-        Timetable finalTimetable = timetableRepository.findById(timetable.getId()).orElse(null);
-        if (finalTimetable != null) {
-            log.info("Timetable {} now has {} associated slots", finalTimetable.getId(), finalTimetable.getSlots().size());
+        Timetable timetable = findOrCreateTimetable(classEntity, schoolId);
+        List<TimetableSlot> existing = timetableSlotRepository.findByClassIdAndPeriodSchoolId(classId, schoolId);
+        existing.forEach(slot -> validateSlotResources(slot, schoolId));
+        timetableSlotRepository.deleteAll(existing.stream().filter(slot -> !retained.containsKey(slot.getId())).toList());
+        for (TimetableSlot candidate : canonical) {
+            TimetableSlot target = candidate.getId() == null ? candidate : retained.get(candidate.getId());
+            copySlotFields(candidate, target);
+            target.setForClass(classEntity);
+            target.setTimetable(timetable);
+            timetableSlotRepository.save(target);
         }
     }
 
     @Override
     @Transactional
     public void optimizeTimetableForClass(Long classId) {
-        log.info("Starting optimization for class ID: {}", classId);
-
-        // Get the class entity first; a missing class is a 404, not an optimization failure
-        var classEntity = classRepository.findById(classId)
-            .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-        log.info("Found class: {} with name: {}", classId, classEntity.getName());
-
-        try {
-            // Find or create a timetable for this class
-            List<Timetable> timetables = timetableRepository.findByClassId(classId);
-            Timetable timetable;
-            
-            if (timetables.isEmpty()) {
-                log.info("No existing timetable found for class {}, creating new one", classId);
-                // Create a new timetable for this class
-                timetable = new Timetable();
-                timetable.setName("Timetable for " + classEntity.getName());
-                timetable.setDescription("Auto-generated timetable for " + classEntity.getName());
-                timetable.setAcademicYear("2024-2025");
-                timetable.setSemester("Fall");
-                
-                // Link the class to the timetable
-                timetable.getClasses().add(classEntity);
-                
-                // Add all teachers and rooms to the timetable
-                var teachers = teacherRepository.findAll();
-                var rooms = roomRepository.findAll();
-                log.info("Found {} rooms and {} teachers for timetable", rooms.size(), teachers.size());
-                
-                timetable.setRooms(rooms.stream().collect(Collectors.toSet()));
-                timetable.setTeachers(teachers.stream().collect(Collectors.toSet()));
-                
-                timetable = timetableRepository.save(timetable);
-                log.info("Created new timetable with ID: {}", timetable.getId());
-            } else {
-                timetable = timetables.get(0);
-                log.info("Using existing timetable with ID: {} for class {}", timetable.getId(), classId);
-                
-                // Ensure the class is linked to this timetable
-                if (!timetable.getClasses().contains(classEntity)) {
-                    timetable.getClasses().add(classEntity);
-                    timetable = timetableRepository.save(timetable);
-                    log.info("Linked class {} to existing timetable {}", classId, timetable.getId());
-                }
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        ClassEntity classEntity = requireSchoolClass(classId, schoolId);
+        for (Course course : classEntity.getCourses()) {
+            if (!schoolId.equals(course.getSchool().getId())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has a Course from a different School");
             }
-            
-            // Perform enhanced optimization
-            log.info("Performing enhanced optimization for timetable ID: {}", timetable.getId());
-            performEnhancedOptimization(timetable, classId);
-            log.info("Optimization completed successfully for class ID: {}", classId);
-            
-        } catch (Exception e) {
-            log.error("Error during optimization for class ID: {}", classId, e);
-            throw new RuntimeException("Failed to optimize timetable for class " + classId + ": " + e.getMessage(), e);
+            requireSchoolCourse(course.getId(), schoolId);
+        }
+        Timetable timetable = findOrCreateTimetable(classEntity, schoolId);
+        var periods = periodRepository.findBySchoolIdOrderByIndex(schoolId);
+        var teachers = teacherRepository.findBySchoolId(schoolId);
+        var rooms = roomRepository.findBySchoolId(schoolId);
+        if (teachers.isEmpty() || periods.isEmpty() || rooms.isEmpty() || classEntity.getCourses().isEmpty()) {
+            log.warn("Missing required data for timetable optimization");
+            return;
+        }
+        List<TimetableSlot> existing = timetableSlotRepository.findByClassIdAndPeriodSchoolId(classId, schoolId);
+        existing.forEach(slot -> validateSlotResources(slot, schoolId));
+        timetableSlotRepository.deleteAll(existing);
+        timetableSlotRepository.saveAll(generateEnhancedSchedule(timetable, classEntity, classEntity.getCourses(), periods, teachers, rooms));
+    }
+
+    private Timetable findOrCreateTimetable(ClassEntity classEntity, Long schoolId) {
+        List<Timetable> existing = timetableRepository.findBySchoolIdAndClassId(schoolId, classEntity.getId());
+        if (!existing.isEmpty()) {
+            Timetable timetable = existing.get(0);
+            validateTimetableResources(timetable, schoolId);
+            return timetable;
+        }
+        Timetable timetable = new Timetable();
+        timetable.setSchool(currentSchoolResolver.resolve());
+        timetable.setName("Timetable for " + classEntity.getName());
+        timetable.setDescription("Auto-generated timetable for " + classEntity.getName());
+        timetable.setAcademicYear(classEntity.getAcademicYear().getName());
+        timetable.setSemester("Fall");
+        timetable.getClasses().add(classEntity);
+        timetable.setTeachers(new HashSet<>(teacherRepository.findBySchoolId(schoolId)));
+        timetable.setRooms(new HashSet<>(roomRepository.findBySchoolId(schoolId)));
+        return timetableRepository.save(timetable);
+    }
+
+    private Set<ClassEntity> schoolClasses(Set<Long> ids, Long schoolId) {
+        return ids == null ? new HashSet<>() : ids.stream().map(id -> requireSchoolClass(id, schoolId)).collect(Collectors.toSet());
+    }
+    private Set<Teacher> schoolTeachers(Set<Long> ids, Long schoolId) {
+        return ids == null ? new HashSet<>() : ids.stream().map(id -> requireSchoolTeacher(id, schoolId)).collect(Collectors.toSet());
+    }
+    private Set<Room> schoolRooms(Set<Long> ids, Long schoolId) {
+        return ids == null ? new HashSet<>() : ids.stream().map(id -> requireSchoolRoom(id, schoolId)).collect(Collectors.toSet());
+    }
+    private ClassEntity requireSchoolClass(Long id, Long schoolId) {
+        ClassEntity clazz = classRepository.findByIdAndAcademicYearSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + id));
+        if (clazz.getAssignedRoom() != null && !schoolId.equals(clazz.getAssignedRoom().getSchool().getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has a Room from a different School");
+        }
+        return clazz;
+    }
+    private Teacher requireSchoolTeacher(Long id, Long schoolId) {
+        return teacherRepository.findByIdAndSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + id));
+    }
+    private Course requireSchoolCourse(Long id, Long schoolId) {
+        Course course = courseRepository.findByIdAndSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        if (course.getTeacher() != null && teacherRepository.findByIdAndSchoolId(course.getTeacher().getId(), schoolId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Course has an incompatible Teacher");
+        }
+        return course;
+    }
+    private Room requireSchoolRoom(Long id, Long schoolId) {
+        return roomRepository.findByIdAndSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + id));
+    }
+    private Period requireSchoolPeriod(Long id, Long schoolId) {
+        if (id == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Period ID is required");
+        return periodRepository.findByIdAndSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Period not found with id: " + id));
+    }
+    private TimetableSlot requireSchoolSlot(Long id, Long schoolId) {
+        TimetableSlot slot = timetableSlotRepository.findByIdAndPeriodSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found with id: " + id));
+        validateSlotResources(slot, schoolId);
+        return slot;
+    }
+    private void validateTimetableResources(Timetable timetable, Long schoolId) {
+        timetable.getClasses().forEach(clazz -> requireSchoolClass(clazz.getId(), schoolId));
+        timetable.getTeachers().forEach(teacher -> requireSchoolTeacher(teacher.getId(), schoolId));
+        timetable.getRooms().forEach(room -> requireSchoolRoom(room.getId(), schoolId));
+        timetable.getSlots().forEach(slot -> validateSlotResources(slot, schoolId));
+    }
+    private void validateSlotResources(TimetableSlot slot, Long schoolId) {
+        requireSchoolPeriod(slot.getPeriod() == null ? null : slot.getPeriod().getId(), schoolId);
+        if (slot.getForClass() != null) requireSchoolClass(slot.getForClass().getId(), schoolId);
+        if (slot.getForCourse() != null) requireSchoolCourse(slot.getForCourse().getId(), schoolId);
+        if (slot.getTeacher() != null) requireSchoolTeacher(slot.getTeacher().getId(), schoolId);
+        if (slot.getRoom() != null) requireSchoolRoom(slot.getRoom().getId(), schoolId);
+        if (slot.getTimetable() != null && !schoolId.equals(slot.getTimetable().getSchool().getId())) {
+            throw new ResourceNotFoundException("Timetable not found with id: " + slot.getTimetable().getId());
         }
     }
-    
-    private void performEnhancedOptimization(Timetable timetable, Long classId) {
-        try {
-            log.info("Starting enhanced optimization for class: {}", classId);
-            
-            var periods = periodRepository.findAllOrderByIndex();
-            var teachers = teacherRepository.findAll();
-            var rooms = roomRepository.findAll();
-            var classEntity = classRepository.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-            
-            if (teachers.isEmpty() || periods.isEmpty() || rooms.isEmpty()) {
-                log.warn("Missing required data for optimization");
-                return;
-            }
-            
-            var courses = classEntity.getCourses();
-            if (courses.isEmpty()) {
-                log.warn("No courses found for class {}", classId);
-                return;
-            }
-            
-            // Clear existing slots
-            List<TimetableSlot> existingSlots = timetableSlotRepository.findByClassId(classId);
-            if (!existingSlots.isEmpty()) {
-                timetableSlotRepository.deleteAll(existingSlots);
-            }
-            
-            // Enhanced course scheduling
-            List<TimetableSlot> newSlots = generateEnhancedSchedule(
-                timetable, classEntity, courses, periods, teachers, rooms
-            );
-            
-            if (!newSlots.isEmpty()) {
-                timetableSlotRepository.saveAll(newSlots);
-                log.info("Successfully created {} enhanced slots for class {}", newSlots.size(), classId);
-            }
-            
-        } catch (Exception e) {
-            log.error("Error during enhanced optimization", e);
-            throw new RuntimeException("Enhanced optimization failed: " + e.getMessage(), e);
-        }
+    private TimetableSlot canonicalSlot(TimetableSlot input, Long schoolId) {
+        TimetableSlot slot = new TimetableSlot();
+        slot.setDayOfWeek(input.getDayOfWeek());
+        slot.setDescription(input.getDescription());
+        slot.setPeriod(requireSchoolPeriod(input.getPeriod() == null ? null : input.getPeriod().getId(), schoolId));
+        if (input.getForClass() != null) slot.setForClass(requireSchoolClass(input.getForClass().getId(), schoolId));
+        if (input.getForCourse() != null) slot.setForCourse(requireSchoolCourse(input.getForCourse().getId(), schoolId));
+        if (input.getTeacher() != null) slot.setTeacher(requireSchoolTeacher(input.getTeacher().getId(), schoolId));
+        if (input.getRoom() != null) slot.setRoom(requireSchoolRoom(input.getRoom().getId(), schoolId));
+        if (input.getTimetable() != null) slot.setTimetable(requireSchoolTimetable(input.getTimetable().getId()));
+        return slot;
+    }
+    private void copySlotFields(TimetableSlot source, TimetableSlot target) {
+        target.setDayOfWeek(source.getDayOfWeek());
+        target.setDescription(source.getDescription());
+        target.setPeriod(source.getPeriod());
+        target.setForCourse(source.getForCourse());
+        target.setTeacher(source.getTeacher());
+        target.setRoom(source.getRoom());
     }
 
     private List<TimetableSlot> generateEnhancedSchedule(

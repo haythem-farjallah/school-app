@@ -15,6 +15,9 @@ import com.example.school_management.feature.academic.repository.TeachingAssignm
 import com.example.school_management.feature.academic.service.TeachingAssignmentService;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.entity.SchoolMembership;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,278 +41,252 @@ public class TeachingAssignmentServiceImpl implements TeachingAssignmentService 
             Set.of("teacher.firstName", "teacher.lastName", "teacher.email",
                     "course.name", "course.code", "clazz.name", "weeklyHours"),
             Set.of("teacher.lastName", "course.name", "clazz.name", "weeklyHours"));
-    
+
     private final TeachingAssignmentRepository assignmentRepository;
     private final TeacherRepository teacherRepository;
     private final CourseRepository courseRepository;
     private final ClassRepository classRepository;
     private final TeachingAssignmentMapper mapper;
     private final GenericFilterService genericFilterService;
-    
+    private final CurrentSchoolResolver currentSchool;
+
+    private Teacher requireSchoolTeacher(Long id) {
+        return teacherRepository.findByIdAndSchoolId(id, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + id));
+    }
+
+    private Course requireSchoolCourse(Long id) {
+        return courseRepository.findByIdAndSchoolId(id, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+    }
+
+    private ClassEntity requireSchoolClass(Long id) {
+        return classRepository.findByIdAndAcademicYearSchoolId(id, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + id));
+    }
+
+    private Specification<TeachingAssignment> schoolSpec() {
+        Long schoolId = currentSchool.resolve().getId();
+        return (root, query, cb) -> {
+            var membershipQuery = query.subquery(Long.class);
+            var membership = membershipQuery.from(SchoolMembership.class);
+            membershipQuery.select(membership.get("id")).where(
+                    cb.equal(membership.get("user").get("id"), root.get("teacher").get("id")),
+                    cb.equal(membership.get("school").get("id"), schoolId),
+                    cb.isMember(MembershipRole.TEACHER, membership.get("roles")));
+            return cb.and(
+                    cb.equal(root.get("clazz").get("academicYear").get("school").get("id"), schoolId),
+                    cb.equal(root.get("course").get("school").get("id"), schoolId),
+                    cb.exists(membershipQuery));
+        };
+    }
+
     @Override
     public TeachingAssignment create(CreateTeachingAssignmentDto dto) {
-        log.debug("Creating teaching assignment: {}", dto);
-        
-        // Validate entities exist
-        Teacher teacher = teacherRepository.findById(dto.teacherId())
-                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + dto.teacherId()));
-        Course course = courseRepository.findById(dto.courseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + dto.courseId()));
-        ClassEntity clazz = classRepository.findById(dto.classId())
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + dto.classId()));
-        
-        // Check for existing assignment
+        Teacher teacher = requireSchoolTeacher(dto.teacherId());
+        Course course = requireSchoolCourse(dto.courseId());
+        ClassEntity clazz = requireSchoolClass(dto.classId());
+        // The existing unique Class/Course model remains unchanged. Both IDs are validated before this check.
         if (assignmentRepository.existsByClazzIdAndCourseId(dto.classId(), dto.courseId())) {
             throw new IllegalArgumentException("Assignment already exists for course " + course.getName() + " in class " + clazz.getName());
         }
-        
         TeachingAssignment assignment = mapper.toEntity(dto);
         assignment.setTeacher(teacher);
         assignment.setCourse(course);
         assignment.setClazz(clazz);
-        
-        TeachingAssignment saved = assignmentRepository.save(assignment);
-        log.info("Created teaching assignment: {} teaches {} to {}", 
-                teacher.getFirstName() + " " + teacher.getLastName(),
-                course.getName(), 
-                clazz.getName());
-        
-        return saved;
+        return assignmentRepository.save(assignment);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public TeachingAssignment find(long id) {
-        return assignmentRepository.findById(id)
+        Specification<TeachingAssignment> idSpec = (root, query, cb) -> cb.equal(root.get("id"), id);
+        return assignmentRepository.findOne(schoolSpec().and(idSpec))
                 .orElseThrow(() -> new ResourceNotFoundException("Teaching assignment not found with id: " + id));
     }
-    
+
     @Override
     public TeachingAssignment patch(long id, UpdateTeachingAssignmentDto dto) {
-        log.debug("Updating teaching assignment {}: {}", id, dto);
-        
         TeachingAssignment assignment = find(id);
-        
-        // Update teacher if provided
-        if (dto.teacherId() != null) {
-            Teacher teacher = teacherRepository.findById(dto.teacherId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + dto.teacherId()));
-            assignment.setTeacher(teacher);
-        }
-        
-        // Update course if provided
-        if (dto.courseId() != null) {
-            Course course = courseRepository.findById(dto.courseId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + dto.courseId()));
-            assignment.setCourse(course);
-        }
-        
-        // Update class if provided
-        if (dto.classId() != null) {
-            ClassEntity clazz = classRepository.findById(dto.classId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + dto.classId()));
-            assignment.setClazz(clazz);
-        }
-        
-        // Update weekly hours if provided
-        if (dto.weeklyHours() != null) {
-            assignment.setWeeklyHours(dto.weeklyHours());
-        }
-        
-        TeachingAssignment saved = assignmentRepository.save(assignment);
-        log.info("Updated teaching assignment {}", id);
-        
-        return saved;
+        // Resolve every replacement before changing the managed entity.
+        Teacher teacher = dto.teacherId() != null ? requireSchoolTeacher(dto.teacherId()) : assignment.getTeacher();
+        Course course = dto.courseId() != null ? requireSchoolCourse(dto.courseId()) : assignment.getCourse();
+        ClassEntity clazz = dto.classId() != null ? requireSchoolClass(dto.classId()) : assignment.getClazz();
+        assignment.setTeacher(teacher);
+        assignment.setCourse(course);
+        assignment.setClazz(clazz);
+        if (dto.weeklyHours() != null) assignment.setWeeklyHours(dto.weeklyHours());
+        return assignmentRepository.save(assignment);
     }
-    
+
     @Override
     public void delete(long id) {
-        log.debug("Deleting teaching assignment {}", id);
-        TeachingAssignment assignment = find(id);
-        assignmentRepository.delete(assignment);
-        log.info("Deleted teaching assignment {}", id);
+        assignmentRepository.delete(find(id));
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<TeachingAssignment> findAll(Pageable pageable) {
-        return assignmentRepository.findAll(pageable);
+        return assignmentRepository.findAll(schoolSpec(), pageable);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<TeachingAssignment> search(Pageable pageable, String query) {
-        if (query == null || query.isBlank()) {
-            return findAll(pageable);
-        }
-        
-        // Basic search implementation - could be enhanced with more sophisticated search
-        // Use simple text search for teaching assignments
-        Specification<TeachingAssignment> spec = genericFilterService.buildTextSearchSpecification(
-                query, "teacher.firstName", "teacher.lastName", "teacher.email", 
-                "course.name", "course.code", "clazz.name");
-        
-        if (spec != null) {
-            return assignmentRepository.findAll(spec, pageable);
-        } else {
-            return findAll(pageable);
-        }
+        if (query == null || query.isBlank()) return findAll(pageable);
+        String pattern = "%" + query.toLowerCase(java.util.Locale.ROOT) + "%";
+        Specification<TeachingAssignment> spec = (root, criteriaQuery, cb) -> cb.or(
+                cb.like(cb.lower(root.get("teacher").get("firstName")), pattern),
+                cb.like(cb.lower(root.get("teacher").get("lastName")), pattern),
+                cb.like(cb.lower(root.get("teacher").get("email")), pattern),
+                cb.like(cb.lower(root.get("course").get("name")), pattern),
+                cb.like(cb.lower(root.get("course").get("code")), pattern),
+                cb.like(cb.lower(root.get("clazz").get("name")), pattern));
+        return assignmentRepository.findAll(schoolSpec().and(spec), pageable);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<TeachingAssignment> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
         Specification<TeachingAssignment> spec = genericFilterService.buildSpecificationFromParams(parameterMap, FILTER_FIELDS);
-        return assignmentRepository.findAll(spec, pageable);
+        return assignmentRepository.findAll(schoolSpec().and(spec), pageable);
     }
-    
+
     @Override
     public void bulkDelete(List<Long> ids) {
-        log.debug("Bulk deleting {} teaching assignments", ids.size());
-        assignmentRepository.deleteAllById(ids);
-        log.info("Bulk deleted {} teaching assignments", ids.size());
+        List<TeachingAssignment> validated = findByIds(ids);
+        assignmentRepository.deleteAll(validated);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<TeachingAssignment> findByIds(List<Long> ids) {
-        return assignmentRepository.findAllById(ids);
+        return ids.stream().map(this::find).toList();
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<TeachingAssignment> findAll() {
-        return assignmentRepository.findAll();
+        return assignmentRepository.findAll(schoolSpec());
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<TeachingAssignment> findByTeacherId(Long teacherId) {
-        return assignmentRepository.findByTeacherId(teacherId);
+        requireSchoolTeacher(teacherId);
+        return assignmentRepository.findByTeacherIdAndSchoolId(teacherId, currentSchool.resolve().getId());
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<TeachingAssignment> findByTeacherId(Long teacherId, Pageable pageable) {
-        Specification<TeachingAssignment> spec = (root, query, cb) -> 
-                cb.equal(root.get("teacher").get("id"), teacherId);
-        return assignmentRepository.findAll(spec, pageable);
+        requireSchoolTeacher(teacherId);
+        Specification<TeachingAssignment> spec = (root, query, cb) -> cb.equal(root.get("teacher").get("id"), teacherId);
+        return assignmentRepository.findAll(schoolSpec().and(spec), pageable);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<TeachingAssignment> findByCourseId(Long courseId) {
-        return assignmentRepository.findByCourseId(courseId);
+        requireSchoolCourse(courseId);
+        Specification<TeachingAssignment> spec = (root, query, cb) -> cb.equal(root.get("course").get("id"), courseId);
+        return assignmentRepository.findAll(schoolSpec().and(spec));
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<TeachingAssignment> findByCourseId(Long courseId, Pageable pageable) {
-        Specification<TeachingAssignment> spec = (root, query, cb) -> 
-                cb.equal(root.get("course").get("id"), courseId);
-        return assignmentRepository.findAll(spec, pageable);
+        requireSchoolCourse(courseId);
+        Specification<TeachingAssignment> spec = (root, query, cb) -> cb.equal(root.get("course").get("id"), courseId);
+        return assignmentRepository.findAll(schoolSpec().and(spec), pageable);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<TeachingAssignment> findByClassId(Long classId) {
-        return assignmentRepository.findByClazzId(classId);
+        requireSchoolClass(classId);
+        Specification<TeachingAssignment> spec = (root, query, cb) -> cb.equal(root.get("clazz").get("id"), classId);
+        return assignmentRepository.findAll(schoolSpec().and(spec));
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<TeachingAssignment> findByClassId(Long classId, Pageable pageable) {
-        Specification<TeachingAssignment> spec = (root, query, cb) -> 
-                cb.equal(root.get("clazz").get("id"), classId);
-        return assignmentRepository.findAll(spec, pageable);
+        requireSchoolClass(classId);
+        Specification<TeachingAssignment> spec = (root, query, cb) -> cb.equal(root.get("clazz").get("id"), classId);
+        return assignmentRepository.findAll(schoolSpec().and(spec), pageable);
     }
-    
+
     @Override
     public void assignTeacherToCourses(Long teacherId, List<Long> courseIds, Long classId) {
-        log.debug("Assigning teacher {} to courses {} in class {}", teacherId, courseIds, classId);
-        
-        Teacher teacher = teacherRepository.findById(teacherId)
-                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + teacherId));
-        ClassEntity clazz = classRepository.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-        
-        for (Long courseId : courseIds) {
-            Course course = courseRepository.findById(courseId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-            
-            // Skip if assignment already exists
-            if (!assignmentRepository.existsByClazzIdAndCourseId(classId, courseId)) {
+        Teacher teacher = requireSchoolTeacher(teacherId);
+        ClassEntity clazz = requireSchoolClass(classId);
+        List<Course> courses = courseIds.stream().map(this::requireSchoolCourse).toList();
+        for (Course course : courses) {
+            if (!assignmentRepository.existsByClazzIdAndCourseId(classId, course.getId())) {
                 TeachingAssignment assignment = new TeachingAssignment();
                 assignment.setTeacher(teacher);
                 assignment.setCourse(course);
                 assignment.setClazz(clazz);
-                assignment.setWeeklyHours(0); // Default value
+                assignment.setWeeklyHours(0);
                 assignmentRepository.save(assignment);
             }
         }
-        
-        log.info("Assigned teacher {} to {} courses in class {}", teacherId, courseIds.size(), classId);
     }
-    
+
     @Override
     public void assignTeachersToClass(List<Long> teacherIds, Long classId, Long courseId) {
-        log.debug("Assigning teachers {} to course {} in class {}", teacherIds, courseId, classId);
-        
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-        ClassEntity clazz = classRepository.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-        
-        for (Long teacherId : teacherIds) {
-            Teacher teacher = teacherRepository.findById(teacherId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + teacherId));
-            
-            // Check if assignment already exists (one teacher per course per class)
+        Course course = requireSchoolCourse(courseId);
+        ClassEntity clazz = requireSchoolClass(classId);
+        List<Teacher> teachers = teacherIds.stream().map(this::requireSchoolTeacher).toList();
+        for (Teacher teacher : teachers) {
             if (!assignmentRepository.existsByClazzIdAndCourseId(classId, courseId)) {
                 TeachingAssignment assignment = new TeachingAssignment();
                 assignment.setTeacher(teacher);
                 assignment.setCourse(course);
                 assignment.setClazz(clazz);
-                assignment.setWeeklyHours(0); // Default value
+                assignment.setWeeklyHours(0);
                 assignmentRepository.save(assignment);
             }
         }
-        
-        log.info("Assigned {} teachers to course {} in class {}", teacherIds.size(), courseId, classId);
     }
-    
+
     @Override
     public void bulkAssignTeachersToCourses(List<CreateTeachingAssignmentDto> assignments) {
-        log.debug("Bulk creating {} teaching assignments", assignments.size());
-        
+        // Tenant invalidity is atomic even though existing non-tenant failures remain best effort.
+        for (CreateTeachingAssignmentDto dto : assignments) {
+            requireSchoolTeacher(dto.teacherId());
+            requireSchoolClass(dto.classId());
+            requireSchoolCourse(dto.courseId());
+        }
         for (CreateTeachingAssignmentDto dto : assignments) {
             try {
                 create(dto);
             } catch (Exception e) {
-                log.warn("Failed to create assignment: {}, error: {}", dto, e.getMessage());
-                // Continue with other assignments instead of failing completely
+                log.warn("Failed to create teaching assignment for class {} and course {}", dto.classId(), dto.courseId());
             }
         }
-        
-        log.info("Bulk created teaching assignments");
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public boolean existsByTeacherAndCourseAndClass(Long teacherId, Long courseId, Long classId) {
-        Specification<TeachingAssignment> spec = (root, query, cb) -> 
-                cb.and(
-                        cb.equal(root.get("teacher").get("id"), teacherId),
-                        cb.equal(root.get("course").get("id"), courseId),
-                        cb.equal(root.get("clazz").get("id"), classId)
-                );
-        return assignmentRepository.findAll(spec).size() > 0;
+        requireSchoolTeacher(teacherId);
+        requireSchoolCourse(courseId);
+        requireSchoolClass(classId);
+        Specification<TeachingAssignment> spec = (root, query, cb) -> cb.and(
+                cb.equal(root.get("teacher").get("id"), teacherId),
+                cb.equal(root.get("course").get("id"), courseId),
+                cb.equal(root.get("clazz").get("id"), classId));
+        return assignmentRepository.exists(schoolSpec().and(spec));
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public boolean hasConflictingAssignment(Long teacherId, Long courseId, Long classId) {
-        // Check if this course is already assigned to another teacher in the same class
+        requireSchoolClass(classId);
+        requireSchoolCourse(courseId);
+        // Class/Course uniqueness applies even to an existing inconsistent Teacher link.
         return assignmentRepository.existsByClazzIdAndCourseId(classId, courseId);
     }
 }

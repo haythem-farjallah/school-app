@@ -2,6 +2,11 @@ package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.feature.operational.dto.*;
 import com.example.school_management.feature.operational.service.SmartTimetableService;
+import com.example.school_management.feature.operational.service.TimetableService;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.commons.exceptions.ResourceNotFoundException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import com.example.school_management.feature.operational.service.TimetableOptimizationService;
 import com.example.school_management.feature.operational.domain.TimetableSolution;
 import com.example.school_management.feature.operational.entity.*;
@@ -28,7 +33,8 @@ import java.util.stream.Collectors;
 public class SmartTimetableServiceImpl implements SmartTimetableService {
     
     private final TimetableOptimizationService optimizationService;
-    private final TimetableRepository timetableRepository;
+    private final TimetableService timetableService;
+    private final CurrentSchoolResolver currentSchoolResolver;
     private final TimetableSlotRepository timetableSlotRepository;
     private final TeachingAssignmentRepository teachingAssignmentRepository;
     private final TeacherRepository teacherRepository;
@@ -41,14 +47,9 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
         String optimizationId = UUID.randomUUID().toString();
         LocalDateTime startTime = LocalDateTime.now();
         
+        validateOptimizationRequest(request);
+        Timetable timetable = timetableService.requireSchoolTimetable(request.getTimetableId());
         try {
-            // Validate request
-            validateOptimizationRequest(request);
-            
-            // Get current timetable
-            Timetable timetable = timetableRepository.findById(request.getTimetableId())
-                    .orElseThrow(() -> new IllegalArgumentException("Timetable not found: " + request.getTimetableId()));
-            
             // Analyze current state
             TimetableConflictReport conflictReport = detectConflicts(request.getTimetableId());
             List<TeacherWorkloadAnalysis> workloadAnalyses = analyzeAllTeacherWorkloads();
@@ -73,6 +74,8 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
                     request
             );
             
+        } catch (ResourceNotFoundException | ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
             log.error("AI optimization failed for timetable: {}", request.getTimetableId(), e);
             return buildFailedResult(optimizationId, request.getTimetableId(), startTime, e);
@@ -83,14 +86,13 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
     public TeacherWorkloadAnalysis analyzeTeacherWorkload(Long teacherId) {
         log.debug("Analyzing workload for teacher: {}", teacherId);
         
-        Teacher teacher = teacherRepository.findById(teacherId)
-                .orElseThrow(() -> new IllegalArgumentException("Teacher not found: " + teacherId));
+        Teacher teacher = requireSchoolTeacher(teacherId);
         
         // Get teaching assignments
-        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherId(teacherId);
+        List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherIdAndSchoolId(teacherId, currentSchoolResolver.resolve().getId());
         
         // Get current timetable slots
-        List<TimetableSlot> slots = timetableSlotRepository.findByTeacherId(teacherId);
+        List<TimetableSlot> slots = timetableSlotRepository.findByTeacherIdAndPeriodSchoolId(teacherId, currentSchoolResolver.resolve().getId());
         
         // Calculate workload metrics
         return calculateTeacherWorkload(teacher, assignments, slots);
@@ -100,7 +102,7 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
     public List<TeacherWorkloadAnalysis> analyzeAllTeacherWorkloads() {
         log.debug("Analyzing workloads for all teachers");
         
-        List<Teacher> teachers = teacherRepository.findAll();
+        List<Teacher> teachers = teacherRepository.findBySchoolId(currentSchoolResolver.resolve().getId());
         return teachers.stream()
                 .map(teacher -> analyzeTeacherWorkload(teacher.getId()))
                 .collect(Collectors.toList());
@@ -143,10 +145,9 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
     public TimetableConflictReport detectConflicts(Long timetableId) {
         log.debug("Detecting conflicts for timetable: {}", timetableId);
         
-        Timetable timetable = timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new IllegalArgumentException("Timetable not found: " + timetableId));
+        Timetable timetable = timetableService.requireSchoolTimetable(timetableId);
         
-        List<TimetableSlot> slots = timetableSlotRepository.findByTimetableId(timetableId);
+        List<TimetableSlot> slots = timetableSlotRepository.findByTimetableIdAndPeriodSchoolId(timetableId, currentSchoolResolver.resolve().getId());
         
         return analyzeConflicts(timetable, slots);
     }
@@ -198,8 +199,7 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
         log.info("Predicting optimal schedule for timetable: {}", request.getTimetableId());
         
         // Use machine learning prediction (simplified implementation)
-        Timetable timetable = timetableRepository.findById(request.getTimetableId())
-                .orElseThrow(() -> new IllegalArgumentException("Timetable not found"));
+        Timetable timetable = timetableService.requireSchoolTimetable(request.getTimetableId());
         
         return performEnhancedOptimization(timetable, request);
     }
@@ -208,9 +208,10 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
     public boolean validateScheduleChange(Long timetableId, Long slotId, Long newTeacherId, Long newRoomId) {
         log.debug("Validating schedule change for slot: {}", slotId);
         
-        TimetableSlot slot = timetableSlotRepository.findById(slotId)
-                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
+        TimetableSlot slot = requireSchoolSlot(timetableId, slotId);
         
+        if (newTeacherId != null) requireSchoolTeacher(newTeacherId);
+        if (newRoomId != null) requireSchoolRoom(newRoomId);
         // Check for conflicts with the proposed change
         return !hasConflicts(slot, newTeacherId, newRoomId);
     }
@@ -224,18 +225,15 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
         }
         
         // Apply the change
-        TimetableSlot slot = timetableSlotRepository.findById(slotId)
-                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
+        TimetableSlot slot = requireSchoolSlot(timetableId, slotId);
         
         if (newTeacherId != null) {
-            Teacher newTeacher = teacherRepository.findById(newTeacherId)
-                    .orElseThrow(() -> new IllegalArgumentException("Teacher not found: " + newTeacherId));
+            Teacher newTeacher = requireSchoolTeacher(newTeacherId);
             slot.setTeacher(newTeacher);
         }
         
         if (newRoomId != null) {
-            Room newRoom = roomRepository.findById(newRoomId)
-                    .orElseThrow(() -> new IllegalArgumentException("Room not found: " + newRoomId));
+            Room newRoom = requireSchoolRoom(newRoomId);
             slot.setRoom(newRoom);
         }
         
@@ -253,6 +251,26 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
     
     // ===== HELPER METHODS =====
     
+    private Teacher requireSchoolTeacher(Long id) {
+        return teacherRepository.findByIdAndSchoolId(id, currentSchoolResolver.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+    }
+
+    private Room requireSchoolRoom(Long id) {
+        return roomRepository.findByIdAndSchoolId(id, currentSchoolResolver.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+    }
+
+    private TimetableSlot requireSchoolSlot(Long timetableId, Long slotId) {
+        timetableService.requireSchoolTimetable(timetableId);
+        TimetableSlot slot = timetableSlotRepository.findByIdAndPeriodSchoolId(slotId, currentSchoolResolver.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
+        if (slot.getTimetable() == null || !Objects.equals(slot.getTimetable().getId(), timetableId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Slot does not belong to this timetable");
+        }
+        return slot;
+    }
+
     private void validateOptimizationRequest(TimetableOptimizationRequest request) {
         if (request.getTimetableId() == null) {
             throw new IllegalArgumentException("Timetable ID is required");

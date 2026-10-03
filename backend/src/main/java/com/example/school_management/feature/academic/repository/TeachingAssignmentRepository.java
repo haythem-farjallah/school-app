@@ -22,6 +22,10 @@ public interface TeachingAssignmentRepository
        LEFT JOIN c.courses    cc
        LEFT JOIN TeachingAssignment ta
                 ON ta.clazz.id = c.id
+                   AND ta.course.school.id = c.academicYear.school.id
+                   AND EXISTS (SELECT m.id FROM SchoolMembership m JOIN m.roles role
+                       WHERE m.user.id = ta.teacher.id AND m.school.id = c.academicYear.school.id
+                         AND role = com.example.school_management.feature.membership.entity.MembershipRole.TEACHER)
        WHERE  c.id IN :ids
        GROUP BY c.id
     """)
@@ -35,6 +39,10 @@ public interface TeachingAssignmentRepository
           JOIN FETCH ta.course c
           JOIN FETCH ta.teacher t
          WHERE ta.clazz.id = :classId
+           AND c.school.id = ta.clazz.academicYear.school.id
+           AND EXISTS (SELECT m.id FROM SchoolMembership m JOIN m.roles role
+               WHERE m.user.id = t.id AND m.school.id = ta.clazz.academicYear.school.id
+                 AND role = com.example.school_management.feature.membership.entity.MembershipRole.TEACHER)
          ORDER BY c.name
     """)
     List<TeachingAssignment> findAllByClassId(@Param("classId") Long classId);
@@ -53,13 +61,16 @@ public interface TeachingAssignmentRepository
     """)
     List<TeachingAssignment> findByTeacherId(@Param("teacherId") Long teacherId);
     
-    // Attendance consumes only assignments whose Class and Course both belong to its current School.
+    // Grade and Attendance consumers share the canonical Class/Course and Teacher membership boundary.
     @Query("""
         SELECT ta FROM TeachingAssignment ta
         JOIN FETCH ta.clazz c
         JOIN FETCH ta.course co
         WHERE ta.teacher.id = :teacherId
           AND c.academicYear.school.id = :schoolId AND co.school.id = :schoolId
+          AND EXISTS (SELECT m.id FROM SchoolMembership m JOIN m.roles role
+              WHERE m.user.id = ta.teacher.id AND m.school.id = :schoolId
+                AND role = com.example.school_management.feature.membership.entity.MembershipRole.TEACHER)
         ORDER BY c.name, co.name
     """)
     List<TeachingAssignment> findByTeacherIdAndSchoolId(@Param("teacherId") Long teacherId, @Param("schoolId") Long schoolId);

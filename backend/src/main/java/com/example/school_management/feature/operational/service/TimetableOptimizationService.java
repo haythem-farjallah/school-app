@@ -13,7 +13,9 @@ import com.example.school_management.feature.operational.entity.TimetableSlot;
 import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
 import com.example.school_management.feature.operational.repository.PeriodRepository;
 import com.example.school_management.feature.operational.repository.RoomRepository;
-import com.example.school_management.feature.operational.repository.TimetableRepository;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import com.example.school_management.feature.operational.repository.TimetableSlotRepository;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
@@ -38,7 +40,8 @@ import java.util.concurrent.ExecutionException;
 public class TimetableOptimizationService {
 
     private final SolverManager<TimetableSolution, UUID> solverManager;
-    private final TimetableRepository timetableRepository;
+    private final TimetableService timetableService;
+    private final CurrentSchoolResolver currentSchoolResolver;
     private final TimetableSlotRepository timetableSlotRepository;
     private final ClassRepository classRepository;
     private final CourseRepository courseRepository;
@@ -50,8 +53,7 @@ public class TimetableOptimizationService {
     public TimetableSolution optimizeTimetable(Long timetableId) {
         log.info("Starting timetable optimization for timetable ID: {}", timetableId);
         
-        Timetable timetable = timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found"));
+        Timetable timetable = timetableService.requireSchoolTimetable(timetableId);
 
         // Create the problem
         TimetableSolution problem = createProblem(timetable);
@@ -75,13 +77,15 @@ public class TimetableOptimizationService {
     }
 
     private TimetableSolution createProblem(Timetable timetable) {
-        // Get all available resources
+        Long schoolId = currentSchoolResolver.resolve().getId();
         List<DayOfWeek> days = List.of(DayOfWeek.values());
-        List<Period> periods = periodRepository.findAll();
-        List<Room> rooms = roomRepository.findAll();
-        List<Teacher> teachers = teacherRepository.findAll();
-        List<ClassEntity> classes = classRepository.findAll();
-        List<Course> courses = courseRepository.findAll();
+        List<Period> periods = periodRepository.findBySchoolIdOrderByIndex(schoolId);
+        List<Room> rooms = roomRepository.findBySchoolId(schoolId);
+        List<Teacher> teachers = teacherRepository.findBySchoolId(schoolId);
+        List<ClassEntity> classes = classRepository.findByAcademicYearSchoolId(schoolId);
+        List<Course> courses = courseRepository.findBySchoolId(schoolId);
+        classes.forEach(clazz -> validateClassContext(clazz, schoolId));
+        courses.forEach(course -> validateCourseContext(course, schoolId));
 
         // Create lessons based on teaching assignments
         List<TimetableLesson> lessons = createLessons(timetable);
@@ -92,10 +96,14 @@ public class TimetableOptimizationService {
     private List<TimetableLesson> createLessons(Timetable timetable) {
         List<TimetableLesson> lessons = new ArrayList<>();
         long lessonId = 1;
+        Long schoolId = currentSchoolResolver.resolve().getId();
 
         // Create lessons for each class-course combination
         for (ClassEntity classEntity : timetable.getClasses()) {
             for (Course course : classEntity.getCourses()) {
+                if (!schoolId.equals(course.getSchool().getId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has an incompatible course");
+                }
                 // Find the teacher for this course
                 Teacher teacher = course.getTeacher();
                 if (teacher == null) {
@@ -103,6 +111,8 @@ public class TimetableOptimizationService {
                     continue;
                 }
 
+                teacherRepository.findByIdAndSchoolId(teacher.getId(), schoolId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Course has an incompatible teacher"));
                 // Create lessons based on weekly hours (assuming 1 hour per lesson)
                 Integer weeklyHours = course.getWeeklyCapacity() != null ? course.getWeeklyCapacity() : 3;
                 for (int i = 0; i < weeklyHours; i++) {
@@ -118,35 +128,59 @@ public class TimetableOptimizationService {
 
     @Transactional
     public void saveOptimizedSolution(Timetable timetable, TimetableSolution solution) {
-        // Clear existing slots
-        timetableSlotRepository.deleteByTimetableId(timetable.getId());
+        Timetable ownedTimetable = timetableService.requireSchoolTimetable(timetable.getId());
+        Long schoolId = currentSchoolResolver.resolve().getId();
 
-        // Create new slots from optimized solution
+        // Validate every optimized reference before replacing existing slots.
         List<TimetableSlot> slots = new ArrayList<>();
         
         for (TimetableLesson lesson : solution.getLessons()) {
             if (lesson.isAssigned()) {
                 TimetableSlot slot = new TimetableSlot();
-                slot.setTimetable(timetable);
+                slot.setTimetable(ownedTimetable);
                 slot.setDayOfWeek(lesson.getDay());
-                slot.setPeriod(lesson.getPeriod());
-                slot.setRoom(lesson.getRoom());
-                slot.setTeacher(lesson.getTeacher());
-                slot.setForClass(lesson.getClassEntity());
-                slot.setForCourse(lesson.getCourse());
+                slot.setPeriod(periodRepository.findByIdAndSchoolId(lesson.getPeriod().getId(), schoolId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Period not found")));
+                slot.setRoom(roomRepository.findByIdAndSchoolId(lesson.getRoom().getId(), schoolId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Room not found")));
+                slot.setTeacher(teacherRepository.findByIdAndSchoolId(lesson.getTeacher().getId(), schoolId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Teacher not found")));
+                slot.setForClass(classRepository.findByIdAndAcademicYearSchoolId(lesson.getClassEntity().getId(), schoolId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Class not found")));
+                slot.setForCourse(courseRepository.findByIdAndSchoolId(lesson.getCourse().getId(), schoolId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found")));
+                validateClassContext(slot.getForClass(), schoolId);
+                validateCourseContext(slot.getForCourse(), schoolId);
                 slot.setDescription(lesson.getSubject());
                 
                 slots.add(slot);
             }
         }
 
+        timetableSlotRepository.deleteByTimetableId(timetable.getId());
         timetableSlotRepository.saveAll(slots);
         log.info("Saved {} optimized timetable slots", slots.size());
     }
 
+    private void validateClassContext(ClassEntity clazz, Long schoolId) {
+        if (clazz.getAssignedRoom() != null && !schoolId.equals(clazz.getAssignedRoom().getSchool().getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has an incompatible room");
+        }
+        clazz.getCourses().forEach(course -> validateCourseContext(course, schoolId));
+    }
+
+    private void validateCourseContext(Course course, Long schoolId) {
+        if (!schoolId.equals(course.getSchool().getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has an incompatible course");
+        }
+        if (course.getTeacher() != null && teacherRepository.findByIdAndSchoolId(course.getTeacher().getId(), schoolId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Course has an incompatible teacher");
+        }
+    }
+
+    @Transactional(readOnly = true)
     public TimetableSolution getCurrentSolution(Long timetableId) {
-        Timetable timetable = timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found"));
+        Timetable timetable = timetableService.requireSchoolTimetable(timetableId);
 
         return createProblem(timetable);
     }

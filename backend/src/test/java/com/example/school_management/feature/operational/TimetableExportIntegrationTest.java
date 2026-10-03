@@ -49,11 +49,13 @@ class TimetableExportIntegrationTest {
 
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
+    @Autowired com.example.school_management.feature.school.service.CurrentSchoolResolver currentSchool;
     private Timetable timetable;
 
     @BeforeEach
     void createTimetable() {
         Timetable t = new Timetable();
+        t.setSchool(currentSchool.resolve());
         t.setName("Export test timetable");
         t.setAcademicYear("2025-2026");
         t.setSemester("Fall");

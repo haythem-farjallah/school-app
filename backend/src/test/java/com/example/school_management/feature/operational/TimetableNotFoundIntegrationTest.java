@@ -69,7 +69,7 @@ class TimetableNotFoundIntegrationTest {
     void optimizingAMissingTimetableIs404() throws Exception {
         String uri = "/api/v1/timetables/" + MISSING_ID + "/optimize";
         expectNotFound(mockMvc.perform(post(uri).header(HttpHeaders.AUTHORIZATION, adminBearer())),
-                "Timetable not found", uri);
+                "Timetable not found with id: " + MISSING_ID, uri);
     }
 
     @ParameterizedTest
@@ -80,14 +80,14 @@ class TimetableNotFoundIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, adminBearer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("format", format)))),
-                "Timetable not found: " + MISSING_ID, uri);
+                "Timetable not found with id: " + MISSING_ID, uri);
     }
 
     @Test
     void previewingTheExportOfAMissingTimetableIs404() throws Exception {
         String uri = "/api/v1/timetables/" + MISSING_ID + "/export/preview";
         expectNotFound(mockMvc.perform(get(uri).param("format", "PDF").header(HttpHeaders.AUTHORIZATION, adminBearer())),
-                "Timetable not found: " + MISSING_ID, uri);
+                "Timetable not found with id: " + MISSING_ID, uri);
     }
 
     @Test

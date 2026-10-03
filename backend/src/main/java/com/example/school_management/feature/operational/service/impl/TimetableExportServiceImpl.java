@@ -5,7 +5,12 @@ import com.example.school_management.feature.operational.dto.TimetableExportRequ
 import com.example.school_management.feature.operational.service.TimetableExportService;
 import com.example.school_management.feature.operational.entity.Timetable;
 import com.example.school_management.feature.operational.entity.TimetableSlot;
-import com.example.school_management.feature.operational.repository.TimetableRepository;
+import com.example.school_management.feature.operational.service.TimetableService;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.feature.academic.repository.ClassRepository;
+import com.example.school_management.feature.academic.repository.CourseRepository;
+import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.operational.repository.RoomRepository;
 import com.example.school_management.feature.operational.repository.TimetableSlotRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +36,12 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     /** Same rule as the @Pattern on TimetableExportRequest.format. */
     private static final Set<String> SUPPORTED_FORMATS = Set.of("PDF", "EXCEL", "CSV");
 
-    private final TimetableRepository timetableRepository;
+    private final TimetableService timetableService;
+    private final CurrentSchoolResolver currentSchoolResolver;
+    private final ClassRepository classRepository;
+    private final CourseRepository courseRepository;
+    private final TeacherRepository teacherRepository;
+    private final RoomRepository roomRepository;
     private final TimetableSlotRepository timetableSlotRepository;
     
     @Override
@@ -57,10 +67,9 @@ public class TimetableExportServiceImpl implements TimetableExportService {
             throw unsupportedFormat();
         }
 
-        Timetable timetable = timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found: " + timetableId));
+        Timetable timetable = getTimetable(timetableId);
         
-        List<TimetableSlot> slots = timetableSlotRepository.findByTimetableId(timetableId);
+        List<TimetableSlot> slots = timetableSlotRepository.findByTimetableIdAndPeriodSchoolId(timetableId, currentSchoolResolver.resolve().getId());
         
         Map<String, Object> preview = new HashMap<>();
         preview.put("timetableName", timetable.getName());
@@ -116,9 +125,9 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     public byte[] exportTimetablePdf(Long timetableId, TimetableExportRequest request) {
         log.debug("Exporting timetable {} as PDF", timetableId);
         Timetable timetable = getTimetable(timetableId);
+        List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
 
         try {
-            List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
             
             // For now, return a simple PDF content as bytes
             // In a real implementation, you would use a PDF library like iText or Apache PDFBox
@@ -135,9 +144,9 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     public byte[] exportTimetableExcel(Long timetableId, TimetableExportRequest request) {
         log.debug("Exporting timetable {} as Excel", timetableId);
         Timetable timetable = getTimetable(timetableId);
+        List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
 
         try {
-            List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
             
             // For now, return a simple Excel-like CSV content
             // In a real implementation, you would use Apache POI
@@ -154,9 +163,9 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     public byte[] exportTimetableCsv(Long timetableId, TimetableExportRequest request) {
         log.debug("Exporting timetable {} as CSV", timetableId);
         Timetable timetable = getTimetable(timetableId);
+        List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
 
         try {
-            List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
             
             return generateCsvContent(timetable, slots, request).getBytes(request.getEncoding());
             
@@ -173,18 +182,38 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     }
     
     private Timetable getTimetable(Long timetableId) {
-        return timetableRepository.findById(timetableId)
-                .orElseThrow(() -> new ResourceNotFoundException("Timetable not found: " + timetableId));
+        return timetableService.requireSchoolTimetable(timetableId);
     }
     
     private List<TimetableSlot> getFilteredSlots(Long timetableId, TimetableExportRequest request) {
-        List<TimetableSlot> slots = timetableSlotRepository.findByTimetableId(timetableId);
+        validateFilterResources(request);
+        List<TimetableSlot> slots = timetableSlotRepository.findByTimetableIdAndPeriodSchoolId(timetableId, currentSchoolResolver.resolve().getId());
         
         return slots.stream()
                 .filter(slot -> applyFilters(slot, request))
                 .collect(Collectors.toList());
     }
     
+    private void validateFilterResources(TimetableExportRequest request) {
+        Long schoolId = currentSchoolResolver.resolve().getId();
+        for (Long id : request.getClassIds() == null ? List.<Long>of() : request.getClassIds()) {
+            classRepository.findByIdAndAcademicYearSchoolId(id, schoolId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+        }
+        for (Long id : request.getCourseIds() == null ? List.<Long>of() : request.getCourseIds()) {
+            courseRepository.findByIdAndSchoolId(id, schoolId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+        }
+        for (Long id : request.getTeacherIds() == null ? List.<Long>of() : request.getTeacherIds()) {
+            teacherRepository.findByIdAndSchoolId(id, schoolId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+        }
+        for (Long id : request.getRoomIds() == null ? List.<Long>of() : request.getRoomIds()) {
+            roomRepository.findByIdAndSchoolId(id, schoolId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+        }
+    }
+
     private boolean applyFilters(TimetableSlot slot, TimetableExportRequest request) {
         // Apply teacher filter
         if (request.getTeacherIds() != null && !request.getTeacherIds().isEmpty()) {
