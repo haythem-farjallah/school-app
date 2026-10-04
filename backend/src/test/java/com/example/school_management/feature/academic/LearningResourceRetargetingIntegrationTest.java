@@ -1,14 +1,13 @@
 package com.example.school_management.feature.academic;
 
-import com.example.school_management.IntegrationTest;
 import com.example.school_management.AcademicYearTestFixtures;
-import com.example.school_management.feature.academic.repository.AcademicYearRepository;
-import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.IntegrationTest;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.entity.LearningResource;
 import com.example.school_management.feature.academic.entity.enums.ResourceType;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
 import com.example.school_management.feature.academic.repository.LearningResourceRepository;
@@ -16,8 +15,12 @@ import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +79,12 @@ class LearningResourceRetargetingIntegrationTest {
     @Autowired
     TransactionTemplate transaction;
 
+    @Autowired
+    SchoolMembershipProvisioningService membershipProvisioner;
+
+    @Autowired
+    SchoolMembershipRepository memberships;
+
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     private Teacher teacherA;
@@ -94,6 +103,7 @@ class LearningResourceRetargetingIntegrationTest {
         t.setPassword("not-used-for-login");
         t.setStatus(Status.ACTIVE);
         teacherA = teacherRepository.save(t);
+        membershipProvisioner.provisionFor(teacherA);
 
         resourceOfTeacherA = resourceRepository.save(resource(teacherA));
         resourceOfFixtureTeacher = resourceRepository.save(
@@ -118,6 +128,7 @@ class LearningResourceRetargetingIntegrationTest {
         classRepository.deleteById(schoolClass.getId());
         academicYears.deleteById(schoolClass.getAcademicYear().getId());
         courseRepository.deleteById(course.getId());
+        memberships.deleteAll(memberships.findAllByUserId(teacherA.getId()));
         teacherRepository.deleteById(teacherA.getId());
     }
 
@@ -176,8 +187,9 @@ class LearningResourceRetargetingIntegrationTest {
                 .getTargetCourses().stream().map(Course::getId).toList());
     }
 
-    private static LearningResource resource(Teacher creator) {
+    private LearningResource resource(Teacher creator) {
         LearningResource r = new LearningResource();
+        r.setSchool(currentSchool.resolve());
         r.setTitle("Retargeting test resource");
         r.setUrl("https://example.test/resource.pdf");
         r.setType(ResourceType.DOCUMENT);

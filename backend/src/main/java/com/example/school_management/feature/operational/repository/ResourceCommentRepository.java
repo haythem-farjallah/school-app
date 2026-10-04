@@ -10,24 +10,28 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ResourceCommentRepository extends JpaRepository<ResourceComment, Long>, JpaSpecificationExecutor<ResourceComment> {
 
-    // publicOnly = true limits each listing below to comments on public learning resources.
+    Optional<ResourceComment> findByIdAndOnResourceSchoolId(Long id, Long schoolId);
 
-    @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.id = :resourceId AND (:publicOnly = false OR rc.onResource.isPublic = true) ORDER BY rc.createdAt DESC")
-    Page<ResourceComment> findByResourceId(@Param("resourceId") Long resourceId, @Param("publicOnly") boolean publicOnly, Pageable pageable);
+    // The School and visibility predicates apply before pagination and counting.
+    @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.school.id = :schoolId AND rc.onResource.id = :resourceId AND (:publicOnly = false OR rc.onResource.isPublic = true) ORDER BY rc.createdAt DESC")
+    Page<ResourceComment> findByResourceIdAndSchoolId(@Param("resourceId") Long resourceId, @Param("schoolId") Long schoolId,
+                                                   @Param("publicOnly") boolean publicOnly, Pageable pageable);
 
-    @Query("SELECT rc FROM ResourceComment rc WHERE rc.commentedBy.id = :userId AND (:publicOnly = false OR rc.onResource.isPublic = true) ORDER BY rc.createdAt DESC")
-    Page<ResourceComment> findByCommentedByUserId(@Param("userId") Long userId, @Param("publicOnly") boolean publicOnly, Pageable pageable);
+    @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.school.id = :schoolId AND rc.commentedBy.id = :userId AND (:publicOnly = false OR rc.onResource.isPublic = true) ORDER BY rc.createdAt DESC")
+    Page<ResourceComment> findByCommentedByUserIdAndSchoolId(@Param("userId") Long userId, @Param("schoolId") Long schoolId,
+                                                          @Param("publicOnly") boolean publicOnly, Pageable pageable);
 
-    @Query("SELECT rc FROM ResourceComment rc WHERE :publicOnly = false OR rc.onResource.isPublic = true")
-    Page<ResourceComment> findAllVisible(@Param("publicOnly") boolean publicOnly, Pageable pageable);
+    @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.school.id = :schoolId AND (:publicOnly = false OR rc.onResource.isPublic = true)")
+    Page<ResourceComment> findAllVisibleBySchoolId(@Param("schoolId") Long schoolId, @Param("publicOnly") boolean publicOnly, Pageable pageable);
 
-    @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.id = :resourceId ORDER BY rc.createdAt ASC")
-    List<ResourceComment> findAllByResourceIdOrderByCreatedAtAsc(@Param("resourceId") Long resourceId);
+    @Query("SELECT rc FROM ResourceComment rc WHERE rc.onResource.school.id = :schoolId AND rc.onResource.id = :resourceId ORDER BY rc.createdAt ASC")
+    List<ResourceComment> findAllByResourceIdAndSchoolIdOrderByCreatedAtAsc(@Param("resourceId") Long resourceId, @Param("schoolId") Long schoolId);
 
-    @Query("SELECT COUNT(rc) FROM ResourceComment rc WHERE rc.onResource.id = :resourceId")
-    Long countByResourceId(@Param("resourceId") Long resourceId);
-} 
+    @Query("SELECT COUNT(rc) FROM ResourceComment rc WHERE rc.onResource.school.id = :schoolId AND rc.onResource.id = :resourceId")
+    Long countByResourceIdAndSchoolId(@Param("resourceId") Long resourceId, @Param("schoolId") Long schoolId);
+}

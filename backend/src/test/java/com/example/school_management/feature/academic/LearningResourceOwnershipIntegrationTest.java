@@ -5,8 +5,10 @@ import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.LearningResource;
 import com.example.school_management.feature.academic.entity.enums.ResourceType;
 import com.example.school_management.feature.academic.repository.LearningResourceRepository;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +46,9 @@ class LearningResourceOwnershipIntegrationTest {
     @Autowired
     LearningResourceRepository resourceRepository;
 
+    @Autowired
+    CurrentSchoolResolver currentSchool;
+
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     private LearningResource resource;
@@ -51,6 +56,7 @@ class LearningResourceOwnershipIntegrationTest {
     @BeforeEach
     void createResourceWithoutCreator() {
         LearningResource r = new LearningResource();
+        r.setSchool(currentSchool.resolve());
         r.setTitle("Ownership test resource");
         r.setUrl("https://example.test/resource.pdf");
         r.setType(ResourceType.DOCUMENT);

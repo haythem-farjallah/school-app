@@ -11,6 +11,7 @@ import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.operational.entity.ResourceComment;
 import com.example.school_management.feature.operational.repository.ResourceCommentRepository;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -44,9 +44,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * they neither add, read nor list comments on a private one, and never learn its title from a
  * comment. Teachers and administrators see both. The fixture teacher created both resources and
  * wrote one comment on each.
- *
- * <p>resource_comments.on_resource_id still references the legacy resources table, so each
- * learning resource gets a legacy row with the same id; otherwise no comment could be stored.
  */
 @IntegrationTest
 class ResourceCommentVisibilityIntegrationTest {
@@ -73,7 +70,7 @@ class ResourceCommentVisibilityIntegrationTest {
     UserRepository userRepository;
 
     @Autowired
-    JdbcTemplate jdbc;
+    CurrentSchoolResolver currentSchool;
 
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
@@ -90,9 +87,6 @@ class ResourceCommentVisibilityIntegrationTest {
         privateTitle = "Private " + UUID.randomUUID();
         publicResource = resourceRepository.save(resource("Public " + UUID.randomUUID(), true));
         privateResource = resourceRepository.save(resource(privateTitle, false));
-        for (LearningResource r : List.of(publicResource, privateResource)) {
-            jdbc.update("INSERT INTO resources (id) VALUES (?)", r.getId());
-        }
         publicComment = comment(publicResource, teacher);
         privateComment = comment(privateResource, teacher);
     }
@@ -100,8 +94,6 @@ class ResourceCommentVisibilityIntegrationTest {
     @AfterEach
     void deleteResources() {
         List<Long> resourceIds = List.of(publicResource.getId(), privateResource.getId());
-        jdbc.update("DELETE FROM resource_comments WHERE on_resource_id IN (?, ?)", resourceIds.toArray());
-        jdbc.update("DELETE FROM resources WHERE id IN (?, ?)", resourceIds.toArray());
         resourceRepository.deleteAllById(resourceIds);
     }
 
@@ -209,6 +201,7 @@ class ResourceCommentVisibilityIntegrationTest {
 
     private LearningResource resource(String title, boolean isPublic) {
         LearningResource r = new LearningResource();
+        r.setSchool(currentSchool.resolve());
         r.setTitle(title);
         r.setUrl("https://example.org/" + UUID.randomUUID());
         r.setType(ResourceType.LINK);

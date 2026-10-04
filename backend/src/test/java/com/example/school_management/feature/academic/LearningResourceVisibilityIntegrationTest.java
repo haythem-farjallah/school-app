@@ -1,15 +1,14 @@
 package com.example.school_management.feature.academic;
 
-import com.example.school_management.IntegrationTest;
 import com.example.school_management.AcademicYearTestFixtures;
-import com.example.school_management.feature.academic.repository.AcademicYearRepository;
-import com.example.school_management.feature.school.service.CurrentSchoolResolver;
+import com.example.school_management.IntegrationTest;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.entity.LearningResource;
 import com.example.school_management.feature.academic.entity.enums.ResourceType;
+import com.example.school_management.feature.academic.repository.AcademicYearRepository;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.repository.CourseRepository;
 import com.example.school_management.feature.academic.repository.LearningResourceRepository;
@@ -18,8 +17,12 @@ import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -102,6 +105,12 @@ class LearningResourceVisibilityIntegrationTest {
     @Value("${app.file.upload.path:uploads/learning-resources}")
     String uploadPath;
 
+    @Autowired
+    SchoolMembershipProvisioningService membershipProvisioner;
+
+    @Autowired
+    SchoolMembershipRepository memberships;
+
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     private final List<Path> files = new ArrayList<>();
@@ -128,6 +137,7 @@ class LearningResourceVisibilityIntegrationTest {
         t.setStatus(Status.ACTIVE);
         t.setIsEmailVerified(true);
         otherTeacher = teacherRepository.save(t);
+        membershipProvisioner.provisionFor(otherTeacher);
 
         ClassEntity c = new ClassEntity();
         c.setAcademicYear(AcademicYearTestFixtures.create(academicYears, currentSchool));
@@ -156,6 +166,7 @@ class LearningResourceVisibilityIntegrationTest {
         classRepository.deleteById(schoolClass.getId());
         academicYears.deleteById(schoolClass.getAcademicYear().getId());
         courseRepository.deleteById(course.getId());
+        memberships.deleteAll(memberships.findAllByUserId(otherTeacher.getId()));
         teacherRepository.deleteById(otherTeacher.getId());
         for (Path file : files) {
             Files.deleteIfExists(file);
@@ -182,9 +193,9 @@ class LearningResourceVisibilityIntegrationTest {
         String student = bearer(DevFixtureLoader.STUDENT_EMAIL);
         String teacher = bearer(DevFixtureLoader.TEACHER_EMAIL);
 
-        // The type filter is left out: it fails for every caller on the PostgreSQL enum comparison.
         for (Map<String, String> filter : List.of(
                 Map.<String, String>of(),
+                Map.of("type", "DOCUMENT"),
                 Map.of("teacherId", String.valueOf(creator.getId())),
                 Map.of("classId", String.valueOf(schoolClass.getId())),
                 Map.of("courseId", String.valueOf(course.getId())),
@@ -286,6 +297,7 @@ class LearningResourceVisibilityIntegrationTest {
 
     private LearningResource resource(String filename, boolean isPublic) {
         LearningResource r = new LearningResource();
+        r.setSchool(currentSchool.resolve());
         r.setTitle(title);
         r.setUrl(FILES + filename);
         r.setType(ResourceType.DOCUMENT);

@@ -3,7 +3,10 @@ package com.example.school_management.feature.academic.entity;
 import com.example.school_management.feature.academic.entity.enums.ResourceType;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.operational.entity.ResourceComment;
+import com.example.school_management.feature.school.entity.School;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.hibernate.annotations.ColumnTransformer;
@@ -25,6 +28,12 @@ public class LearningResource {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "school_id", nullable = false, updatable = false)
+    @JsonIgnore
+    private School school;
 
     @EqualsAndHashCode.Include
     private String url;
@@ -123,4 +132,4 @@ public class LearningResource {
         this.targetCourses.remove(course);
         course.getLearningResources().remove(this);
     }
-} 
+}

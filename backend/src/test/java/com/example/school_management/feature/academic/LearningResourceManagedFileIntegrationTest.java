@@ -9,18 +9,28 @@ import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.entity.MembershipStatus;
+import com.example.school_management.feature.membership.entity.SchoolMembership;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
+import com.example.school_management.feature.school.entity.School;
+import com.example.school_management.feature.school.repository.SchoolRepository;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -33,10 +43,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -80,13 +92,26 @@ class LearningResourceManagedFileIntegrationTest {
     @Autowired
     JdbcTemplate jdbc;
 
+    @MockitoSpyBean
+    CurrentSchoolResolver currentSchool;
+
+    @Autowired
+    SchoolRepository schools;
+
     @Value("${app.file.upload.path:uploads/learning-resources}")
     String uploadPath;
+
+    @Autowired
+    SchoolMembershipProvisioningService membershipProvisioner;
+
+    @Autowired
+    SchoolMembershipRepository memberships;
 
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     private final List<Long> createdResources = new ArrayList<>();
     private final List<Path> files = new ArrayList<>();
+    private final List<School> createdSchools = new ArrayList<>();
     private Teacher teacherB;
     private String teacherA;
     private String teacherBBearer;
@@ -95,6 +120,8 @@ class LearningResourceManagedFileIntegrationTest {
 
     @BeforeEach
     void uploadVictimFile() throws Exception {
+        School uploadSchool = currentSchool.resolve();
+        doReturn(uploadSchool).when(currentSchool).resolve();
         Teacher t = new Teacher();
         t.setRole(UserRole.TEACHER);
         t.setEmail("teacher-b-" + UUID.randomUUID() + "@fixtures.school.test");
@@ -104,6 +131,7 @@ class LearningResourceManagedFileIntegrationTest {
         t.setStatus(Status.ACTIVE);
         t.setIsEmailVerified(true);
         teacherB = teacherRepository.save(t);
+        membershipProvisioner.provisionFor(teacherB);
 
         teacherA = bearer(DevFixtureLoader.TEACHER_EMAIL);
         teacherBBearer = bearer(teacherB.getEmail());
@@ -116,8 +144,13 @@ class LearningResourceManagedFileIntegrationTest {
         for (Long id : createdResources) {
             resourceRepository.findById(id).ifPresent(resourceRepository::delete);
         }
+        for (School school : createdSchools) {
+            memberships.deleteAll(memberships.findAllBySchoolId(school.getId()));
+            schools.deleteById(school.getId());
+        }
         // Uploads record audit events acted by the uploader.
         jdbc.update("DELETE FROM audit_events WHERE acted_by_id = ?", teacherB.getId());
+        memberships.deleteAll(memberships.findAllByUserId(teacherB.getId()));
         teacherRepository.deleteById(teacherB.getId());
         for (Path file : files) {
             Files.deleteIfExists(file);
@@ -272,6 +305,94 @@ class LearningResourceManagedFileIntegrationTest {
         assertThat(ownFile).doesNotExist();
     }
 
+    @Test
+    void anotherSchoolCannotReadAFileOrIncrementItsCounters() throws Exception {
+        School other = otherSchoolWithTeacherMembership();
+        doReturn(other).when(currentSchool).resolve();
+        String name = victimFile.getFileName().toString();
+        for (String route : List.of("files", "preview", "stream")) {
+            mockMvc.perform(get(RESOURCES + "/{route}/{name}", route, name).with(nextAddress())
+                            .header(HttpHeaders.AUTHORIZATION, teacherA))
+                    .andExpect(status().isNotFound());
+        }
+        LearningResource unchanged = resourceRepository.findById(victim.path("id").asLong()).orElseThrow();
+        assertThat(unchanged.getViewCount()).isZero();
+        assertThat(unchanged.getDownloadCount()).isZero();
+        assertThat(victimFile).exists();
+    }
+
+    @Test
+    void sharedFilenameCountersChangeOnlyInTheCurrentSchool() throws Exception {
+        School other = otherSchoolWithTeacherMembership();
+        LearningResource foreign = storedResource(victim.path("url").asText());
+        foreign.setSchool(other);
+        foreign = resourceRepository.save(foreign);
+        createdResources.add(foreign.getId());
+        String name = victimFile.getFileName().toString();
+        for (String route : List.of("files", "preview")) {
+            mockMvc.perform(get(RESOURCES + "/{route}/{name}", route, name).with(nextAddress())
+                            .header(HttpHeaders.AUTHORIZATION, teacherA))
+                    .andExpect(status().isOk()).andExpect(content().bytes(PDF));
+        }
+        LearningResource own = resourceRepository.findById(victim.path("id").asLong()).orElseThrow();
+        LearningResource untouched = resourceRepository.findById(foreign.getId()).orElseThrow();
+        assertThat(own.getViewCount()).isEqualTo(1L);
+        assertThat(own.getDownloadCount()).isEqualTo(1L);
+        assertThat(untouched.getViewCount()).isZero();
+        assertThat(untouched.getDownloadCount()).isZero();
+    }
+
+    @Test
+    void sameSchoolCanStreamVideoWithExistingDefensiveHeaders() throws Exception {
+        String name = UUID.randomUUID() + ".mp4";
+        Path video = Paths.get(uploadPath).resolve(name);
+        byte[] bytes = "stored video bytes".getBytes(StandardCharsets.US_ASCII);
+        Files.write(video, bytes);
+        files.add(video);
+        LearningResource resource = storedResource(FILES + name);
+        resource.setType(ResourceType.VIDEO);
+        createdResources.add(resourceRepository.save(resource).getId());
+        mockMvc.perform(get(RESOURCES + "/stream/{name}", name).with(nextAddress())
+                        .header(HttpHeaders.AUTHORIZATION, teacherA))
+                .andExpect(status().isOk()).andExpect(content().contentType("video/mp4"))
+                .andExpect(content().bytes(bytes)).andExpect(header().string("Accept-Ranges", "bytes"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Content-Security-Policy", FILE_CSP));
+    }
+
+    @Test
+    void deletingAResourceKeepsThePhysicalFileReferencedByAnotherSchool() throws Exception {
+        School other = otherSchoolWithTeacherMembership();
+        LearningResource foreign = storedResource(victim.path("url").asText());
+        foreign.setSchool(other);
+        foreign = resourceRepository.save(foreign);
+        createdResources.add(foreign.getId());
+        mockMvc.perform(delete(RESOURCES + "/{id}", victim.path("id").asLong()).with(nextAddress())
+                        .header(HttpHeaders.AUTHORIZATION, teacherBBearer))
+                .andExpect(status().isOk());
+        assertThat(resourceRepository.existsById(victim.path("id").asLong())).isFalse();
+        assertThat(resourceRepository.existsById(foreign.getId())).isTrue();
+        assertThat(Files.readAllBytes(victimFile)).isEqualTo(PDF);
+        doReturn(other).when(currentSchool).resolve();
+        mockMvc.perform(get(RESOURCES + "/files/{name}", victimFile.getFileName().toString()).with(nextAddress())
+                        .header(HttpHeaders.AUTHORIZATION, teacherA))
+                .andExpect(status().isOk()).andExpect(content().bytes(PDF));
+    }
+
+    private School otherSchoolWithTeacherMembership() {
+        School other = new School();
+        other.setName("Managed file school B " + UUID.randomUUID());
+        other = schools.saveAndFlush(other);
+        createdSchools.add(other);
+        SchoolMembership membership = new SchoolMembership();
+        membership.setSchool(other);
+        membership.setUser(teacherRepository.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow());
+        membership.setRoles(Set.of(MembershipRole.TEACHER));
+        membership.setStatus(MembershipStatus.ACTIVE);
+        memberships.saveAndFlush(membership);
+        return other;
+    }
+
     private void expectVictimIntact() throws Exception {
         LearningResource stored = resourceRepository.findById(victim.path("id").asLong()).orElseThrow();
         assertThat(stored.getUrl()).isEqualTo(victim.path("url").asText());
@@ -321,6 +442,7 @@ class LearningResourceManagedFileIntegrationTest {
 
     private LearningResource storedResource(String url) {
         LearningResource r = new LearningResource();
+        r.setSchool(currentSchool.resolve());
         r.setTitle("Stored " + UUID.randomUUID());
         r.setUrl(url);
         r.setType(ResourceType.DOCUMENT);

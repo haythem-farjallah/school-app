@@ -32,7 +32,7 @@ public class ResourceCommentController {
     @PostMapping
     public ResponseEntity<ApiSuccessResponse<ResourceCommentDto>> create(
             @Valid @RequestBody CreateResourceCommentRequest request) {
-        log.debug("POST /resource-comments {}", request);
+        log.debug("POST /resource-comments for resource {}", request.getResourceId());
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.create(request)));
     }
 
@@ -81,4 +81,4 @@ public class ResourceCommentController {
         var dto = new PageDto<>(service.list(PageRequest.of(page, size)));
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
-} 
+}

@@ -18,6 +18,9 @@ import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.operational.entity.enums.AuditEventType;
 import com.example.school_management.commons.security.FileSecurityService;
@@ -27,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -65,6 +67,8 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
     private final FileSecurityService fileSecurityService;
+    private final CurrentSchoolResolver currentSchool;
+    private final SchoolMembershipRepository memberships;
 
     @Value("${app.file.upload.path:uploads/learning-resources}")
     private String uploadPath;
@@ -82,28 +86,8 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         resource.setDuration(request.getDuration());
         resource.setPublic(request.getIsPublic());
         
-        // Set current teacher as creator
-        Teacher currentTeacher = getCurrentTeacher();
-        resource.addTeacher(currentTeacher);
-        
-        // Set target classes if provided
-        if (request.getClassIds() != null) {
-            request.getClassIds().forEach(classId -> {
-                ClassEntity classEntity = classRepository.findById(classId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-                resource.addTargetClass(classEntity);
-            });
-        }
-        
-        // Set target courses if provided
-        if (request.getCourseIds() != null) {
-            request.getCourseIds().forEach(courseId -> {
-                Course course = courseRepository.findById(courseId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-                resource.addTargetCourse(course);
-            });
-        }
-        
+        assignOwnershipAndTargets(resource, request);
+
         LearningResource saved = repository.save(resource);
         
         // Create audit event
@@ -145,6 +129,24 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         String fileExtension = StringUtils.getFilenameExtension(sanitizedFilename);
         String uniqueFilename = UUID.randomUUID().toString() + "." + fileExtension;
         
+        // Resource type already determined during validation
+        // File hash available for audit: validationResult.getFileHash()
+        
+        // Create resource with file URL
+        String fileUrl = FILE_URL_PREFIX + uniqueFilename;
+        
+        // Create resource directly with file URL
+        LearningResource resource = new LearningResource();
+        resource.setTitle(request.getTitle());
+        resource.setDescription(request.getDescription());
+        resource.setUrl(fileUrl);
+        resource.setType(resourceType);
+        resource.setThumbnailUrl(request.getThumbnailUrl());
+        resource.setDuration(request.getDuration());
+        resource.setPublic(isPublic != null ? isPublic : true); // Use provided visibility or default to true
+        
+        assignOwnershipAndTargets(resource, request);
+
         // Create upload directory if it doesn't exist
         Path uploadDir = Paths.get(uploadPath);
         try {
@@ -163,44 +165,6 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         } catch (IOException e) {
             log.error("Failed to save uploaded file", e);
             throw new RuntimeException("Failed to save uploaded file", e);
-        }
-        
-        // Resource type already determined during validation
-        // File hash available for audit: validationResult.getFileHash()
-        
-        // Create resource with file URL
-        String fileUrl = FILE_URL_PREFIX + uniqueFilename;
-        
-        // Create resource directly with file URL
-        LearningResource resource = new LearningResource();
-        resource.setTitle(request.getTitle());
-        resource.setDescription(request.getDescription());
-        resource.setUrl(fileUrl);
-        resource.setType(resourceType);
-        resource.setThumbnailUrl(request.getThumbnailUrl());
-        resource.setDuration(request.getDuration());
-        resource.setPublic(isPublic != null ? isPublic : true); // Use provided visibility or default to true
-        
-        // Set current teacher as creator
-        Teacher currentTeacher = getCurrentTeacher();
-        resource.addTeacher(currentTeacher);
-        
-        // Set target classes if provided
-        if (request.getClassIds() != null) {
-            request.getClassIds().forEach(classId -> {
-                ClassEntity classEntity = classRepository.findById(classId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-                resource.addTargetClass(classEntity);
-            });
-        }
-        
-        // Set target courses if provided
-        if (request.getCourseIds() != null) {
-            request.getCourseIds().forEach(courseId -> {
-                Course course = courseRepository.findById(courseId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-                resource.addTargetCourse(course);
-            });
         }
         
         LearningResource saved = repository.save(resource);
@@ -231,8 +195,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public LearningResourceDto update(Long id, UpdateLearningResourceRequest request) {
         log.debug("Updating learning resource {}", id);
         
-        LearningResource resource = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + id));
+        LearningResource resource = requireSchoolResource(id);
         
         requireCreatorOrAdmin(resource, "You can only update resources you created");
         // Resending the resource's own URL is not a change; any other managed URL is refused.
@@ -240,6 +203,12 @@ public class LearningResourceServiceImpl implements LearningResourceService {
             requireNotManagedFileUrl(request.getUrl());
         }
         
+        Long schoolId = resource.getSchool().getId();
+        List<ClassEntity> classes = request.getClassIds() == null ? null : request.getClassIds().stream()
+                .map(classId -> requireSchoolClass(classId, schoolId)).toList();
+        List<Course> courses = request.getCourseIds() == null ? null : request.getCourseIds().stream()
+                .map(courseId -> requireSchoolCourse(courseId, schoolId)).toList();
+
         if (request.getTitle() != null) resource.setTitle(request.getTitle());
         if (request.getDescription() != null) resource.setDescription(request.getDescription());
         if (request.getUrl() != null) resource.setUrl(request.getUrl());
@@ -248,30 +217,15 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         if (request.getDuration() != null) resource.setDuration(request.getDuration());
         if (request.getIsPublic() != null) resource.setPublic(request.getIsPublic());
         
-        // Update class assignments if provided
-        if (request.getClassIds() != null) {
-            // Clear existing classes
+        if (classes != null) {
             resource.getTargetClasses().clear();
-            // Add new classes
-            request.getClassIds().forEach(classId -> {
-                ClassEntity classEntity = classRepository.findById(classId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-                resource.addTargetClass(classEntity);
-            });
+            classes.forEach(resource::addTargetClass);
         }
-        
-        // Update course assignments if provided
-        if (request.getCourseIds() != null) {
-            // Clear existing courses
+        if (courses != null) {
             resource.getTargetCourses().clear();
-            // Add new courses
-            request.getCourseIds().forEach(courseId -> {
-                Course course = courseRepository.findById(courseId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-                resource.addTargetCourse(course);
-            });
+            courses.forEach(resource::addTargetCourse);
         }
-        
+
         LearningResource updated = repository.save(resource);
         return mapper.toDto(updated);
     }
@@ -280,15 +234,14 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public void delete(Long id) {
         log.debug("Deleting learning resource {}", id);
         
-        LearningResource resource = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + id));
+        LearningResource resource = requireSchoolResource(id);
         
         requireCreatorOrAdmin(resource, "You can only delete resources you created");
         
-        // Delete the uploaded file, unless another resource still refers to it (rows stored before
-        // managed URLs were reserved to the upload pipeline may share one).
+        // The global reference count protects storage integrity, including references in other
+        // Schools. It is not an authorization/read operation and exposes no foreign details.
         if (resource.getUrl() != null && resource.getUrl().startsWith(FILE_URL_PREFIX)
-                && repository.findByUrl(resource.getUrl()).size() == 1) {
+                && repository.countByUrl(resource.getUrl()) == 1) {
             String filename = resource.getUrl().substring(resource.getUrl().lastIndexOf('/') + 1);
             deleteFile(filename);
         }
@@ -300,8 +253,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public LearningResourceDto get(Long id) {
         log.debug("Getting learning resource {}", id);
         
-        LearningResource resource = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + id));
+        LearningResource resource = requireSchoolResource(id);
         if (!resource.isPublic() && !seesPrivateResources()) {
             throw new AccessDeniedException("This learning resource is not available to you");
         }
@@ -318,67 +270,64 @@ public class LearningResourceServiceImpl implements LearningResourceService {
             throw new ResourceNotFoundException("Learning resource file not found");
         }
         // A file is served only through a resource that references it, under that resource's visibility.
-        List<LearningResource> resources = repository.findByUrl(FILE_URL_PREFIX + filename);
-        if (resources.isEmpty()) {
-            throw new ResourceNotFoundException("Learning resource file not found");
-        }
-        if (resources.stream().noneMatch(LearningResource::isPublic) && !seesPrivateResources()) {
-            throw new AccessDeniedException("This learning resource is not available to you");
-        }
+        readableSchoolFileResources(filename);
         return file;
     }
 
     @Override
     public Page<LearningResourceDto> list(Pageable pageable) {
         log.debug("Listing learning resources with pageable: {}", pageable);
-        return repository.findAllSorted(!seesPrivateResources(), pageable).map(mapper::toDto);
+        return repository.findAllSortedBySchoolId(currentSchool.resolve().getId(), !seesPrivateResources(), pageable).map(mapper::toDto);
     }
 
     @Override
     public Page<LearningResourceDto> findByType(ResourceType type, Pageable pageable) {
         log.debug("Finding learning resources by type: {}", type);
-        return repository.findByType(type, !seesPrivateResources(), pageable).map(mapper::toDto);
+        return repository.findByTypeAndSchoolId(type.name(), currentSchool.resolve().getId(), !seesPrivateResources(), pageable).map(mapper::toDto);
     }
 
     @Override
     public Page<LearningResourceDto> findByTeacherId(Long teacherId, Pageable pageable) {
         log.debug("Finding learning resources by teacher ID: {}", teacherId);
-        return repository.findByTeacherId(teacherId, !seesPrivateResources(), pageable).map(mapper::toDto);
+        Long schoolId = currentSchool.resolve().getId();
+        requireSchoolTeacher(teacherId, schoolId);
+        return repository.findByTeacherIdAndSchoolId(teacherId, schoolId, !seesPrivateResources(), pageable).map(mapper::toDto);
     }
 
     @Override
     public Page<LearningResourceDto> findByClassId(Long classId, Pageable pageable) {
         log.debug("Finding learning resources by class ID: {}", classId);
-        return repository.findByClassId(classId, !seesPrivateResources(), pageable).map(mapper::toDto);
+        Long schoolId = currentSchool.resolve().getId();
+        requireSchoolClass(classId, schoolId);
+        return repository.findByClassIdAndSchoolId(classId, schoolId, !seesPrivateResources(), pageable).map(mapper::toDto);
     }
 
     @Override
     public Page<LearningResourceDto> findByCourseId(Long courseId, Pageable pageable) {
         log.debug("Finding learning resources by course ID: {}", courseId);
-        return repository.findByCourseId(courseId, !seesPrivateResources(), pageable).map(mapper::toDto);
+        Long schoolId = currentSchool.resolve().getId();
+        requireSchoolCourse(courseId, schoolId);
+        return repository.findByCourseIdAndSchoolId(courseId, schoolId, !seesPrivateResources(), pageable).map(mapper::toDto);
     }
 
     @Override
     public Page<LearningResourceDto> searchByTitleOrDescription(String title, String description, Pageable pageable) {
         log.debug("Searching learning resources by search term: {}", title);
         // Use the title parameter as the search term (description parameter is ignored now)
-        return repository.searchByTitleOrDescription(title, !seesPrivateResources(), pageable).map(mapper::toDto);
+        return repository.searchByTitleOrDescriptionAndSchoolId(title, currentSchool.resolve().getId(), !seesPrivateResources(), pageable).map(mapper::toDto);
     }
 
     @Override
     public void addTargetClasses(Long resourceId, Set<Long> classIds) {
         log.debug("Adding target classes {} to resource {}", classIds, resourceId);
         
-        LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        LearningResource resource = requireSchoolResource(resourceId);
         requireCreatorOrAdmin(resource, TARGETS_DENIED);
         
-        classIds.forEach(classId -> {
-            ClassEntity classEntity = classRepository.findById(classId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-            resource.addTargetClass(classEntity);
-        });
-        
+        List<ClassEntity> targets = classIds.stream()
+                .map(id -> requireSchoolClass(id, resource.getSchool().getId())).toList();
+        targets.forEach(resource::addTargetClass);
+
         repository.save(resource);
     }
 
@@ -386,16 +335,13 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public void removeTargetClasses(Long resourceId, Set<Long> classIds) {
         log.debug("Removing target classes {} from resource {}", classIds, resourceId);
         
-        LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        LearningResource resource = requireSchoolResource(resourceId);
         requireCreatorOrAdmin(resource, TARGETS_DENIED);
         
-        classIds.forEach(classId -> {
-            ClassEntity classEntity = classRepository.findById(classId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-            resource.removeTargetClass(classEntity);
-        });
-        
+        List<ClassEntity> targets = classIds.stream()
+                .map(id -> requireSchoolClass(id, resource.getSchool().getId())).toList();
+        targets.forEach(resource::removeTargetClass);
+
         repository.save(resource);
     }
 
@@ -403,16 +349,13 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public void addTargetCourses(Long resourceId, Set<Long> courseIds) {
         log.debug("Adding target courses {} to resource {}", courseIds, resourceId);
         
-        LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        LearningResource resource = requireSchoolResource(resourceId);
         requireCreatorOrAdmin(resource, TARGETS_DENIED);
         
-        courseIds.forEach(courseId -> {
-            Course course = courseRepository.findById(courseId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-            resource.addTargetCourse(course);
-        });
-        
+        List<Course> targets = courseIds.stream()
+                .map(id -> requireSchoolCourse(id, resource.getSchool().getId())).toList();
+        targets.forEach(resource::addTargetCourse);
+
         repository.save(resource);
     }
 
@@ -420,16 +363,13 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public void removeTargetCourses(Long resourceId, Set<Long> courseIds) {
         log.debug("Removing target courses {} from resource {}", courseIds, resourceId);
         
-        LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        LearningResource resource = requireSchoolResource(resourceId);
         requireCreatorOrAdmin(resource, TARGETS_DENIED);
         
-        courseIds.forEach(courseId -> {
-            Course course = courseRepository.findById(courseId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-            resource.removeTargetCourse(course);
-        });
-        
+        List<Course> targets = courseIds.stream()
+                .map(id -> requireSchoolCourse(id, resource.getSchool().getId())).toList();
+        targets.forEach(resource::removeTargetCourse);
+
         repository.save(resource);
     }
 
@@ -437,15 +377,13 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public void addTeachers(Long resourceId, Set<Long> teacherIds) {
         log.debug("Adding teachers {} to resource {}", teacherIds, resourceId);
         
-        LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        LearningResource resource = requireSchoolResource(resourceId);
+        requireCurrentAdmin(resource.getSchool().getId());
         
-        teacherIds.forEach(teacherId -> {
-            Teacher teacher = teacherRepository.findById(teacherId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + teacherId));
-            resource.addTeacher(teacher);
-        });
-        
+        List<Teacher> targets = teacherIds.stream()
+                .map(id -> requireSchoolTeacher(id, resource.getSchool().getId())).toList();
+        targets.forEach(resource::addTeacher);
+
         repository.save(resource);
     }
 
@@ -453,15 +391,13 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public void removeTeachers(Long resourceId, Set<Long> teacherIds) {
         log.debug("Removing teachers {} from resource {}", teacherIds, resourceId);
         
-        LearningResource resource = repository.findById(resourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + resourceId));
+        LearningResource resource = requireSchoolResource(resourceId);
+        requireCurrentAdmin(resource.getSchool().getId());
         
-        teacherIds.forEach(teacherId -> {
-            Teacher teacher = teacherRepository.findById(teacherId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + teacherId));
-            resource.removeTeacher(teacher);
-        });
-        
+        List<Teacher> targets = teacherIds.stream()
+                .map(id -> requireSchoolTeacher(id, resource.getSchool().getId())).toList();
+        targets.forEach(resource::removeTeacher);
+
         repository.save(resource);
     }
 
@@ -477,36 +413,98 @@ public class LearningResourceServiceImpl implements LearningResourceService {
         }
     }
 
-    /** A resource may be changed by an administrator or by a teacher who created it. */
-    private void requireCreatorOrAdmin(LearningResource resource, String deniedMessage) {
-        BaseUser currentUser = getCurrentUser();
-        if (currentUser.getRole() == UserRole.ADMIN) {
-            return;
-        }
-        boolean creator = resource.getCreatedBy().stream()
-                .anyMatch(teacher -> teacher.getId().equals(currentUser.getId()));
-        if (!creator) {
-            throw new AccessDeniedException(deniedMessage);
+    private LearningResource requireSchoolResource(Long id) {
+        return repository.findByIdAndSchoolId(id, currentSchool.resolve().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Learning resource not found with id: " + id));
+    }
+
+    private ClassEntity requireSchoolClass(Long id, Long schoolId) {
+        return classRepository.findByIdAndAcademicYearSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + id));
+    }
+
+    private Course requireSchoolCourse(Long id, Long schoolId) {
+        return courseRepository.findByIdAndSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+    }
+
+    private Teacher requireSchoolTeacher(Long id, Long schoolId) {
+        return teacherRepository.findByIdAndSchoolId(id, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + id));
+    }
+
+    private boolean hasMembershipRole(BaseUser user, Long schoolId, MembershipRole role) {
+        return memberships.findByUserIdAndSchoolId(user.getId(), schoolId)
+                .map(membership -> membership.getRoles().contains(role)).orElse(false);
+    }
+
+    private void requireCurrentAdmin(Long schoolId) {
+        BaseUser user = getCurrentUser();
+        if (user.getRole() != UserRole.ADMIN || !hasMembershipRole(user, schoolId, MembershipRole.ADMIN)) {
+            throw new AccessDeniedException("Current-School ADMIN membership is required");
         }
     }
 
+    private void assignOwnershipAndTargets(LearningResource resource, CreateLearningResourceRequest request) {
+        resource.setSchool(currentSchool.resolve());
+        Long schoolId = resource.getSchool().getId();
+        BaseUser user = getCurrentUser(); // Email resolves account identity, never School authorization.
+        Teacher creator = null;
+        if (user.getRole() == UserRole.ADMIN) {
+            requireCurrentAdmin(schoolId);
+            // Admin identity is retained by audit; the Teacher creator set remains empty.
+        } else {
+            if (user.getRole() != UserRole.TEACHER || !hasMembershipRole(user, schoolId, MembershipRole.TEACHER)) {
+                throw new AccessDeniedException("Current-School TEACHER membership is required");
+            }
+            creator = requireSchoolTeacher(user.getId(), schoolId);
+        }
+        List<ClassEntity> classes = request.getClassIds() == null ? List.of() : request.getClassIds().stream()
+                .map(id -> requireSchoolClass(id, schoolId)).toList();
+        List<Course> courses = request.getCourseIds() == null ? List.of() : request.getCourseIds().stream()
+                .map(id -> requireSchoolCourse(id, schoolId)).toList();
+
+        // Validate the complete request before changing either side of any association.
+        if (creator != null) resource.addTeacher(creator);
+        classes.forEach(resource::addTargetClass);
+        courses.forEach(resource::addTargetCourse);
+    }
+
+    /** Called only after resource School ownership has been established. */
+    private void requireCreatorOrAdmin(LearningResource resource, String deniedMessage) {
+        BaseUser user = getCurrentUser();
+        Long schoolId = resource.getSchool().getId();
+        if (user.getRole() == UserRole.ADMIN && hasMembershipRole(user, schoolId, MembershipRole.ADMIN)) {
+            return;
+        }
+        boolean creator = user.getRole() == UserRole.TEACHER
+                && teacherRepository.findByIdAndSchoolId(user.getId(), schoolId).isPresent()
+                && resource.getCreatedBy().stream().anyMatch(teacher -> teacher.getId().equals(user.getId()));
+        if (!creator) throw new AccessDeniedException(deniedMessage);
+    }
+
     /**
-     * Teachers and administrators see every resource. Anyone else sees public resources only,
-     * until class and course targeting is backed by canonical enrollment.
+     * Public means visible within the current School. Teacher/Admin private visibility also
+     * requires the corresponding School membership. Class/Course targets remain metadata;
+     * Student enrollment-target authorization is deferred to a separate product decision.
      */
     @Override
     @Transactional(readOnly = true)
     public boolean seesPrivateResources() {
-        UserRole role = getCurrentUser().getRole();
-        return role == UserRole.TEACHER || role == UserRole.ADMIN;
+        BaseUser user = getCurrentUser();
+        Long schoolId = currentSchool.resolve().getId();
+        return (user.getRole() == UserRole.TEACHER && hasMembershipRole(user, schoolId, MembershipRole.TEACHER))
+                || (user.getRole() == UserRole.ADMIN && hasMembershipRole(user, schoolId, MembershipRole.ADMIN));
     }
 
-    private Teacher getCurrentTeacher() {
-        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String email = userDetails.getUsername(); // Username is actually the email
-        
-        return teacherRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Current user is not a teacher"));
+    private List<LearningResource> readableSchoolFileResources(String filename) {
+        List<LearningResource> resources = repository.findByUrlAndSchoolId(FILE_URL_PREFIX + filename,
+                currentSchool.resolve().getId());
+        if (resources.isEmpty()) throw new ResourceNotFoundException("Learning resource file not found");
+        if (resources.stream().noneMatch(LearningResource::isPublic) && !seesPrivateResources()) {
+            throw new AccessDeniedException("This learning resource is not available to you");
+        }
+        return resources;
     }
 
     private BaseUser getCurrentUser() {
@@ -573,7 +571,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     @Transactional
     public void incrementViewCount(String filename) {
         // Exact match: an unrelated URL that merely contains the file name is not the file's resource.
-        for (LearningResource resource : repository.findByUrl(FILE_URL_PREFIX + filename)) {
+        for (LearningResource resource : readableSchoolFileResources(filename)) {
             resource.setViewCount(resource.getViewCount() + 1);
         }
     }
@@ -581,7 +579,7 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     @Override
     @Transactional
     public void incrementDownloadCount(String filename) {
-        for (LearningResource resource : repository.findByUrl(FILE_URL_PREFIX + filename)) {
+        for (LearningResource resource : readableSchoolFileResources(filename)) {
             resource.setDownloadCount(resource.getDownloadCount() + 1);
         }
     }
