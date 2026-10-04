@@ -253,8 +253,9 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     public LearningResourceDto get(Long id) {
         log.debug("Getting learning resource {}", id);
         
+        boolean seesPrivate = seesPrivateResources();
         LearningResource resource = requireSchoolResource(id);
-        if (!resource.isPublic() && !seesPrivateResources()) {
+        if (!resource.isPublic() && !seesPrivate) {
             throw new AccessDeniedException("This learning resource is not available to you");
         }
         
@@ -289,25 +290,28 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     @Override
     public Page<LearningResourceDto> findByTeacherId(Long teacherId, Pageable pageable) {
         log.debug("Finding learning resources by teacher ID: {}", teacherId);
+        boolean publicOnly = !seesPrivateResources();
         Long schoolId = currentSchool.resolve().getId();
         requireSchoolTeacher(teacherId, schoolId);
-        return repository.findByTeacherIdAndSchoolId(teacherId, schoolId, !seesPrivateResources(), pageable).map(mapper::toDto);
+        return repository.findByTeacherIdAndSchoolId(teacherId, schoolId, publicOnly, pageable).map(mapper::toDto);
     }
 
     @Override
     public Page<LearningResourceDto> findByClassId(Long classId, Pageable pageable) {
         log.debug("Finding learning resources by class ID: {}", classId);
+        boolean publicOnly = !seesPrivateResources();
         Long schoolId = currentSchool.resolve().getId();
         requireSchoolClass(classId, schoolId);
-        return repository.findByClassIdAndSchoolId(classId, schoolId, !seesPrivateResources(), pageable).map(mapper::toDto);
+        return repository.findByClassIdAndSchoolId(classId, schoolId, publicOnly, pageable).map(mapper::toDto);
     }
 
     @Override
     public Page<LearningResourceDto> findByCourseId(Long courseId, Pageable pageable) {
         log.debug("Finding learning resources by course ID: {}", courseId);
+        boolean publicOnly = !seesPrivateResources();
         Long schoolId = currentSchool.resolve().getId();
         requireSchoolCourse(courseId, schoolId);
-        return repository.findByCourseIdAndSchoolId(courseId, schoolId, !seesPrivateResources(), pageable).map(mapper::toDto);
+        return repository.findByCourseIdAndSchoolId(courseId, schoolId, publicOnly, pageable).map(mapper::toDto);
     }
 
     @Override
@@ -484,24 +488,37 @@ public class LearningResourceServiceImpl implements LearningResourceService {
     }
 
     /**
-     * Public means visible within the current School. Teacher/Admin private visibility also
-     * requires the corresponding School membership. Class/Course targets remain metadata;
+     * Public means visible to the current School audience. Every caller requires School
+     * membership matching their account role. Class/Course targets remain metadata;
      * Student enrollment-target authorization is deferred to a separate product decision.
      */
     @Override
     @Transactional(readOnly = true)
     public boolean seesPrivateResources() {
+        BaseUser user = requireCurrentSchoolAudience();
+        return user.getRole() == UserRole.TEACHER || user.getRole() == UserRole.ADMIN;
+    }
+
+    private BaseUser requireCurrentSchoolAudience() {
         BaseUser user = getCurrentUser();
-        Long schoolId = currentSchool.resolve().getId();
-        return (user.getRole() == UserRole.TEACHER && hasMembershipRole(user, schoolId, MembershipRole.TEACHER))
-                || (user.getRole() == UserRole.ADMIN && hasMembershipRole(user, schoolId, MembershipRole.ADMIN));
+        MembershipRole role = switch (user.getRole()) {
+            case STUDENT -> MembershipRole.STUDENT;
+            case TEACHER -> MembershipRole.TEACHER;
+            case ADMIN -> MembershipRole.ADMIN;
+            default -> throw new AccessDeniedException("Current-School resource audience membership is required");
+        };
+        if (!hasMembershipRole(user, currentSchool.resolve().getId(), role)) {
+            throw new AccessDeniedException("Current-School resource audience membership is required");
+        }
+        return user;
     }
 
     private List<LearningResource> readableSchoolFileResources(String filename) {
+        boolean seesPrivate = seesPrivateResources();
         List<LearningResource> resources = repository.findByUrlAndSchoolId(FILE_URL_PREFIX + filename,
                 currentSchool.resolve().getId());
         if (resources.isEmpty()) throw new ResourceNotFoundException("Learning resource file not found");
-        if (resources.stream().noneMatch(LearningResource::isPublic) && !seesPrivateResources()) {
+        if (resources.stream().noneMatch(LearningResource::isPublic) && !seesPrivate) {
             throw new AccessDeniedException("This learning resource is not available to you");
         }
         return resources;

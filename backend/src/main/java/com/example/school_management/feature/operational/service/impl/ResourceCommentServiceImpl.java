@@ -43,12 +43,13 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
     public ResourceCommentDto create(CreateResourceCommentRequest request) {
         log.debug("Creating resource comment for resource {}", request.getResourceId());
         
+        boolean seesPrivate = learningResourceService.seesPrivateResources();
         // Get current user
         BaseUser currentUser = getCurrentUser();
         
         // Get learning resource
         LearningResource resource = requireSchoolResource(request.getResourceId(), currentSchoolResolver.resolve().getId());
-        requireVisible(resource);
+        requireVisible(resource, seesPrivate);
         
         // Create comment
         ResourceComment comment = new ResourceComment();
@@ -65,8 +66,9 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
     public ResourceCommentDto get(Long id) {
         log.debug("Fetching resource comment {}", id);
         
+        boolean seesPrivate = learningResourceService.seesPrivateResources();
         ResourceComment comment = requireSchoolComment(id, currentSchoolResolver.resolve().getId());
-        requireVisible(comment.getOnResource());
+        requireVisible(comment.getOnResource(), seesPrivate);
         
         return mapToDto(comment);
     }
@@ -74,7 +76,8 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
     @Override
     public void delete(Long id) {
         log.debug("Deleting resource comment {}", id);
-        
+
+        learningResourceService.seesPrivateResources();
         Long schoolId = currentSchoolResolver.resolve().getId();
         ResourceComment comment = requireSchoolComment(id, schoolId);
         
@@ -91,17 +94,19 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
     @Override
     @Transactional(readOnly = true)
     public Page<ResourceCommentDto> findByResourceId(Long resourceId, Pageable pageable) {
+        boolean publicOnly = publicOnly();
         Long schoolId = currentSchoolResolver.resolve().getId();
         requireSchoolResource(resourceId, schoolId);
-        return repository.findByResourceIdAndSchoolId(resourceId, schoolId, publicOnly(), pageable).map(this::mapToDto);
+        return repository.findByResourceIdAndSchoolId(resourceId, schoolId, publicOnly, pageable).map(this::mapToDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ResourceCommentDto> findByUserId(Long userId, Pageable pageable) {
+        boolean publicOnly = publicOnly();
         Long schoolId = currentSchoolResolver.resolve().getId();
         requireSchoolCommenter(userId, schoolId);
-        return repository.findByCommentedByUserIdAndSchoolId(userId, schoolId, publicOnly(), pageable).map(this::mapToDto);
+        return repository.findByCommentedByUserIdAndSchoolId(userId, schoolId, publicOnly, pageable).map(this::mapToDto);
     }
 
     @Override
@@ -114,8 +119,8 @@ public class ResourceCommentServiceImpl implements ResourceCommentService {
      * A comment is visible exactly when its learning resource is: callers who see public resources
      * only never read, list or add comments on a private one, nor learn its title from a comment.
      */
-    private void requireVisible(LearningResource resource) {
-        if (!resource.isPublic() && !learningResourceService.seesPrivateResources()) {
+    private void requireVisible(LearningResource resource, boolean seesPrivate) {
+        if (!resource.isPublic() && !seesPrivate) {
             throw new AccessDeniedException(NOT_AVAILABLE);
         }
     }

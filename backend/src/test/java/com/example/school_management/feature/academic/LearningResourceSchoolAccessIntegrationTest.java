@@ -378,21 +378,30 @@ class LearningResourceSchoolAccessIntegrationTest {
 
     @ParameterizedTest
     @CsvSource({"TEACHER,teacher@fixtures.school.test,absent", "TEACHER,teacher@fixtures.school.test,STUDENT",
-            "ADMIN,admin@fixtures.school.test,absent", "ADMIN,admin@fixtures.school.test,STUDENT"})
-    void accountRoleAloneDoesNotGrantPrivateResourceVisibility(String role, String email, String membershipState) throws Exception {
+            "ADMIN,admin@fixtures.school.test,absent", "ADMIN,admin@fixtures.school.test,STUDENT",
+            "STUDENT,student@fixtures.school.test,absent", "STUDENT,student@fixtures.school.test,GUARDIAN"})
+    void accountRoleAloneDoesNotGrantAnySchoolResourceVisibility(String role, String email, String membershipState) throws Exception {
         var account = users.findByEmail(email).orElseThrow();
         var membership = memberships.findByUserIdAndSchoolId(account.getId(), school.getId()).orElseThrow();
         if (membershipState.equals("absent")) memberships.delete(membership);
-        else membership.setRoles(Set.of(MembershipRole.STUDENT));
+        else membership.setRoles(Set.of(MembershipRole.valueOf(membershipState)));
         em.flush();
 
         mvc.perform(get(ROOT + "/{id}", privateResource.getId()).with(user(email).roles(role)))
                 .andExpect(status().isForbidden());
         mvc.perform(get(ROOT + "/{id}", publicResource.getId()).with(user(email).roles(role)))
-                .andExpect(status().isOk());
-        mvc.perform(get(ROOT).param("size", "1").with(user(email).roles(role)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1))
-                .andExpect(jsonPath("$.data.content[0].id").value(publicResource.getId()));
+                .andExpect(status().isForbidden());
+        for (var filter : List.of(Map.<String, String>of(), Map.of("type", "DOCUMENT"),
+                Map.of("teacherId", teacher.getId().toString()), Map.of("classId", ownClass.getId().toString()),
+                Map.of("courseId", ownCourse.getId().toString()), Map.of("search", "School lesson"),
+                Map.of("teacherId", foreignTeacher.getId().toString()), Map.of("classId", otherClass.getId().toString()),
+                Map.of("courseId", otherCourse.getId().toString()))) {
+            var request = get(ROOT).with(user(email).roles(role));
+            filter.forEach(request::param);
+            mvc.perform(request).andExpect(status().isForbidden());
+        }
+        mvc.perform(get(ROOT + "/{id}", foreignPublic.getId()).with(user(email).roles(role)))
+                .andExpect(status().isForbidden());
     }
 
     private Set<String> uploadedFiles() throws Exception {

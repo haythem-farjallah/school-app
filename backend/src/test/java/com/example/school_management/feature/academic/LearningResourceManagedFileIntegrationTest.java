@@ -9,6 +9,8 @@ import com.example.school_management.feature.auth.entity.Status;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
+import com.example.school_management.feature.auth.repository.UserRepository;
+import com.example.school_management.feature.academic.service.LearningResourceService;
 import com.example.school_management.feature.membership.entity.MembershipRole;
 import com.example.school_management.feature.membership.entity.MembershipStatus;
 import com.example.school_management.feature.membership.entity.SchoolMembership;
@@ -23,6 +25,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -48,6 +56,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doReturn;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -106,6 +115,9 @@ class LearningResourceManagedFileIntegrationTest {
 
     @Autowired
     SchoolMembershipRepository memberships;
+
+    @Autowired UserRepository users;
+    @Autowired LearningResourceService resourceService;
 
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
@@ -303,6 +315,54 @@ class LearningResourceManagedFileIntegrationTest {
         mockMvc.perform(delete(RESOURCES + "/{id}", own.path("id").asLong()).with(nextAddress()).header(HttpHeaders.AUTHORIZATION, teacherBBearer))
                 .andExpect(status().isOk());
         assertThat(ownFile).doesNotExist();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"STUDENT,student@fixtures.school.test,absent", "STUDENT,student@fixtures.school.test,GUARDIAN",
+            "TEACHER,teacher@fixtures.school.test,absent", "TEACHER,teacher@fixtures.school.test,STUDENT",
+            "ADMIN,admin@fixtures.school.test,absent", "ADMIN,admin@fixtures.school.test,STUDENT"})
+    void publicManagedFilesAndCountersRequireMatchingSchoolMembership(String role, String email,
+                                                                      String membershipState) throws Exception {
+        String callerBearer = bearer(email);
+        School school = new School();
+        school.setName("Managed file membership " + UUID.randomUUID());
+        school = schools.saveAndFlush(school);
+        createdSchools.add(school);
+        doReturn(school).when(currentSchool).resolve();
+        if (!membershipState.equals("absent")) {
+            SchoolMembership membership = new SchoolMembership();
+            membership.setSchool(school);
+            membership.setUser(users.findByEmail(email).orElseThrow());
+            membership.setRoles(Set.of(MembershipRole.valueOf(membershipState)));
+            membership.setStatus(MembershipStatus.ACTIVE);
+            memberships.saveAndFlush(membership);
+        }
+        String name = UUID.randomUUID() + ".mp4";
+        Path video = Paths.get(uploadPath).resolve(name);
+        Files.writeString(video, "stored public video");
+        files.add(video);
+        LearningResource resource = storedResource(FILES + name);
+        resource.setType(ResourceType.VIDEO);
+        long id = resourceRepository.saveAndFlush(resource).getId();
+        createdResources.add(id);
+
+        for (String route : List.of("files", "preview", "stream")) {
+            mockMvc.perform(get(RESOURCES + "/{route}/{name}", route, name).with(nextAddress())
+                            .header(HttpHeaders.AUTHORIZATION, callerBearer))
+                    .andExpect(status().isForbidden());
+        }
+        var principal = User.withUsername(email).password("unused").roles(role).build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        try {
+            assertThatThrownBy(() -> resourceService.incrementViewCount(name)).isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> resourceService.incrementDownloadCount(name)).isInstanceOf(AccessDeniedException.class);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+        LearningResource unchanged = resourceRepository.findById(id).orElseThrow();
+        assertThat(unchanged.getViewCount()).isZero();
+        assertThat(unchanged.getDownloadCount()).isZero();
     }
 
     @Test

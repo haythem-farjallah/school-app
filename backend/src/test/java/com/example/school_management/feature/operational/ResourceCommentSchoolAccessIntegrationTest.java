@@ -12,6 +12,7 @@ import com.example.school_management.feature.auth.repository.UserRepository;
 import com.example.school_management.feature.membership.entity.MembershipRole;
 import com.example.school_management.feature.membership.entity.MembershipStatus;
 import com.example.school_management.feature.membership.entity.SchoolMembership;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
 import com.example.school_management.feature.operational.entity.ResourceComment;
 import com.example.school_management.feature.school.entity.School;
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
@@ -20,6 +21,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -50,6 +53,7 @@ class ResourceCommentSchoolAccessIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired EntityManager em;
     @Autowired UserRepository users;
+    @Autowired SchoolMembershipRepository memberships;
     @MockitoSpyBean CurrentSchoolResolver currentSchool;
 
     private School school;
@@ -85,6 +89,32 @@ class ResourceCommentSchoolAccessIntegrationTest {
         privateComment = comment(privateResource, teacher);
         foreignComment = comment(foreignResource, teacher);
         em.flush();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"STUDENT,student@fixtures.school.test,absent", "STUDENT,student@fixtures.school.test,GUARDIAN",
+            "TEACHER,teacher@fixtures.school.test,absent", "TEACHER,teacher@fixtures.school.test,STUDENT",
+            "ADMIN,admin@fixtures.school.test,absent", "ADMIN,admin@fixtures.school.test,STUDENT"})
+    void callerNeedsMatchingCurrentSchoolMembershipForEveryCommentOperation(String role, String email,
+                                                                            String membershipState) throws Exception {
+        BaseUser caller = users.findByEmail(email).orElseThrow();
+        // Even the author must belong to the current School to delete their own comment.
+        publicComment.setCommentedBy(caller);
+        var membership = memberships.findByUserIdAndSchoolId(caller.getId(), school.getId()).orElseThrow();
+        if (membershipState.equals("absent")) memberships.delete(membership);
+        else membership.setRoles(Set.of(MembershipRole.valueOf(membershipState)));
+        em.flush();
+        long before = em.createQuery("select count(c) from ResourceComment c", Long.class).getSingleResult();
+
+        for (var request : List.of(post(BASE).content(body(publicResource)),
+                get(BASE + "/" + publicComment.getId()), get(BASE),
+                get(BASE + "/resource/" + publicResource.getId()), get(BASE + "/user/" + teacher.getId()),
+                delete(BASE + "/" + publicComment.getId()),
+                get(BASE + "/" + foreignComment.getId()), get(BASE + "/resource/" + foreignResource.getId()))) {
+            perform(request, role).andExpect(status().isForbidden());
+        }
+        assertThat(em.find(ResourceComment.class, publicComment.getId())).isNotNull();
+        assertThat(em.createQuery("select count(c) from ResourceComment c", Long.class).getSingleResult()).isEqualTo(before);
     }
 
     @Test

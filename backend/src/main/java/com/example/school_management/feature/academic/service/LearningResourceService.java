@@ -27,7 +27,8 @@ public interface LearningResourceService {
 
     /**
      * Whether the caller may see private resources and everything attached to them, such as
-     * comments. Otherwise only public resources are visible.
+     * comments. Requires current-School membership matching the caller's account role;
+     * valid Student members see only public resources.
      */
     boolean seesPrivateResources();
     
