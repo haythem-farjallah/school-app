@@ -166,7 +166,10 @@ class TeacherAttendanceSchoolAccessIntegrationTest {
         absent.put("status", "ABSENT");
         response(write(post(BASE), absent), 201);
         doReturn(school).when(currentSchool).resolve();
-        mvc.perform(as(write(post(BASE), request(teacher, DAY)), "ADMIN")).andExpect(status().isInternalServerError());
+        mvc.perform(as(write(post(BASE), request(teacher, DAY)), "ADMIN"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.type").exists()).andExpect(jsonPath("$.title").exists())
+                .andExpect(jsonPath("$.detail").exists()).andExpect(jsonPath("$.instance").value(BASE));
         assertThat(em.createQuery("select count(a) from TeacherAttendance a", Long.class).getSingleResult()).isEqualTo(2);
         JsonNode stats = response(get(BASE + "/statistics/{id}", teacher.getId()), 200);
         assertThat(stats.path("totalDays").asInt()).isEqualTo(1);

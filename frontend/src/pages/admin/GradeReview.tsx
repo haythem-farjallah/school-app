@@ -352,15 +352,15 @@ const StaffGradeReview = () => {
                           </td>
                           <td className="p-4">
                             <Badge variant="outline">
-                              #{review.classRank}
+                              {review.classRank == null ? "N/A" : `#${review.classRank}`}
                             </Badge>
                           </td>
                           <td className="p-4">
                             <Badge 
-                              variant={review.attendanceRate >= 80 ? "default" : "destructive"}
+                              variant={review.attendanceRate == null ? "outline" : review.attendanceRate >= 80 ? "default" : "destructive"}
                               className="text-xs"
                             >
-                              {review.attendanceRate.toFixed(1)}%
+                              {review.attendanceRate == null ? "N/A" : `${review.attendanceRate.toFixed(1)}%`}
                             </Badge>
                           </td>
                           <td className="p-4">
@@ -499,11 +499,11 @@ const StaffGradeReview = () => {
                         <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
                           <div>
                             <h4 className="font-medium">{student.studentFirstName} {student.studentLastName}</h4>
-                            <p className="text-sm text-gray-600">Class Rank: #{student.classRank}</p>
+                            <p className="text-sm text-gray-600">Class Rank: {student.classRank == null ? "N/A" : `#${student.classRank}`}</p>
                           </div>
                           <div className="text-right">
                             <div className="text-2xl font-bold">{student.overallAverage.toFixed(1)}%</div>
-                            <p className="text-sm text-gray-600">Attendance: {student.attendanceRate.toFixed(1)}%</p>
+                            <p className="text-sm text-gray-600">Attendance: {student.attendanceRate == null ? "N/A" : `${student.attendanceRate.toFixed(1)}%`}</p>
                           </div>
                         </div>
 

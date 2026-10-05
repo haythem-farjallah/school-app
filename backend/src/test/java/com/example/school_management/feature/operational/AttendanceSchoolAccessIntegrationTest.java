@@ -645,6 +645,37 @@ class AttendanceSchoolAccessIntegrationTest {
         return route.param("startDate", start.toString()).param("endDate", end.toString());
     }
 
+    @Test
+    void missingTeachingAssignmentContextIsNotFound() throws Exception {
+        mvc.perform(as(get(BASE + "/teacher/{teacher}/class/{clazz}/course/{course}",
+                        teacher.getId(), ownClass.getId(), ownCourse.getId()), "ADMIN"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.type").exists()).andExpect(jsonPath("$.title").exists())
+                .andExpect(jsonPath("$.detail").exists()).andExpect(jsonPath("$.instance").exists());
+    }
+
+    @Test
+    void classViewUsesOnlyStoredLastDateAndLeavesUndefinedMetricsNeutral() throws Exception {
+        assignment(teacher, ownClass, ownCourse);
+        em.flush();
+        for (int read = 0; read < 3; read++) {
+            JsonNode view = response(get(BASE + "/teacher/{teacher}/class/{clazz}/course/{course}",
+                    teacher.getId(), ownClass.getId(), ownCourse.getId()), 200).path("students").get(0);
+            assertThat(view.path("currentStatus").isNull()).isTrue();
+            assertThat(view.path("attendanceRate").isNull()).isTrue();
+            assertThat(view.path("lastAttendanceDate").isNull()).isTrue();
+        }
+        row(school, student, ownClass, ownCourse, ownSlot, MONDAY, AttendanceStatus.ABSENT);
+        row(foreignSchool, student, foreignClass, foreignCourse, foreignSlot, MONDAY.plusDays(5), AttendanceStatus.PRESENT);
+        row(school, student, ownClass, foreignCourse, null, MONDAY.plusDays(4), AttendanceStatus.PRESENT);
+        em.flush();
+        JsonNode stored = response(get(BASE + "/teacher/{teacher}/class/{clazz}/course/{course}",
+                teacher.getId(), ownClass.getId(), ownCourse.getId()), 200).path("students").get(0);
+        assertThat(stored.path("lastAttendanceDate").asText()).isEqualTo(MONDAY.toString());
+        assertThat(stored.path("currentStatus").isNull()).isTrue();
+        assertThat(stored.path("attendanceRate").isNull()).isTrue();
+    }
+
     private void assignment(Teacher teacher, ClassEntity clazz, Course course) {
         TeachingAssignment assignment = new TeachingAssignment();
         assignment.setTeacher(teacher);

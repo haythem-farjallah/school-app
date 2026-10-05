@@ -35,6 +35,12 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ProblemDetail> handleBadRequest(
+            BadRequestException ex, HttpServletRequest request) {
+        return problem(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     /* ================================================================
      *  1) Validation errors  -> 400
      * ================================================================ */

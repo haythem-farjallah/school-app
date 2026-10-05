@@ -93,13 +93,13 @@ export interface StudentGradeSheet {
   totalScore: number;
   totalMaxScore: number;
   weightedAverage: number;
-  classRank: number;
+  classRank: number | null;
   totalStudents: number;
-  attendanceRate: number;
-  totalAbsences: number;
+  attendanceRate: number | null;
+  totalAbsences: number | null;
   generatedAt: string;
   approvedBy?: {
-    staffId: number;
+    staffId: number | null;
     staffName: string;
     approvedAt: string;
   };
@@ -182,7 +182,7 @@ export interface TeacherGradeStudent {
     };
   };
   average: number;
-  attendanceRate: number;
+  attendanceRate: number | null;
 }
 
 // Staff Grade Review Types
@@ -195,8 +195,8 @@ export interface StaffGradeReview {
   semester: Semester;
   subjects: StaffSubjectReview[];
   overallAverage: number;
-  classRank: number;
-  attendanceRate: number;
+  classRank: number | null;
+  attendanceRate: number | null;
   isApproved: boolean;
   approvedAt?: string;
   approvedBy?: string;

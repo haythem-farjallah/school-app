@@ -403,6 +403,86 @@ class GradeSchoolAccessIntegrationTest {
         assertThat(enhancedGrades.count()).isEqualTo(enhancedCount);
     }
 
+    @Test
+    void repeatedGradeReadsHaveNeutralUndefinedMetricsAndApprovalIdentity() throws Exception {
+        EnhancedGrade approved = enhanced(student, ownClass, ownCourse, SEMESTER, 15.0);
+        approved.setIsApproved(true);
+        approved.setApprovedBy(DevFixtureLoader.ADMIN_EMAIL);
+        approved.setApprovedAt(LocalDateTime.now());
+        em.flush();
+        for (int read = 0; read < 3; read++) {
+            JsonNode sheet = response(get(BASE + "/student/{id}/sheet", student.getId()).param("semester", "FIRST"), 200);
+            for (String field : List.of("classRank", "attendanceRate", "totalAbsences")) {
+                assertThat(sheet.has(field)).isTrue();
+                assertThat(sheet.path(field).isNull()).isTrue();
+            }
+            assertThat(sheet.path("weightedAverage").asDouble()).isEqualTo(75.0);
+            assertThat(sheet.path("approvedBy").path("staffId").isNull()).isTrue();
+            assertThat(sheet.path("approvedBy").path("staffName").asText()).isEqualTo(DevFixtureLoader.ADMIN_EMAIL);
+            JsonNode review = response(get(BASE + "/staff/reviews").param("classId", ownClass.getId().toString())
+                    .param("semester", "FIRST"), 200).get(0);
+            assertThat(review.path("classRank").isNull()).isTrue();
+            assertThat(review.path("attendanceRate").isNull()).isTrue();
+            JsonNode view = response(get(BASE + "/teacher/{id}/class/{clazz}/course/{course}",
+                    teacher.getId(), ownClass.getId(), ownCourse.getId()), 200);
+            assertThat(view.path("students").get(0).path("attendanceRate").isNull()).isTrue();
+        }
+    }
+
+    @Test
+    void approvalUsesAnExistingCanonicalStaffIdAndUnknownApproverRemainsNeutral() throws Exception {
+        var approver = account(new com.example.school_management.feature.auth.entity.Staff(), UserRole.STAFF);
+        EnhancedGrade approved = enhanced(student, ownClass, ownCourse, SEMESTER, 15.0);
+        approved.setIsApproved(true);
+        approved.setApprovedAt(LocalDateTime.now());
+        approved.setApprovedBy(approver.getEmail());
+        em.flush();
+        JsonNode sheet = response(get(BASE + "/student/{id}/sheet", student.getId()).param("semester", "FIRST"), 200);
+        assertThat(sheet.path("approvedBy").path("staffId").asLong()).isEqualTo(approver.getId());
+        approved.setApprovedBy("historical-approver@example.test");
+        em.flush();
+        JsonNode historical = response(get(BASE + "/student/{id}/sheet", student.getId()).param("semester", "FIRST"), 200);
+        assertThat(historical.path("approvedBy").path("staffId").isNull()).isTrue();
+    }
+
+    @Test
+    @WithMockUser(username = DevFixtureLoader.ADMIN_EMAIL, roles = "ADMIN")
+    void quarantinedGradeServicesHaveExplicitHttpErrorsWithoutOpeningProductionWrites() throws Exception {
+        // A standalone controller has no method-security proxy. Production routes stay denyAll.
+        MockMvc serviceMvc = org.springframework.test.web.servlet.setup.MockMvcBuilders
+                .standaloneSetup(new com.example.school_management.feature.operational.controller.GradeController(gradeService))
+                .setControllerAdvice(new com.example.school_management.commons.exceptions.GlobalExceptionHandler()).build();
+        var context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(teacher.getEmail(), "unused", List.of()));
+        SecurityContextHolder.setContext(context);
+        serviceMvc.perform(post(BASE + "/bulk").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                        "classId", ownClass.getId(), "courseId", ownCourse.getId(), "assessmentType", "EXAM"))))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value(400));
+        for (List<Map<String, Object>> entries : List.of(
+                java.util.Collections.<Map<String, Object>>singletonList(null),
+                List.<Map<String, Object>>of(Map.of("studentId", student.getId())),
+                List.<Map<String, Object>>of(Map.of("studentId", student.getId(), "value", 21)),
+                List.<Map<String, Object>>of(Map.of("studentId", student.getId(), "value", "NaN")),
+                List.<Map<String, Object>>of(Map.of("studentId", student.getId(), "value", "Infinity")),
+                List.<Map<String, Object>>of(Map.of("studentId", student.getId(), "value", "-Infinity")),
+                List.<Map<String, Object>>of(Map.of("studentId", student.getId(), "value", 14),
+                        Map.of("studentId", student.getId(), "value", 15)))) {
+            serviceMvc.perform(post(BASE + "/bulk").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                            "classId", ownClass.getId(), "courseId", ownCourse.getId(), "assessmentType", "EXAM", "grades", entries))))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.type").exists()).andExpect(jsonPath("$.title").exists())
+                    .andExpect(jsonPath("$.detail").exists()).andExpect(jsonPath("$.instance").value(BASE + "/bulk"));
+        }
+        enhanced(student, ownClass, ownCourse, SEMESTER, 15.0);
+        em.flush();
+        serviceMvc.perform(post(BASE + "/enhanced").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                        "studentId", student.getId(), "classId", ownClass.getId(), "courseId", ownCourse.getId(),
+                        "examType", "FIRST_EXAM", "semester", "FIRST", "score", 14, "maxScore", 20))))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.type").exists()).andExpect(jsonPath("$.title").exists())
+                .andExpect(jsonPath("$.detail").exists()).andExpect(jsonPath("$.instance").value(BASE + "/enhanced"));
+    }
+
     private JsonNode response(MockHttpServletRequestBuilder route, int expectedStatus) throws Exception {
         return response(route, expectedStatus, true);
     }

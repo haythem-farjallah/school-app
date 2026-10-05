@@ -1,5 +1,7 @@
 package com.example.school_management.feature.operational.service.impl;
 
+import com.example.school_management.commons.exceptions.BadRequestException;
+import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.feature.operational.dto.*;
 import com.example.school_management.feature.operational.service.SmartTimetableService;
 import com.example.school_management.feature.operational.service.TimetableService;
@@ -221,7 +223,7 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
         log.info("Applying schedule change for slot: {}", slotId);
         
         if (!validateScheduleChange(timetableId, slotId, newTeacherId, newRoomId)) {
-            throw new IllegalArgumentException("Schedule change would create conflicts");
+            throw new ConflictException("Schedule change would create conflicts");
         }
         
         // Apply the change
@@ -273,7 +275,7 @@ public class SmartTimetableServiceImpl implements SmartTimetableService {
 
     private void validateOptimizationRequest(TimetableOptimizationRequest request) {
         if (request.getTimetableId() == null) {
-            throw new IllegalArgumentException("Timetable ID is required");
+            throw new BadRequestException("Timetable ID is required");
         }
         
         if (request.getOptimizationTimeSeconds() == null || request.getOptimizationTimeSeconds() < 1) {

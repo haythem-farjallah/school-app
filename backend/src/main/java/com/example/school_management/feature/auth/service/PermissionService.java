@@ -1,5 +1,6 @@
 package com.example.school_management.feature.auth.service;
 
+import com.example.school_management.commons.exceptions.BadRequestException;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Permission;
 import com.example.school_management.feature.auth.entity.RolePermission;
@@ -40,7 +41,7 @@ public class PermissionService {
         // validate codes exist
         Set<Permission> perms = permRepo.findByCodeIn(codes);
         if (perms.size() != codes.size()) {
-            throw new IllegalArgumentException("Unknown permission code(s)");
+            throw new BadRequestException("Unknown permission code(s)");
         }
         rolePermRepo.deleteByRole(role);
         perms.forEach(p -> rolePermRepo.save(new RolePermission(role, p)));
@@ -60,7 +61,7 @@ public class PermissionService {
                 .orElseThrow(() -> new ResourceNotFoundException("User id " + userId + " not found"));
         Set<Permission> perms = permRepo.findByCodeIn(codes);
         if (perms.size() != codes.size()) {
-            throw new IllegalArgumentException("Unknown permission code(s)");
+            throw new BadRequestException("Unknown permission code(s)");
         }
         u.setPermissions(perms);
         userRepo.save(u);

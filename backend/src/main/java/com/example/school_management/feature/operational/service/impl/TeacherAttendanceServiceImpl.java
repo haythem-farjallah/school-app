@@ -1,5 +1,6 @@
 package com.example.school_management.feature.operational.service.impl;
 
+import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
@@ -61,7 +62,7 @@ public class TeacherAttendanceServiceImpl implements TeacherAttendanceService {
         BaseUser recorder = currentAccount();
         if (teacherAttendanceRepository.findByTeacherIdAndDateAndSchoolId(
                 teacher.getId(), request.getDate(), school.getId()).isPresent()) {
-            throw new IllegalArgumentException("Attendance record already exists for teacher " + teacher.getId() + " on date " + request.getDate());
+            throw new ConflictException("Attendance record already exists for teacher " + teacher.getId() + " on date " + request.getDate());
         }
 
         TeacherAttendance attendance = new TeacherAttendance();

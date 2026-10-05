@@ -1,5 +1,7 @@
 package com.example.school_management.feature.operational.service.impl;
 
+import com.example.school_management.commons.exceptions.BadRequestException;
+import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.feature.operational.dto.*;
 import com.example.school_management.feature.operational.entity.Grade;
 import com.example.school_management.feature.operational.entity.AuditEvent;
@@ -27,6 +29,7 @@ import com.example.school_management.feature.operational.repository.EnhancedGrad
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Student;
+import com.example.school_management.feature.auth.entity.Staff;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.auth.repository.UserRepository;
@@ -78,6 +81,9 @@ public class GradeServiceImpl implements GradeService {
     @Override
     @Transactional
     public void enterBulkGrades(BulkGradeEntryRequest request) {
+        if (request.getClassId() == null || request.getGrades() == null) {
+            throw new BadRequestException("Class ID and grades are required");
+        }
         Set<Long> seen = new HashSet<>();
         // Get current teacher from security context
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -87,15 +93,17 @@ public class GradeServiceImpl implements GradeService {
         requireSchoolClass(request.getClassId());
         if (request.getCourseId() != null) requireSchoolCourse(request.getCourseId());
         for (BulkGradeEntryRequest.StudentGradeEntry entry : request.getGrades()) {
-            if (entry.getStudentId() == null || entry.getValue() == null) {
-                throw new IllegalArgumentException("Student ID and grade value are required");
+            if (entry == null || entry.getStudentId() == null || entry.getValue() == null) {
+                throw new BadRequestException("Student ID and grade value are required");
             }
-            if (entry.getValue() < 0 || entry.getValue() > 20) {
-                throw new IllegalArgumentException("Grade value must be between 0 and 20");
+            if (!Double.isFinite(entry.getValue()) || entry.getValue() < 0 || entry.getValue() > 20) {
+                throw new BadRequestException("Grade value must be between 0 and 20");
             }
             if (!seen.add(entry.getStudentId())) {
-                throw new IllegalArgumentException("Duplicate grade for student ID: " + entry.getStudentId());
+                throw new BadRequestException("Duplicate grade for student ID: " + entry.getStudentId());
             }
+        }
+        for (BulkGradeEntryRequest.StudentGradeEntry entry : request.getGrades()) {
             Enrollment enrollment = requireSchoolActiveEnrollment(entry.getStudentId(), request.getClassId());
             Grade grade = new Grade();
             grade.setEnrollment(enrollment);
@@ -519,10 +527,7 @@ public class GradeServiceImpl implements GradeService {
             // Get existing grades for this student in this course
             List<EnhancedGrade> existingGrades = enhancedGradeRepository.findByStudentIdAndClassIdAndCourseIdAndSemester(
                     enrollment.getStudent().getId(), classId, courseId, CreateEnhancedGradeRequest.Semester.FIRST);
-            
-            // Calculate attendance rate (simplified - you might want to integrate with actual attendance system)
-            Double attendanceRate = calculateStudentAttendanceRate(enrollment.getStudent().getId());
-            
+
             // Build current grades
             TeacherGradeClassView.TeacherGradeStudent.CurrentGrades currentGrades = buildCurrentGrades(existingGrades);
             
@@ -537,7 +542,7 @@ public class GradeServiceImpl implements GradeService {
                     .enrollmentId(enrollment.getId())
                     .currentGrades(currentGrades)
                     .average(average)
-                    .attendanceRate(attendanceRate)
+                    .attendanceRate(null)
                     .build();
             
             students.add(student);
@@ -632,7 +637,7 @@ public class GradeServiceImpl implements GradeService {
                 request.getStudentId(), request.getClassId(), request.getCourseId(), request.getExamType(), request.getSemester());
         
         if (existingGrade.isPresent()) {
-            throw new IllegalArgumentException("Grade already exists for this student, course, exam type, and semester");
+            throw new ConflictException("Grade already exists for this student, course, exam type, and semester");
         }
         
         // Create new grade
@@ -727,13 +732,7 @@ public class GradeServiceImpl implements GradeService {
             
             // Calculate overall average
             double overallAverage = totalCoefficients > 0 ? totalWeightedScore / totalCoefficients : 0.0;
-            
-            // Calculate class rank (simplified - you might want a more sophisticated ranking)
-            Integer classRank = calculateClassRank(enrollment.getStudent().getId(), classId, semester);
-            
-            // Calculate attendance rate
-            Double attendanceRate = calculateStudentAttendanceRate(enrollment.getStudent().getId());
-            
+
             // Check if grades are approved
             boolean isApproved = studentGrades.stream().allMatch(EnhancedGrade::getIsApproved);
             
@@ -746,8 +745,8 @@ public class GradeServiceImpl implements GradeService {
                     .semester(semester)
                     .subjects(subjectReviews)
                     .overallAverage(overallAverage)
-                    .classRank(classRank)
-                    .attendanceRate(attendanceRate)
+                    .classRank(null)
+                    .attendanceRate(null)
                     .isApproved(isApproved)
                     .approvedAt(getApprovalDate(studentGrades))
                     .approvedBy(getApprovalBy(studentGrades))
@@ -855,15 +854,11 @@ public class GradeServiceImpl implements GradeService {
         // Calculate weighted average
         double weightedAverage = totalCoefficients > 0 ? totalWeightedScore / totalCoefficients : 0.0;
         
-        // Calculate class rank and total students
-        Integer classRank = calculateClassRank(studentId, enrollment.getClassEntity().getId(), semester);
+        // Count students with stored grades; rank and attendance semantics are not defined.
+
         Long totalStudents = enhancedGradeRepository.countDistinctStudentsByClassIdAndSemesterAndSchoolId(
                 enrollment.getClassEntity().getId(), semester, schoolId);
-        
-        // Calculate attendance
-        Double attendanceRate = calculateStudentAttendanceRate(studentId);
-        Integer totalAbsences = calculateStudentTotalAbsences(studentId);
-        
+
         // Check approval status
         StudentGradeSheet.ApprovedBy approvedBy = null;
         if (studentGrades.stream().allMatch(EnhancedGrade::getIsApproved)) {
@@ -871,7 +866,10 @@ public class GradeServiceImpl implements GradeService {
             String approvedAt = getApprovalDate(studentGrades);
             if (approvedByName != null && approvedAt != null) {
                 approvedBy = StudentGradeSheet.ApprovedBy.builder()
-                        .staffId(1L) // You might want to get actual staff ID
+                        .staffId(userRepository.findByEmail(approvedByName)
+                                .filter(Staff.class::isInstance)
+                                .map(BaseUser::getId)
+                                .orElse(null))
                         .staffName(approvedByName)
                         .approvedAt(approvedAt)
                         .build();
@@ -891,10 +889,10 @@ public class GradeServiceImpl implements GradeService {
                 .totalScore(totalScore)
                 .totalMaxScore(totalMaxScore)
                 .weightedAverage(weightedAverage)
-                .classRank(classRank)
+                .classRank(null)
                 .totalStudents(totalStudents.intValue())
-                .attendanceRate(attendanceRate)
-                .totalAbsences(totalAbsences)
+                .attendanceRate(null)
+                .totalAbsences(null)
                 .generatedAt(LocalDateTime.now().toString())
                 .approvedBy(approvedBy)
                 .build();
@@ -1003,14 +1001,7 @@ public class GradeServiceImpl implements GradeService {
             default: return 0.1;
         }
     }
-    
-    private Double calculateStudentAttendanceRate(Long studentId) {
-        // This is a simplified implementation
-        // In a real system, you would integrate with the attendance system
-        // For now, return a random value between 80-100%
-        return 85.0 + (Math.random() * 15.0);
-    }
-    
+
     private EnhancedGradeResponse mapToEnhancedGradeResponse(EnhancedGrade grade) {
         return EnhancedGradeResponse.builder()
                 .id(grade.getId())
@@ -1086,13 +1077,7 @@ public class GradeServiceImpl implements GradeService {
                 .map(EnhancedGrade::getTeacherSignature)
                 .orElse(null);
     }
-    
-    private Integer calculateClassRank(Long studentId, Long classId, CreateEnhancedGradeRequest.Semester semester) {
-        // This is a simplified implementation
-        // In a real system, you would calculate the actual rank based on weighted averages
-        return (int) (Math.random() * 30) + 1; // Random rank between 1-30
-    }
-    
+
     private String getApprovalDate(List<EnhancedGrade> grades) {
         return grades.stream()
                 .filter(g -> g.getApprovedAt() != null)
@@ -1108,13 +1093,7 @@ public class GradeServiceImpl implements GradeService {
                 .map(EnhancedGrade::getApprovedBy)
                 .orElse(null);
     }
-    
-    private Integer calculateStudentTotalAbsences(Long studentId) {
-        // This is a simplified implementation
-        // In a real system, you would integrate with the attendance system
-        return (int) (Math.random() * 10); // Random absences between 0-10
-    }
-    
+
     private String generateGradeSheetPdfContent(StudentGradeSheet gradeSheet) {
         // This is a placeholder for PDF generation
         // In a real implementation, you would use a PDF library
@@ -1124,8 +1103,8 @@ public class GradeServiceImpl implements GradeService {
         content.append("Class: ").append(gradeSheet.getClassName()).append("\n");
         content.append("Semester: ").append(gradeSheet.getSemester()).append("\n");
         content.append("Weighted Average: ").append(String.format("%.2f", gradeSheet.getWeightedAverage())).append("\n");
-        content.append("Class Rank: ").append(gradeSheet.getClassRank()).append("/").append(gradeSheet.getTotalStudents()).append("\n");
-        content.append("Attendance Rate: ").append(String.format("%.1f%%", gradeSheet.getAttendanceRate())).append("\n");
+        content.append("Class Rank: ").append(gradeSheet.getClassRank() == null ? "N/A" : gradeSheet.getClassRank() + "/" + gradeSheet.getTotalStudents()).append("\n");
+        content.append("Attendance Rate: ").append(gradeSheet.getAttendanceRate() == null ? "N/A" : String.format("%.1f%%", gradeSheet.getAttendanceRate())).append("\n");
         
         for (StudentGradeSheet.SubjectGrade subject : gradeSheet.getSubjects()) {
             content.append("\nSubject: ").append(subject.getCourseName()).append(" (").append(subject.getCourseCode()).append(")\n");
@@ -1138,4 +1117,4 @@ public class GradeServiceImpl implements GradeService {
         
         return content.toString();
     }
-} 
+}

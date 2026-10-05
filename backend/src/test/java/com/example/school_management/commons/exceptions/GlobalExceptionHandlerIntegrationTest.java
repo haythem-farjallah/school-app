@@ -62,6 +62,13 @@ class GlobalExceptionHandlerIntegrationTest {
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     @Test
+    void internalIllegalArgumentRemainsServerError() throws Exception {
+        String uri = "/api/test/errors/internal-argument";
+        expectProblem(mockMvc.perform(get(uri).header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL))),
+                HttpStatus.INTERNAL_SERVER_ERROR, "UNEXPECTED_ERROR", uri);
+    }
+
+    @Test
     void validationErrorIs400WithTheFieldMessages() throws Exception {
         String uri = "/api/test/errors/validation";
         expectProblem(mockMvc.perform(post(uri)
@@ -288,6 +295,11 @@ class GlobalExceptionHandlerIntegrationTest {
         @GetMapping("/admin-only")
         @PreAuthorize("hasRole('ADMIN')")
         public void adminOnly() {
+        }
+
+        @GetMapping("/internal-argument")
+        public void internalArgument() {
+            throw new IllegalArgumentException("internal configuration invariant");
         }
 
         @GetMapping("/unexpected")

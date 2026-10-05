@@ -911,7 +911,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         TeachingAssignment assignment = assignments.stream()
                 .filter(ta -> ta.getClazz().getId().equals(classId) && ta.getCourse().getId().equals(courseId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Teaching assignment not found for teacher " + teacherId + ", class " + classId + ", course " + courseId));
+                .orElseThrow(() -> new ResourceNotFoundException("Teaching assignment not found"));
         
         // Get all students enrolled in this class
         List<Enrollment> enrollments = enrollmentRepository.findByClassIdAndStatus(classId, EnrollmentStatus.ACTIVE);
@@ -919,11 +919,8 @@ public class AttendanceServiceImpl implements AttendanceService {
         List<TeacherAttendanceClassView.TeacherAttendanceStudent> students = new ArrayList<>();
         
         for (Enrollment enrollment : enrollments) {
-            // Calculate attendance rate for this student
-            Double attendanceRate = calculateStudentAttendanceRate(enrollment.getStudent().getId());
-            
-            // Get last attendance date
-            String lastAttendanceDate = getLastAttendanceDate(enrollment.getStudent().getId());
+            LocalDate lastDate = attendanceRepository.findLastStudentAttendanceDate(
+                    enrollment.getStudent().getId(), classId, courseId, currentSchool.resolve().getId());
             
             TeacherAttendanceClassView.TeacherAttendanceStudent student = TeacherAttendanceClassView.TeacherAttendanceStudent.builder()
                     .studentId(enrollment.getStudent().getId())
@@ -931,9 +928,9 @@ public class AttendanceServiceImpl implements AttendanceService {
                     .lastName(enrollment.getStudent().getLastName())
                     .email(enrollment.getStudent().getEmail())
                     .enrollmentId(enrollment.getId())
-                    .currentStatus(AttendanceStatus.PRESENT) // Default status
-                    .attendanceRate(attendanceRate)
-                    .lastAttendanceDate(lastAttendanceDate)
+                    .currentStatus(null) // No date or slot defines a current attendance record.
+                    .attendanceRate(null)
+                    .lastAttendanceDate(lastDate == null ? null : lastDate.toString())
                     .build();
             
             students.add(student);
@@ -1021,17 +1018,5 @@ public class AttendanceServiceImpl implements AttendanceService {
         
         return result;
     }
-    
-    // Helper methods for attendance class view
-    private Double calculateStudentAttendanceRate(Long studentId) {
-        // For now, return a default rate since we don't have the specific query
-        // TODO: Implement proper attendance rate calculation when needed
-        return 85.0; // Default attendance rate
-    }
-    
-    private String getLastAttendanceDate(Long studentId) {
-        // For now, return today's date as default
-        // TODO: Implement proper last attendance date lookup when needed
-        return LocalDate.now().toString();
-    }
+
 }

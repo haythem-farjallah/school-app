@@ -1,5 +1,6 @@
 package com.example.school_management.feature.auth.service;
 
+import com.example.school_management.commons.exceptions.BadRequestException;
 import com.example.school_management.feature.auth.dto.AdministrationCreateDto;
 import com.example.school_management.feature.auth.dto.AdministrationDto;
 import com.example.school_management.feature.auth.dto.AdministrationUpdateDto;
@@ -50,7 +51,7 @@ public class AdministrationService extends AbstractUserCrudService<
 
         /* ------ PASSWORD (mandatory) ------ */
         if (dto.password() == null || dto.password().isBlank()) {
-            throw new IllegalArgumentException("Password is required for admin account");
+            throw new BadRequestException("Password is required for admin account");
         }
         admin.setPassword(passwordEncoder.encode(dto.password()));
         admin.setPasswordChangeRequired(false);   // user picked the password

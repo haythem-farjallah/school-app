@@ -184,22 +184,6 @@ public class PushNotificationResponse {
                 .build();
     }
 
-    public static PushNotificationResponse webSocketDelivered(String recipientId, String sessionId) {
-        return PushNotificationResponse.builder()
-                .recipientId(recipientId)
-                .status(Notification.NotificationStatus.DELIVERED)
-                .success(true)
-                .delivered(true)
-                .deliveredAt(LocalDateTime.now())
-                .webSocketDelivery(WebSocketDelivery.builder()
-                        .sessionId(sessionId)
-                        .connected(true)
-                        .deliveredAt(LocalDateTime.now())
-                        .deliveryStatus("delivered")
-                        .build())
-                .build();
-    }
-
     // Helper methods
     public boolean isDelivered() {
         return Boolean.TRUE.equals(delivered) || 

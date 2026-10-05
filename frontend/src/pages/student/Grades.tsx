@@ -176,7 +176,7 @@ const StudentGrades = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600">
-                    #{gradeSheet.classRank}
+                    {gradeSheet.classRank == null ? "N/A" : `#${gradeSheet.classRank}`}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     out of {gradeSheet.totalStudents} students
@@ -191,10 +191,10 @@ const StudentGrades = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">
-                    {gradeSheet.attendanceRate.toFixed(1)}%
+                    {gradeSheet.attendanceRate == null ? "N/A" : `${gradeSheet.attendanceRate.toFixed(1)}%`}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {gradeSheet.totalAbsences} absences
+                    {gradeSheet.totalAbsences == null ? "N/A" : `${gradeSheet.totalAbsences} absences`}
                   </p>
                 </CardContent>
               </Card>
@@ -345,7 +345,7 @@ const StudentGrades = () => {
                       </div>
                       <div className="flex justify-between">
                         <span>Class Rank:</span>
-                        <span className="font-medium">#{gradeSheet.classRank} / {gradeSheet.totalStudents}</span>
+                        <span className="font-medium">{gradeSheet.classRank == null ? "N/A" : `#${gradeSheet.classRank} / ${gradeSheet.totalStudents}`}</span>
                       </div>
                     </div>
                   </div>
@@ -355,11 +355,11 @@ const StudentGrades = () => {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span>Attendance Rate:</span>
-                        <span className="font-medium text-green-600">{gradeSheet.attendanceRate.toFixed(1)}%</span>
+                        <span className="font-medium text-green-600">{gradeSheet.attendanceRate == null ? "N/A" : `${gradeSheet.attendanceRate.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Total Absences:</span>
-                        <span className="font-medium">{gradeSheet.totalAbsences}</span>
+                        <span className="font-medium">{gradeSheet.totalAbsences ?? "N/A"}</span>
                       </div>
                     </div>
                   </div>

@@ -15,6 +15,11 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AttendanceRepository extends JpaRepository<Attendance, Long>, JpaSpecificationExecutor<Attendance> {
+    @Query("SELECT MAX(a.date) FROM Attendance a WHERE a.school.id = :schoolId AND a.user.id = :studentId "
+            + "AND a.classId = :classId AND a.course.id = :courseId AND a.userType = 'STUDENT'")
+    LocalDate findLastStudentAttendanceDate(@Param("studentId") Long studentId, @Param("classId") Long classId,
+            @Param("courseId") Long courseId, @Param("schoolId") Long schoolId);
+
     Optional<Attendance> findByIdAndSchoolId(Long id, Long schoolId);
 
     long countByUserIdAndStatusAndUserTypeAndSchoolId(Long userId, AttendanceStatus status, UserType userType, Long schoolId);

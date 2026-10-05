@@ -1,5 +1,6 @@
 package com.example.school_management.feature.academic.service.impl;
 
+import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.commons.service.GenericFilterService;
 import com.example.school_management.commons.utils.FilterFields;
@@ -88,7 +89,7 @@ public class TeachingAssignmentServiceImpl implements TeachingAssignmentService 
         ClassEntity clazz = requireSchoolClass(dto.classId());
         // The existing unique Class/Course model remains unchanged. Both IDs are validated before this check.
         if (assignmentRepository.existsByClazzIdAndCourseId(dto.classId(), dto.courseId())) {
-            throw new IllegalArgumentException("Assignment already exists for course " + course.getName() + " in class " + clazz.getName());
+            throw new ConflictException("Assignment already exists for course " + course.getName() + " in class " + clazz.getName());
         }
         TeachingAssignment assignment = mapper.toEntity(dto);
         assignment.setTeacher(teacher);

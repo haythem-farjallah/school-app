@@ -31,9 +31,9 @@ export interface TeacherAttendanceStudent {
   lastName: string;
   email: string;
   enrollmentId: number;
-  currentStatus: AttendanceStatus;
-  attendanceRate: number;
-  lastAttendanceDate?: string;
+  currentStatus: AttendanceStatus | null;
+  attendanceRate: number | null;
+  lastAttendanceDate: string | null;
 }
 
 export enum AttendanceStatus {

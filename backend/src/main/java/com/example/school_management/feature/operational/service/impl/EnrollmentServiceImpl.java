@@ -1,5 +1,6 @@
 package com.example.school_management.feature.operational.service.impl;
 
+import com.example.school_management.commons.exceptions.BadRequestException;
 import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.commons.utils.FilterFields;
@@ -428,7 +429,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         try {
             GradeLevel.valueOf(gradeLevel.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid grade level: " + gradeLevel);
+            throw new BadRequestException("Invalid grade level: " + gradeLevel);
         }
         return performAutoEnrollment(GradeLevel.valueOf(gradeLevel.toUpperCase()), false);
     }

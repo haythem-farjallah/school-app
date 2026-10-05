@@ -76,6 +76,20 @@ class TeachingAssignmentSchoolAccessIntegrationTest {
     }
 
     @Test
+    void duplicateTeachingAssignmentIsConflictAndOriginalRemains() throws Exception {
+        mvc.perform(post(BASE).with(user(DevFixtureLoader.ADMIN_EMAIL).roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                                "teacherId", teacher.getId(), "courseId", ownCourse.getId(), "classId", ownClass.getId(), "weeklyHours", 2))))
+                .andExpect(status().isConflict())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.status").value(409))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.type").exists())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.title").exists())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.detail").exists())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.instance").value(BASE));
+        assertThat(assignments.existsById(ownAssignment.getId())).isTrue();
+    }
+
+    @Test
     void foreignAssignmentReadPatchDeleteAndBulkDeleteReturn404WithoutMutation() throws Exception {
         response(get(BASE + "/{id}", foreignAssignment.getId()), 404);
         response(patch(BASE + "/{id}", foreignAssignment.getId()).contentType(MediaType.APPLICATION_JSON).content("{\"weeklyHours\":8}"), 404);

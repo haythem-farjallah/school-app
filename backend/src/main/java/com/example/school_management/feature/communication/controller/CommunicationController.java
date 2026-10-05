@@ -7,6 +7,7 @@ import com.example.school_management.feature.communication.service.SMSService;
 import com.example.school_management.feature.communication.service.PushNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,6 +28,12 @@ public class CommunicationController {
     private final EmailService emailService;
     private final SMSService smsService;
     private final PushNotificationService pushNotificationService;
+
+    @Value("${spring.mail.host:}")
+    private String smtpHost;
+
+    @Value("${app.websocket.enabled:true}")
+    private boolean webSocketEnabled;
 
     // =====================================================
     // EMAIL ENDPOINTS
@@ -181,7 +188,7 @@ public class CommunicationController {
             @RequestBody Map<String, Object> payload) {
         log.info("📡 API: Sending real-time notification to user: {}", userId);
         pushNotificationService.sendRealTimeNotification(userId, payload);
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "Real-time notification sent"));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "Real-time notification dispatched"));
     }
 
     @PostMapping("/realtime/broadcast")
@@ -189,7 +196,7 @@ public class CommunicationController {
     public ResponseEntity<ApiSuccessResponse<String>> broadcastRealTimeNotification(@RequestBody Map<String, Object> payload) {
         log.info("📡 API: Broadcasting real-time notification to all connected users");
         pushNotificationService.broadcastRealTimeNotification(payload);
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "Real-time notification broadcasted"));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "Real-time notification broadcast dispatched"));
     }
 
     @GetMapping("/realtime/connections")
@@ -197,8 +204,7 @@ public class CommunicationController {
     public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> getWebSocketConnections() {
         log.info("🔌 API: Getting WebSocket connection information");
         Map<String, Object> connectionInfo = Map.of(
-                "activeConnections", pushNotificationService.getActiveConnectionsCount(),
-                "connectedUsers", pushNotificationService.getConnectedUsers()
+                "trackingAvailable", false
         );
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", connectionInfo));
     }
@@ -211,10 +217,11 @@ public class CommunicationController {
     public ResponseEntity<ApiSuccessResponse<Map<String, Object>>> getNotificationSystemHealth() {
         log.info("🏥 API: Getting notification system health");
         Map<String, Object> health = Map.of(
-                "emailService", "healthy",
-                "smsService", "healthy",
-                "pushNotificationService", "healthy",
-                "webSocketService", "healthy",
+                "emailService", smtpHost == null || smtpHost.isBlank() ? "notConfigured" : "configured_unverified",
+                "smsService", "notConfigured",
+                "pushNotificationService", "notConfigured",
+                "webSocketService", webSocketEnabled ? "enabled" : "disabled",
+                "connectionTracking", "unavailable",
                 "timestamp", LocalDateTime.now()
         );
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", health));
