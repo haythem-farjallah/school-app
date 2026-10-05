@@ -26,6 +26,9 @@ public class RealTimeNotificationService {
      */
     public void broadcastAdminFeed(AuditEventType eventType, String summary, String details,
                                   String performedBy, String entityType, Long entityId) {
+        // Announcement audit history remains stored. Its content must never reach
+        // this global feed; Announcement realtime delivery uses resolved user queues.
+        if ("Announcement".equalsIgnoreCase(entityType)) return;
         try {
             RealTimeNotificationDto notification = RealTimeNotificationDto.adminFeed(
                 eventType, summary, details, performedBy, entityType, entityId
@@ -51,7 +54,7 @@ public class RealTimeNotificationService {
 
             // Send to each specific user
             for (Long userId : userIds) {
-                sendToUser(userId, notification);
+                sendToUser(userId, notification.withTargetUserIds(Set.of(userId)));
                 log.debug("Notification sent to user id={}", userId);
             }
 
@@ -75,27 +78,6 @@ public class RealTimeNotificationService {
             if (parentId != null) {
                 sendToUser(parentId, notification);
                 log.debug("Enrollment notification sent to parent id={}", parentId);
-            }
-
-        } catch (Exception e) {
-            log.error("Realtime notification delivery failed: {}", e.getClass().getSimpleName());
-        }
-    }
-
-    /**
-     * Broadcast announcement notification to target roles
-     */
-    public void notifyNewAnnouncement(String title, String content, String importance, Set<String> targetRoles) {
-        try {
-            RealTimeNotificationDto notification = RealTimeNotificationDto.announcementNotification(
-                title, content, importance, targetRoles
-            );
-
-            // Send to each target role
-            for (String role : targetRoles) {
-                String destination = "/topic/notifications/" + role.toLowerCase();
-                messagingTemplate.convertAndSend(destination, notification);
-                log.debug("Notification sent to role {}", role);
             }
 
         } catch (Exception e) {

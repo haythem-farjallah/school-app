@@ -1,7 +1,8 @@
 package com.example.school_management.feature.operational.entity;
 
 import com.example.school_management.feature.auth.entity.Staff;
-import com.example.school_management.feature.auth.entity.BaseUser;
+import com.example.school_management.feature.school.entity.School;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.operational.entity.enums.AnnouncementImportance;
 import jakarta.persistence.*;
@@ -21,6 +22,11 @@ public class Announcement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "school_id", nullable = false, updatable = false)
+    @JsonIgnore
+    private School school;
+
     private String title;
     private String body;
     private LocalDateTime startDate;
@@ -35,12 +41,7 @@ public class Announcement {
     @CreatedDate
     private LocalDateTime createdAt;
 
-    // TODO: Add createdBy field after migration is applied
-    // @ManyToOne
-    // @JoinColumn(name = "created_by_id")
-    // private BaseUser createdBy;
-    
-    // Temporary fields until migration is applied
+    // Historical audit metadata, not an authorization relationship.
     private Long createdById;
     private String createdByName;
 

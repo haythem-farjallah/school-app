@@ -101,28 +101,6 @@ public class RealTimeNotificationDto {
         );
     }
     
-    public static RealTimeNotificationDto announcementNotification(
-            String title,
-            String content,
-            String importance,
-            Set<String> targetRoles) {
-        return new RealTimeNotificationDto(
-            java.util.UUID.randomUUID().toString(),
-            "ANNOUNCEMENT_NOTIFICATION",
-            "New Announcement: " + title,
-            content,
-            mapImportanceToPriority(importance),
-            LocalDateTime.now(),
-            "ADMIN",
-            "Announcement",
-            null,
-            targetRoles,
-            null,
-            "/announcements",
-            null
-        );
-    }
-    
     private static String determinePriority(AuditEventType eventType) {
         return switch (eventType) {
             case USER_DELETED, ENROLLMENT_DELETED, GRADE_DELETED -> "HIGH";
@@ -131,11 +109,4 @@ public class RealTimeNotificationDto {
         };
     }
     
-    private static String mapImportanceToPriority(String importance) {
-        return switch (importance.toUpperCase()) {
-            case "URGENT", "HIGH" -> "HIGH";
-            case "MEDIUM", "NORMAL" -> "MEDIUM";
-            default -> "LOW";
-        };
-    }
-} 
+}

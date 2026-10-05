@@ -1,6 +1,7 @@
 package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.feature.operational.dto.RealTimeNotificationDto;
+import com.example.school_management.feature.operational.entity.enums.AuditEventType;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -13,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * Where realtime notifications are delivered: a notification about one student reaches only that
@@ -39,10 +41,30 @@ class RealTimeNotificationServiceTest {
     }
 
     @Test
-    void announcementGoesToTheTargetedRoleTopicsOnly() {
-        service.notifyNewAnnouncement("Sports day", "Friday", "NORMAL", Set.of("TEACHER"));
+    void specificUsersReceiveOnlyTheirOwnRecipientId() {
+        service.notifySpecificUsers("Sports day", "Friday", "MEDIUM", Set.of(10L, 20L));
 
-        assertThat(destinations(1)).containsExactly("/topic/notifications/teacher");
+        ArgumentCaptor<String> destinations = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<RealTimeNotificationDto> payloads = ArgumentCaptor.forClass(RealTimeNotificationDto.class);
+        verify(messagingTemplate, times(2)).convertAndSend(destinations.capture(), payloads.capture());
+        assertThat(destinations.getAllValues()).containsExactlyInAnyOrder("/queue/user/10/notifications", "/queue/user/20/notifications");
+        for (int i = 0; i < 2; i++) {
+            Set<Long> targetIds = payloads.getAllValues().get(i).getTargetUserIds();
+            assertThat(targetIds).hasSize(1);
+            assertThat(destinations.getAllValues().get(i)).isEqualTo("/queue/user/" + targetIds.iterator().next() + "/notifications");
+        }
+    }
+
+    @Test
+    void announcementAuditCannotBroadcastAnnouncementContentGlobally() {
+        service.broadcastAdminFeed(AuditEventType.ANNOUNCEMENT_CREATED, "Created", "Private content", "Teacher", "Announcement", 1L);
+        verifyNoInteractions(messagingTemplate);
+    }
+
+    @Test
+    void unrelatedAdminAuditDestinationIsPreserved() {
+        service.broadcastAdminFeed(AuditEventType.GRADE_RECORDED, "Recorded", "Details", "Teacher", "Grade", 1L);
+        assertThat(destinations(1)).containsExactly("/topic/admin-feeds");
     }
 
     /** The destinations of exactly {@code expected} sends, in order. */

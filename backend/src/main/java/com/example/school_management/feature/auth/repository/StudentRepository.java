@@ -78,6 +78,17 @@ public interface StudentRepository extends BaseUserRepository<Student>, JpaSpeci
     """)
     List<Student> findByClassIds(@Param("classIds") List<Long> classIds);
 
+    @Query("""
+        SELECT DISTINCT s FROM Student s JOIN s.enrollments e
+        WHERE e.classEntity.id IN :classIds AND e.classEntity.academicYear.school.id = :schoolId
+          AND e.status = com.example.school_management.feature.operational.entity.enums.EnrollmentStatus.ACTIVE
+          AND EXISTS (SELECT m.id FROM SchoolMembership m
+              WHERE m.user.id = s.id AND m.school.id = :schoolId
+                AND com.example.school_management.feature.membership.entity.MembershipRole.STUDENT MEMBER OF m.roles)
+        """)
+    List<Student> findAnnouncementRecipientsByClassIdsAndSchoolId(@Param("classIds") List<Long> classIds,
+                                                               @Param("schoolId") Long schoolId);
+
     // Eligible School population, including students already enrolled in the current AcademicYear.
     @Query("""
         SELECT s FROM Student s

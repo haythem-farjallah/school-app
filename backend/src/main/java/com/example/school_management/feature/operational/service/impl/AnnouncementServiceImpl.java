@@ -4,19 +4,19 @@ import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.entity.Staff;
-import com.example.school_management.feature.auth.entity.Teacher;
-import com.example.school_management.feature.auth.entity.Student;
-import com.example.school_management.feature.auth.entity.Parent;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StaffRepository;
-import com.example.school_management.feature.auth.repository.TeacherRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
-import com.example.school_management.feature.auth.repository.ParentRepository;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.repository.ClassRepository;
 import com.example.school_management.feature.academic.service.TeacherClassService;
 import com.example.school_management.feature.academic.dto.TeacherClassDto;
+import com.example.school_management.feature.membership.entity.MembershipRole;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.school.entity.School;
+import com.example.school_management.feature.school.repository.SchoolRepository;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.feature.operational.dto.*;
 import com.example.school_management.feature.operational.entity.Announcement;
 import com.example.school_management.feature.operational.entity.Notification;
@@ -27,9 +27,9 @@ import com.example.school_management.feature.operational.repository.Announcement
 import com.example.school_management.feature.operational.repository.NotificationRepository;
 import com.example.school_management.feature.operational.service.AnnouncementService;
 import com.example.school_management.feature.operational.service.AuditService;
-import com.example.school_management.feature.operational.service.impl.RealTimeNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.query.criteria.JpaExpression;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,10 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.List;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -52,34 +49,38 @@ import java.util.stream.Collectors;
 @Transactional
 @RequiredArgsConstructor
 public class AnnouncementServiceImpl implements AnnouncementService {
-
     private final AnnouncementRepository announcementRepo;
     private final StaffRepository staffRepo;
-    private final TeacherRepository teacherRepo;
     private final StudentRepository studentRepo;
-    private final ParentRepository parentRepo;
     private final NotificationRepository notificationRepo;
     private final AuditService auditService;
     private final BaseUserRepository<BaseUser> userRepo;
     private final RealTimeNotificationService realTimeNotificationService;
     private final ClassRepository classRepo;
     private final TeacherClassService teacherClassService;
+    private final CurrentSchoolResolver currentSchool;
+    private final SchoolRepository schoolRepo;
+    private final SchoolMembershipRepository memberships;
 
     @Override
     public AnnouncementDto create(CreateAnnouncementRequest req) {
-        log.debug("Creating announcement");
-        
-        // Validate dates
-        if (req.startDate() != null && req.endDate() != null && req.startDate().isAfter(req.endDate())) {
-            throw new ConflictException("Start date cannot be after end date");
-        }
-
         BaseUser currentUser = getCurrentUser();
-        
-        // Validate targeting permissions
+        School school = requireCallerSchool(currentUser);
+        requireCreator(currentUser);
+        validateDates(req.startDate(), req.endDate());
         validateTargetingPermissions(req, currentUser);
+        Set<ClassEntity> targetClasses = resolveClasses(req.targetClassIds(), school);
+        if ("CLASSES".equals(req.targetType())) validateTeacherClassAccess(currentUser, targetClasses);
+        Set<Staff> publishers = resolvePublishers(req.publisherIds(), school);
+        if (currentUser instanceof Staff publisher) {
+            requireStaffCompatibility(school);
+            publishers.add(publisher);
+        }
+        // Resolve the full audience before persistence, even when delivery is disabled.
+        List<BaseUser> recipients = resolveAudience(req, targetClasses, school);
 
         Announcement entity = new Announcement();
+        entity.setSchool(school);
         entity.setTitle(req.title());
         entity.setBody(req.body());
         entity.setStartDate(req.startDate());
@@ -88,57 +89,12 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         entity.setImportance(req.importance());
         entity.setCreatedAt(LocalDateTime.now());
         entity.setTargetType(req.targetType());
-        // TODO: Set createdBy after migration is applied
-        // entity.setCreatedBy(currentUser);
-        
-        // Set creator information temporarily
         entity.setCreatedById(currentUser.getId());
         entity.setCreatedByName(currentUser.getFirstName() + " " + currentUser.getLastName());
-        
-        // Set target classes if specified
-        if (req.targetClassIds() != null && !req.targetClassIds().isEmpty()) {
-            Set<ClassEntity> targetClasses = new HashSet<>();
-            for (Long classId : req.targetClassIds()) {
-                ClassEntity classEntity = classRepo.findById(classId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Class not found with id: " + classId));
-                targetClasses.add(classEntity);
-            }
-            entity.setTargetClasses(targetClasses);
-        }
-
-        // Add publishers - always include the current user as a publisher
-        Set<Staff> publishers = new HashSet<>();
-        
-        // Add current user as publisher if they are staff/teacher
-        if (currentUser instanceof Staff) {
-            publishers.add((Staff) currentUser);
-        } else if (currentUser instanceof Teacher) {
-            // Teachers are not Staff, but we need to track who created the announcement
-            // For now, we'll handle this in the listing logic
-            log.debug("Teacher id={} created announcement, will be handled in listing logic", currentUser.getId());
-        }
-        
-        // Add additional publishers if specified
-        if (req.publisherIds() != null && !req.publisherIds().isEmpty()) {
-            for (Long staffId : req.publisherIds()) {
-                Staff staff = staffRepo.findById(staffId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Staff not found with id: " + staffId));
-                publishers.add(staff);
-            }
-        }
-        
-        if (!publishers.isEmpty()) {
-            entity.setPublishers(publishers);
-        }
-
+        entity.setTargetClasses(targetClasses);
+        entity.setPublishers(publishers);
         Announcement saved = announcementRepo.save(entity);
-        log.info("Announcement created id={}", saved.getId());
-        
-        // Handle targeting and notifications
-        if (req.sendNotifications() != null && req.sendNotifications()) {
-            handleAnnouncementTargeting(saved, req, currentUser);
-        }
-        
+        if (Boolean.TRUE.equals(req.sendNotifications())) deliver(saved, recipients, true);
         // Create audit event
         try {
             String summary = "New announcement created";
@@ -162,16 +118,13 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
     @Override
     public AnnouncementDto update(Long id, UpdateAnnouncementRequest req) {
-        log.debug("Updating announcement id={}", id);
-        
-        Announcement entity = announcementRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + id));
-        requireTeacherIsCreator(entity, "update");
-
-        // Validate dates
-        if (req.startDate() != null && req.endDate() != null && req.startDate().isAfter(req.endDate())) {
-            throw new ConflictException("Start date cannot be after end date");
-        }
+        BaseUser currentUser = getCurrentUser();
+        School school = requireCallerSchool(currentUser);
+        requireCreator(currentUser);
+        Announcement entity = requireSchoolAnnouncement(id, school);
+        requireTeacherIsCreator(entity, currentUser, "update");
+        validateDates(req.startDate(), req.endDate());
+        Set<Staff> publishers = req.publisherIds() == null ? null : resolvePublishers(req.publisherIds(), school);
 
         if (req.title() != null) entity.setTitle(req.title());
         if (req.body() != null) entity.setBody(req.body());
@@ -179,23 +132,10 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         if (req.endDate() != null) entity.setEndDate(req.endDate());
         if (req.isPublic() != null) entity.setIsPublic(req.isPublic());
         if (req.importance() != null) entity.setImportance(req.importance());
-
-        // Update publishers if specified
-        if (req.publisherIds() != null) {
-            Set<Staff> publishers = new HashSet<>();
-            for (Long staffId : req.publisherIds()) {
-                Staff staff = staffRepo.findById(staffId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Staff not found with id: " + staffId));
-                publishers.add(staff);
-            }
-            entity.setPublishers(publishers);
-        }
-
+        if (publishers != null) entity.setPublishers(publishers);
         Announcement updatedEntity = announcementRepo.save(entity);
-        
         // Create audit event
         try {
-            BaseUser currentUser = getCurrentUser();
             String summary = "Announcement updated";
             String details = String.format("Announcement updated: %s (ID: %d), Importance: %s, Public: %s", 
                 updatedEntity.getTitle(), id, updatedEntity.getImportance(), updatedEntity.getIsPublic());
@@ -217,19 +157,15 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
     @Override
     public void delete(Long id) {
-        log.info("Deleting announcement {}", id);
-        
-        // Get announcement details before deletion for audit
-        Announcement entity = announcementRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + id));
-        requireTeacherIsCreator(entity, "delete");
+        BaseUser currentUser = getCurrentUser();
+        School school = requireCallerSchool(currentUser);
+        requireCreator(currentUser);
+        Announcement entity = requireSchoolAnnouncement(id, school);
+        requireTeacherIsCreator(entity, currentUser, "delete");
         String title = entity.getTitle();
-        
-        announcementRepo.deleteById(id);
-        
+        announcementRepo.delete(entity);
         // Create audit event
         try {
-            BaseUser currentUser = getCurrentUser();
             String summary = "Announcement deleted";
             String details = String.format("Announcement deleted: %s (ID: %d)", title, id);
             
@@ -249,251 +185,212 @@ public class AnnouncementServiceImpl implements AnnouncementService {
     @Override
     @Transactional(readOnly = true)
     public AnnouncementDto get(Long id) {
-        log.debug("Fetching announcement {}", id);
-        Announcement entity = announcementRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + id));
+        BaseUser caller = getCurrentUser();
+        School school = requireCallerSchool(caller);
+        Announcement entity = requireSchoolAnnouncement(id, school);
+        if (isPublicOnly(caller) && !Boolean.TRUE.equals(entity.getIsPublic())) {
+            throw new AccessDeniedException("You can only access public announcements");
+        }
         return toDto(entity);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<AnnouncementDto> list(Pageable page, String importance, Boolean isPublic) {
-        log.trace("Listing announcements importance={} isPublic={} {}", importance, isPublic, page);
-
-        BaseUser currentUser = getCurrentUser();
-        Specification<Announcement> spec = (root, q, cb) -> cb.conjunction();
-
-        // Filter by user role and permissions
-        if (currentUser instanceof Teacher) {
-            // Teachers see all announcements for now (until createdBy field is added)
-            // This allows teachers to see announcements they created and public ones
-            log.debug("Teacher id={} accessing announcements - showing all for now", currentUser.getId());
-            // No additional filtering for teachers - they see all announcements
-        } else if (currentUser.getRole().name().equals("ADMIN") || currentUser.getRole().name().equals("STAFF")) {
-            // Admins and staff see all announcements (no additional filtering)
-            log.debug("Admin/Staff id={} accessing announcements - showing all", currentUser.getId());
-        } else {
-            // Students and parents see only public announcements
-            log.debug("Student/Parent id={} accessing announcements - showing only public", currentUser.getId());
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("isPublic"), true));
-        }
-
+        BaseUser caller = getCurrentUser();
+        School school = requireCallerSchool(caller);
+        Specification<Announcement> spec = inSchool(school);
+        if (isPublicOnly(caller)) spec = spec.and((root, q, cb) -> cb.isTrue(root.get("isPublic")));
         if (importance != null && !importance.isBlank()) {
             try {
-                AnnouncementImportance importanceEnum = AnnouncementImportance.valueOf(importance.toUpperCase());
-                spec = spec.and((root, q, cb) -> cb.equal(root.get("importance"), importanceEnum));
+                AnnouncementImportance value = AnnouncementImportance.valueOf(importance.toUpperCase());
+                spec = spec.and((root, q, cb) -> cb.equal(((JpaExpression<?>) root.get("importance")).cast(String.class), value.name()));
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid importance value: {}", importance);
             }
         }
-
-        if (isPublic != null) {
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("isPublic"), isPublic));
-        }
-
-        // Add ordering by creation date descending (newest first)
-        Pageable pageWithSort = PageRequest.of(page.getPageNumber(), page.getPageSize(), 
-            Sort.by(Sort.Direction.DESC, "createdAt"));
-        return announcementRepo.findAll(spec, pageWithSort).map(this::toDto);
+        if (isPublic != null) spec = spec.and((root, q, cb) -> cb.equal(root.get("isPublic"), isPublic));
+        Pageable sorted = PageRequest.of(page.getPageNumber(), page.getPageSize(), Sort.by(Sort.Direction.DESC, "createdAt"));
+        return announcementRepo.findAll(spec, sorted).map(this::toDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<AnnouncementDto> getPublicAnnouncements(Pageable page) {
-        log.trace("Listing public announcements {}", page);
-        
-        Specification<Announcement> spec = (root, q, cb) -> 
-            cb.and(
-                cb.equal(root.get("isPublic"), true),
-                cb.or(
-                    cb.isNull(root.get("startDate")),
-                    cb.lessThanOrEqualTo(root.get("startDate"), LocalDateTime.now())
-                ),
-                cb.or(
-                    cb.isNull(root.get("endDate")),
-                    cb.greaterThanOrEqualTo(root.get("endDate"), LocalDateTime.now())
-                )
-            );
-
+        School school = requireCallerSchool(getCurrentUser());
+        LocalDateTime now = LocalDateTime.now();
+        Specification<Announcement> spec = inSchool(school).and((root, q, cb) -> cb.and(
+                cb.isTrue(root.get("isPublic")),
+                cb.or(cb.isNull(root.get("startDate")), cb.lessThanOrEqualTo(root.get("startDate"), now)),
+                cb.or(cb.isNull(root.get("endDate")), cb.greaterThanOrEqualTo(root.get("endDate"), now))));
         return announcementRepo.findAll(spec, page).map(this::toDto);
     }
 
     @Override
     public AnnouncementDto publish(Long id, PublishAnnouncementRequest req) {
-        log.debug("Publishing announcement {} to users {}", id, req.userIds());
-        
-        Announcement announcement = announcementRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + id));
-
-        // Create notifications for each user
-        for (Long userId : req.userIds()) {
-            Notification notification = new Notification();
-            notification.setUser(staffRepo.findById(userId).orElse(null)); // This should be BaseUser, not Staff
-            notification.setTitle(announcement.getTitle());
-            notification.setMessage(announcement.getBody());
-            notification.setType(NotificationType.ANNOUNCEMENT_PUBLISHED);
-            notification.setEntityType("ANNOUNCEMENT");
-            notification.setEntityId(announcement.getId());
-            notification.setActionUrl("/announcements/" + announcement.getId());
-            notification.setReadStatus(false);
-            notification.setCreatedAt(LocalDateTime.now());
-            
-            notificationRepo.save(notification);
+        BaseUser caller = getCurrentUser();
+        School school = requireCallerSchool(caller);
+        if (caller.getRole() != UserRole.ADMIN && caller.getRole() != UserRole.STAFF) {
+            throw new AccessDeniedException("Only administrators and staff can publish announcements");
         }
-
-        log.info("Announcement {} published to {} users", id, req.userIds().size());
+        Announcement announcement = requireSchoolAnnouncement(id, school);
+        List<BaseUser> recipients = resolveSpecificUsers(req.userIds(), school);
+        deliver(announcement, recipients, false);
         return toDto(announcement);
     }
 
-    /**
-     * Validate that the current user has permission to target the specified audience
-     */
-    private void validateTargetingPermissions(CreateAnnouncementRequest req, BaseUser currentUser) {
-        String targetType = req.targetType();
-        if (targetType == null) return;
-        
-        switch (targetType) {
-            case "CLASSES":
-                // Only teachers can send to their classes
-                if (!(currentUser instanceof Teacher)) {
-                    throw new ConflictException("Only teachers can send announcements to classes");
-                }
-                // Validate that teacher teaches these classes
-                if (req.targetClassIds() != null && !req.targetClassIds().isEmpty()) {
-                    validateTeacherClassAccess((Teacher) currentUser, req.targetClassIds());
-                }
-                break;
-                
-            case "ALL_STAFF":
-            case "ALL_TEACHERS":
-            case "ALL_STUDENTS":
-            case "WHOLE_SCHOOL":
-                // Only admins can send to these broad audiences
-                if (!currentUser.getRole().name().equals("ADMIN")) {
-                    throw new ConflictException("Only administrators can send announcements to " + targetType.toLowerCase().replace("_", " "));
-                }
-                break;
-                
-            case "SPECIFIC_USERS":
-                // Anyone can send to specific users (with proper validation)
-                break;
-                
-            default:
-                log.warn("Unknown target type: {}", targetType);
-        }
+    private Announcement requireSchoolAnnouncement(Long id, School school) {
+        return announcementRepo.findByIdAndSchoolId(id, school.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found"));
     }
-    
-    /**
-     * Validate that a teacher has access to the specified classes
-     * Uses the same logic as TeacherClassService to ensure consistency
-     */
-    private void validateTeacherClassAccess(Teacher teacher, Set<Long> classIds) {
-        // Get all classes the teacher has access to using the same service as My Classes page
-        List<TeacherClassDto> teacherClasses = teacherClassService.getAllTeacherClasses(teacher.getEmail(), null);
-        Set<Long> teacherClassIds = teacherClasses.stream()
-            .map(tc -> (long) tc.id())
-            .collect(Collectors.toSet());
-            
-        log.debug("Teacher id={} has access to classes: {}", teacher.getId(), teacherClassIds);
-        log.debug("Requested class IDs: {}", classIds);
-            
-        for (Long classId : classIds) {
-            if (!teacherClassIds.contains(classId)) {
-                throw new ConflictException("Teacher does not have access to class with ID: " + classId);
+
+    private Specification<Announcement> inSchool(School school) {
+        return (root, q, cb) -> cb.equal(root.get("school").get("id"), school.getId());
+    }
+
+    private School requireCallerSchool(BaseUser caller) {
+        // Staff must fail with 403 before the single-School resolver can reject
+        // ambiguous/empty database state, and before any resource is inspected.
+        if (caller.getRole() == UserRole.STAFF && schoolRepo.count() != 1) {
+            throw new AccessDeniedException("Staff access requires single-School compatibility");
+        }
+        School school = currentSchool.resolve();
+        if (caller.getRole() == UserRole.STAFF) {
+            if (!singleSchoolCompatibility(school)) throw new AccessDeniedException("Staff access requires single-School compatibility");
+        } else {
+            MembershipRole role = switch (caller.getRole()) {
+                case ADMIN -> MembershipRole.ADMIN;
+                case TEACHER -> MembershipRole.TEACHER;
+                case STUDENT -> MembershipRole.STUDENT;
+                case PARENT -> MembershipRole.GUARDIAN;
+                default -> throw new AccessDeniedException("School membership required");
+            };
+            if (memberships.findByUserIdAndSchoolId(caller.getId(), school.getId())
+                    .filter(membership -> membership.getRoles().contains(role)).isEmpty()) {
+                throw new AccessDeniedException("School membership with the required role is required");
             }
         }
+        return school;
     }
-    
-    /**
-     * Handle announcement targeting and send notifications
-     */
-    private void handleAnnouncementTargeting(Announcement announcement, CreateAnnouncementRequest req, BaseUser sender) {
-        String targetType = req.targetType();
-        if (targetType == null) return;
-        
-        List<BaseUser> targetUsers = new ArrayList<>();
-        Set<String> targetRoles = new HashSet<>();
-        
-        switch (targetType) {
-            case "CLASSES":
-                if (req.targetClassIds() != null && !req.targetClassIds().isEmpty()) {
-                    List<Student> students = studentRepo.findByClassIds(new ArrayList<>(req.targetClassIds()));
-                    targetUsers.addAll(students);
-                    targetRoles.add("STUDENT");
-                }
-                break;
-                
-            case "ALL_STAFF":
-                List<Staff> allStaff = staffRepo.findAll();
-                targetUsers.addAll(allStaff);
-                targetRoles.add("STAFF");
-                break;
-                
-            case "ALL_TEACHERS":
-                List<Teacher> allTeachers = teacherRepo.findAll();
-                targetUsers.addAll(allTeachers);
-                targetRoles.add("TEACHER");
-                break;
-                
-            case "ALL_STUDENTS":
-                List<Student> allStudents = studentRepo.findAll();
-                targetUsers.addAll(allStudents);
-                targetRoles.add("STUDENT");
-                break;
-                
-            case "WHOLE_SCHOOL":
-                targetUsers.addAll(staffRepo.findAll());
-                targetUsers.addAll(teacherRepo.findAll());
-                targetUsers.addAll(studentRepo.findAll());
-                targetUsers.addAll(parentRepo.findAll());
-                targetRoles.addAll(Set.of("STAFF", "TEACHER", "STUDENT", "PARENT"));
-                break;
-                
-            case "SPECIFIC_USERS":
-                if (req.targetUserIds() != null && !req.targetUserIds().isEmpty()) {
-                    for (Long userId : req.targetUserIds()) {
-                        userRepo.findById(userId).ifPresent(targetUsers::add);
-                    }
-                }
-                break;
-        }
-        
-        // Create database notifications
-        createNotificationsForUsers(announcement, targetUsers);
-        
-        // Send real-time notifications
-        if (!targetRoles.isEmpty()) {
-            realTimeNotificationService.notifyNewAnnouncement(
-                announcement.getTitle(),
-                announcement.getBody(),
-                announcement.getImportance().name(),
-                targetRoles
-            );
-        }
-        
-        // Send specific user notifications
-        if (!targetUsers.isEmpty()) {
-            Set<Long> userIds = targetUsers.stream().map(BaseUser::getId).collect(Collectors.toSet());
-            realTimeNotificationService.notifySpecificUsers(
-                "New Announcement: " + announcement.getTitle(),
-                announcement.getBody(),
-                announcement.getImportance().name(),
-                userIds
-            );
-        }
-        
-        log.info("Sent announcement id={} to {} users and {} roles",
-            announcement.getId(), targetUsers.size(), targetRoles.size());
+
+    private boolean singleSchoolCompatibility(School school) {
+        return schoolRepo.count() == 1 && schoolRepo.existsById(school.getId());
     }
-    
-    /**
-     * Create database notifications for users
-     */
-    private void createNotificationsForUsers(Announcement announcement, List<BaseUser> users) {
-        for (BaseUser user : users) {
+
+    private void requireStaffCompatibility(School school) {
+        if (!singleSchoolCompatibility(school)) {
+            throw new ConflictException("Staff targeting and publishers require single-School compatibility");
+        }
+    }
+
+    private void requireCreator(BaseUser caller) {
+        if (!Set.of(UserRole.ADMIN, UserRole.TEACHER, UserRole.STAFF).contains(caller.getRole())) {
+            throw new AccessDeniedException("Only administrators, teachers and staff can manage announcements");
+        }
+    }
+
+    private boolean isPublicOnly(BaseUser caller) {
+        return caller.getRole() == UserRole.STUDENT || caller.getRole() == UserRole.PARENT;
+    }
+
+    private void validateDates(LocalDateTime start, LocalDateTime end) {
+        if (start != null && end != null && start.isAfter(end)) throw new ConflictException("Start date cannot be after end date");
+    }
+
+    private void validateTargetingPermissions(CreateAnnouncementRequest req, BaseUser caller) {
+        if (req.targetType() == null) return;
+        switch (req.targetType()) {
+            case "CLASSES" -> {
+                if (caller.getRole() != UserRole.TEACHER) throw new ConflictException("Only teachers can send announcements to classes");
+            }
+            case "ALL_STAFF", "ALL_TEACHERS", "ALL_STUDENTS", "WHOLE_SCHOOL" -> {
+                if (caller.getRole() != UserRole.ADMIN) throw new ConflictException("Only administrators can send announcements to broad audiences");
+            }
+            case "SPECIFIC_USERS" -> { }
+            default -> throw new ConflictException("Unknown announcement target type");
+        }
+    }
+
+    private Set<ClassEntity> resolveClasses(Set<Long> ids, School school) {
+        Set<ClassEntity> classes = new HashSet<>();
+        if (ids != null) for (Long id : ids) {
+            classes.add(classRepo.findByIdAndAcademicYearSchoolId(id, school.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Class not found")));
+        }
+        return classes;
+    }
+
+    private void validateTeacherClassAccess(BaseUser teacher, Set<ClassEntity> classes) {
+        Set<Long> allowed = teacherClassService.getAllTeacherClasses(teacher.getEmail(), null).stream()
+                .map(TeacherClassDto::id).collect(Collectors.toSet());
+        if (classes.stream().anyMatch(clazz -> !allowed.contains(clazz.getId()))) {
+            throw new ConflictException("Teacher does not have access to the requested classes");
+        }
+    }
+
+    private Set<Staff> resolvePublishers(Set<Long> ids, School school) {
+        Set<Staff> publishers = new HashSet<>();
+        if (ids == null || ids.isEmpty()) return publishers;
+        requireStaffCompatibility(school);
+        if (ids.contains(null)) throw new ResourceNotFoundException("Staff not found");
+        // Global Staff identity is usable only after proving single-School state.
+        for (Long id : ids) publishers.add(staffRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found")));
+        return publishers;
+    }
+
+    private List<BaseUser> resolveSpecificUsers(Set<Long> ids, School school) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        List<BaseUser> recipients = new ArrayList<>(memberships.findUsersBySchoolIdAndIdsAndRoles(
+                school.getId(), ids, Set.of(MembershipRole.STUDENT, MembershipRole.TEACHER, MembershipRole.ADMIN, MembershipRole.GUARDIAN)));
+        Set<Long> unresolved = new HashSet<>(ids);
+        recipients.forEach(user -> unresolved.remove(user.getId()));
+        if (!unresolved.isEmpty() && singleSchoolCompatibility(school)) {
+            // Guarded legacy compatibility, never a generic BaseUser lookup.
+            for (Staff user : staffRepo.findAllById(unresolved)) {
+                if (user.getRole() == UserRole.STAFF) {
+                    recipients.add(user);
+                    unresolved.remove(user.getId());
+                }
+            }
+        }
+        if (!unresolved.isEmpty()) throw new ResourceNotFoundException("Announcement recipient not found");
+        return recipients;
+    }
+
+    private List<BaseUser> resolveAudience(CreateAnnouncementRequest req, Set<ClassEntity> classes, School school) {
+        // Validate any supplied specific IDs, even when another audience is selected.
+        List<BaseUser> specific = resolveSpecificUsers(req.targetUserIds(), school);
+        if (req.targetType() == null) return List.of();
+        return switch (req.targetType()) {
+            case "CLASSES" -> classes.isEmpty() ? List.of() : new ArrayList<>(studentRepo.findAnnouncementRecipientsByClassIdsAndSchoolId(
+                    classes.stream().map(ClassEntity::getId).toList(), school.getId()));
+            case "ALL_TEACHERS" -> memberships.findUsersBySchoolIdAndRoles(school.getId(), Set.of(MembershipRole.TEACHER));
+            case "ALL_STUDENTS" -> memberships.findUsersBySchoolIdAndRoles(school.getId(), Set.of(MembershipRole.STUDENT));
+            case "ALL_STAFF" -> {
+                requireStaffCompatibility(school);
+                yield new ArrayList<>(staffRepo.findAll());
+            }
+            case "WHOLE_SCHOOL" -> {
+                requireStaffCompatibility(school);
+                List<BaseUser> recipients = new ArrayList<>(memberships.findUsersBySchoolIdAndRoles(school.getId(),
+                        Set.of(MembershipRole.TEACHER, MembershipRole.STUDENT, MembershipRole.GUARDIAN)));
+                recipients.addAll(staffRepo.findAll());
+                yield recipients;
+            }
+            case "SPECIFIC_USERS" -> specific;
+            default -> throw new ConflictException("Unknown announcement target type");
+        };
+    }
+
+    private void deliver(Announcement announcement, List<BaseUser> recipients, boolean newAnnouncement) {
+        Map<Long, BaseUser> unique = new LinkedHashMap<>();
+        recipients.forEach(user -> unique.put(user.getId(), user));
+        String title = newAnnouncement ? "New Announcement: " + announcement.getTitle() : announcement.getTitle();
+        for (BaseUser user : unique.values()) {
             Notification notification = new Notification();
             notification.setUser(user);
-            notification.setTitle("New Announcement: " + announcement.getTitle());
+            notification.setTitle(title);
             notification.setMessage(announcement.getBody());
             notification.setType(NotificationType.ANNOUNCEMENT_PUBLISHED);
             notification.setEntityType("ANNOUNCEMENT");
@@ -501,88 +398,47 @@ public class AnnouncementServiceImpl implements AnnouncementService {
             notification.setActionUrl("/announcements/" + announcement.getId());
             notification.setReadStatus(false);
             notification.setCreatedAt(LocalDateTime.now());
-            
             notificationRepo.save(notification);
         }
+        String priority = switch (announcement.getImportance()) {
+            case URGENT, HIGH -> "HIGH";
+            case MEDIUM -> "MEDIUM";
+            case LOW -> "LOW";
+        };
+        if (!unique.isEmpty()) realTimeNotificationService.notifySpecificUsers(title, announcement.getBody(), priority, unique.keySet());
     }
 
     private AnnouncementDto toDto(Announcement entity) {
-        Set<Long> publisherIds = entity.getPublishers() != null ? 
-            entity.getPublishers().stream().map(Staff::getId).collect(java.util.stream.Collectors.toSet()) : 
-            new HashSet<>();
-            
-        // Get creator info from entity (temporary solution)
-        Long createdById = entity.getCreatedById();
-        String createdByName = entity.getCreatedByName();
-            
-        // Get target class information
-        Set<Long> targetClassIds = entity.getTargetClasses() != null ?
-            entity.getTargetClasses().stream().map(ClassEntity::getId).collect(java.util.stream.Collectors.toSet()) :
-            new HashSet<>();
-            
-        Set<String> targetClassNames = entity.getTargetClasses() != null ?
-            entity.getTargetClasses().stream().map(ClassEntity::getName).collect(java.util.stream.Collectors.toSet()) :
-            new HashSet<>();
-            
-        return new AnnouncementDto(
-            entity.getId(),
-            entity.getTitle(),
-            entity.getBody(),
-            entity.getStartDate(),
-            entity.getEndDate(),
-            entity.getIsPublic(),
-            entity.getImportance(),
-            entity.getCreatedAt(),
-            createdById,
-            createdByName,
-            publisherIds,
-            entity.getTargetType(),
-            targetClassIds,
-            targetClassNames
-        );
+        Set<Long> publisherIds = singleSchoolCompatibility(entity.getSchool())
+                ? entity.getPublishers().stream().map(Staff::getId).collect(Collectors.toSet()) : Set.of();
+        return new AnnouncementDto(entity.getId(), entity.getTitle(), entity.getBody(), entity.getStartDate(), entity.getEndDate(),
+                entity.getIsPublic(), entity.getImportance(), entity.getCreatedAt(), entity.getCreatedById(), entity.getCreatedByName(),
+                publisherIds, entity.getTargetType(), entity.getTargetClasses().stream().map(ClassEntity::getId).collect(Collectors.toSet()),
+                entity.getTargetClasses().stream().map(ClassEntity::getName).collect(Collectors.toSet()));
     }
-    
-        @Override
+
+    @Override
+    @Transactional(readOnly = true)
     public Object getTeacherClasses() {
-        BaseUser currentUser = getCurrentUser();
-        if (!(currentUser instanceof Teacher)) {
-            throw new ConflictException("Only teachers can access this endpoint");
-        }
-
-        Teacher teacher = (Teacher) currentUser;
-        
-        // Use the existing TeacherClassService to get classes (same as My Classes page)
-        List<TeacherClassDto> teacherClasses = teacherClassService.getAllTeacherClasses(teacher.getEmail(), null);
-        
-        // Convert to the format expected by the frontend
-        return teacherClasses.stream()
-            .map(tc -> {
-                var classInfo = new java.util.HashMap<String, Object>();
-                classInfo.put("id", tc.id());
-                classInfo.put("name", tc.name());
-                classInfo.put("gradeLevel", tc.grade());
-                classInfo.put("section", ""); // TeacherClassDto doesn't have section, use empty string
-                classInfo.put("course", "Multiple Courses"); // TeacherClassDto represents class, not individual courses
-                return classInfo;
-            })
-            .collect(Collectors.toList());
+        BaseUser caller = getCurrentUser();
+        requireCallerSchool(caller);
+        if (caller.getRole() != UserRole.TEACHER) throw new ConflictException("Only teachers can access this endpoint");
+        return teacherClassService.getAllTeacherClasses(caller.getEmail(), null).stream().map(tc -> {
+            var info = new HashMap<String, Object>();
+            info.put("id", tc.id()); info.put("name", tc.name()); info.put("gradeLevel", tc.grade());
+            info.put("section", ""); info.put("course", "Multiple Courses");
+            return info;
+        }).toList();
     }
 
-    /** A teacher may change only announcements they created; administrators and staff are not limited. */
-    private void requireTeacherIsCreator(Announcement announcement, String action) {
-        BaseUser currentUser = getCurrentUser();
-        if (currentUser.getRole() == UserRole.TEACHER
-                && !currentUser.getId().equals(announcement.getCreatedById())) {
+    private void requireTeacherIsCreator(Announcement announcement, BaseUser caller, String action) {
+        if (caller.getRole() == UserRole.TEACHER && !caller.getId().equals(announcement.getCreatedById())) {
             throw new AccessDeniedException("You can only " + action + " announcements you created");
         }
     }
 
-    /**
-     * Get the current authenticated user
-     */
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepo.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Current user not found"));
+        return userRepo.findByEmail(email).orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
-} 
+}

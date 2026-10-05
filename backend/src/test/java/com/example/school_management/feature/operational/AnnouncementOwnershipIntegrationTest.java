@@ -3,6 +3,9 @@ package com.example.school_management.feature.operational;
 import com.example.school_management.IntegrationTest;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.auth.entity.Status;
+import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
+import com.example.school_management.feature.membership.service.SchoolMembershipProvisioningService;
+import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.entity.UserRole;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
@@ -60,6 +63,13 @@ class AnnouncementOwnershipIntegrationTest {
     @Autowired
     PasswordEncoder passwordEncoder;
 
+    @Autowired
+    SchoolMembershipRepository memberships;
+    @Autowired
+    CurrentSchoolResolver currentSchool;
+    @Autowired
+    SchoolMembershipProvisioningService membershipProvisioner;
+
     private static final AtomicInteger clientAddress = new AtomicInteger();
 
     private Teacher teacherB;
@@ -77,6 +87,7 @@ class AnnouncementOwnershipIntegrationTest {
         t.setStatus(Status.ACTIVE);
         t.setIsEmailVerified(true);
         teacherB = teacherRepository.save(t);
+        membershipProvisioner.provisionFor(teacherB);
 
         byTeacherA = announcementRepository.save(announcement(DevFixtureLoader.TEACHER_EMAIL));
         byAdmin = announcementRepository.save(announcement(DevFixtureLoader.ADMIN_EMAIL));
@@ -85,6 +96,7 @@ class AnnouncementOwnershipIntegrationTest {
     @AfterEach
     void deleteAnnouncements() {
         announcementRepository.deleteAll(announcementRepository.findAllById(List.of(byTeacherA.getId(), byAdmin.getId())));
+        memberships.deleteAll(memberships.findAllByUserId(teacherB.getId()));
         teacherRepository.deleteById(teacherB.getId());
     }
 
@@ -141,6 +153,7 @@ class AnnouncementOwnershipIntegrationTest {
 
     private Announcement announcement(String creatorEmail) {
         Announcement a = new Announcement();
+        a.setSchool(currentSchool.resolve());
         a.setTitle("Ownership test announcement");
         a.setBody("Body");
         a.setCreatedAt(LocalDateTime.now());

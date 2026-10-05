@@ -122,6 +122,7 @@ public interface OperationalMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "publishers", ignore = true)
     @Mapping(target = "targetClasses", ignore = true) // Handled in service layer
+    @Mapping(target = "school", ignore = true)
     Announcement toAnnouncement(AnnouncementDto dto);
 
     @Mapping(target = "id", ignore = true)
@@ -170,6 +171,7 @@ public interface OperationalMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "publishers", ignore = true)
     @Mapping(target = "targetClasses", ignore = true) // Handled in service layer
+    @Mapping(target = "school", ignore = true)
     void updateAnnouncement(AnnouncementDto src, @MappingTarget Announcement target);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
