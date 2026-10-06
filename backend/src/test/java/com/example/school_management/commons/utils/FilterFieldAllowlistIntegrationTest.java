@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -158,9 +159,44 @@ class FilterFieldAllowlistIntegrationTest {
                 "Unsupported sort field 'assignedBy.email'", "/api/v1/grades/filter");
     }
 
+    @Test
+    void approvedStaffSortsAreAccepted() throws Exception {
+        String admin = bearer(DevFixtureLoader.ADMIN_EMAIL);
+
+        for (String sort : List.of("firstName,asc", "lastName,asc", "lastName,desc",
+                "email,asc", "staffType,asc", "department,asc")) {
+            mockMvc.perform(get("/api/admin/staff").header(HttpHeaders.AUTHORIZATION, admin)
+                            .param("sort", sort))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void unapprovedStaffSortsAreRejected() throws Exception {
+        String admin = bearer(DevFixtureLoader.ADMIN_EMAIL);
+
+        for (String sort : List.of("password,asc", "otpCode,desc", "tokenVersion,asc",
+                "announcements.id,asc", "doesNotExist,asc")) {
+            expectBadRequest(mockMvc.perform(get("/api/admin/staff").header(HttpHeaders.AUTHORIZATION, admin)
+                            .param("sort", sort)),
+                    "Unsupported sort field '" + sort.split(",")[0] + "'", "/api/admin/staff");
+        }
+    }
+
+    @Test
+    void staffSearchCannotBypassSortValidation() throws Exception {
+        expectBadRequest(mockMvc.perform(get("/api/admin/staff")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(DevFixtureLoader.ADMIN_EMAIL))
+                        .param("search", "Staff")
+                        .param("sort", "password,asc")),
+                "Unsupported sort field 'password'", "/api/admin/staff");
+    }
+
     private void expectBadRequest(ResultActions result, String detail, String instance) throws Exception {
         result.andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").isString())
+                .andExpect(jsonPath("$.title").isString())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value(detail))
                 .andExpect(jsonPath("$.instance").value(instance));

@@ -1,5 +1,6 @@
 package com.example.school_management.feature.auth.service;
 
+import com.example.school_management.commons.utils.FilterFields;
 import com.example.school_management.feature.auth.dto.StaffCreateDto;
 import com.example.school_management.feature.auth.dto.StaffDto;
 import com.example.school_management.feature.auth.dto.StaffUpdateDto;
@@ -21,12 +22,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Slf4j
 @Transactional
 public class StaffService extends AbstractUserCrudService<
         Staff, StaffCreateDto, StaffUpdateDto, StaffDto> {
+
+    private static final FilterFields STAFF_LIST_FIELDS = new FilterFields(
+            Set.of(),
+            Set.of("firstName", "lastName", "email", "staffType", "department"));
 
     private final StaffRepository staffRepo;
 
@@ -52,6 +58,7 @@ public class StaffService extends AbstractUserCrudService<
                                         String emailLike,
                                         String staffType,
                                         String department) {
+        STAFF_LIST_FIELDS.requireSortable(pageable.getSort());
         
         // If search is provided, use the search method
         if (search != null && !search.isBlank()) {
@@ -148,4 +155,4 @@ public class StaffService extends AbstractUserCrudService<
     public List<Staff> findAll() {
         return staffRepo.findAll();
     }
-} 
+}
