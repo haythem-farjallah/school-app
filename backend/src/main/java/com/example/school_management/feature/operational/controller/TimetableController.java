@@ -29,6 +29,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -129,20 +130,8 @@ public class TimetableController {
     @PostMapping("/{timetableId}/optimize")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<String>> optimizeTimetable(@PathVariable Long timetableId) {
-        log.debug("Optimizing timetable: {}", timetableId);
-        
-        // Get the timetable and find the associated classes
-        Timetable timetable = timetableService.requireSchoolTimetable(timetableId);
-        
-        if (timetable.getClasses() != null && !timetable.getClasses().isEmpty()) {
-            // Optimize for the first class (in practice, you might want to optimize all classes)
-            Long classId = timetable.getClasses().iterator().next().getId();
-            timetableService.optimizeTimetableForClass(classId);
-        } else {
-            throw new RuntimeException("No class associated with this timetable");
-        }
-        
-        return ResponseEntity.ok(new ApiSuccessResponse<>("success", "Timetable optimization completed successfully."));
+        timetableService.requireSchoolTimetable(timetableId);
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "TIMETABLE_OPTIMIZER_NOT_CONFIGURED");
     }
 
     @Operation(summary = "Get class timetable as JSON")
@@ -170,8 +159,6 @@ public class TimetableController {
         dto.setId(0L); // Virtual timetable ID
         dto.setName("Timetable for Class " + classId);
         dto.setDescription("Class timetable with individual slots");
-        dto.setAcademicYear("2024-2025");
-        dto.setSemester("Fall");
         
         // Convert slots to DTOs using the mapper
         List<TimetableSlotResponseDto> slotDtos = slots.stream()
@@ -273,8 +260,7 @@ public class TimetableController {
     @PostMapping("/class/{classId}/optimize")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<String>> optimizeClassTimetable(@PathVariable Long classId) {
-        log.debug("Optimizing timetable for class: {}", classId);
-        timetableService.optimizeTimetableForClass(classId);
-        return ResponseEntity.ok(new ApiSuccessResponse<>("Timetable optimization started", "success"));
+        timetableService.getSlotsByClassId(classId);
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "TIMETABLE_OPTIMIZER_NOT_CONFIGURED");
     }
-} 
+}

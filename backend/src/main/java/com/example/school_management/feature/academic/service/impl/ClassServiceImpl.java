@@ -283,23 +283,14 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public Page<ClassDto> getClassesByTeacherId(Long teacherId, Pageable pageable) {
         log.debug("Getting classes for teacher: {}", teacherId);
-        List<ClassEntity> classes = classRepo.findByTeacherIdAndSchoolId(teacherId, currentSchool.resolve().getId());
-        log.debug("Found {} classes for teacher {}", classes.size(), teacherId);
-        
-        if (classes.isEmpty()) {
-            log.info("No classes found for teacher {}", teacherId);
-            return new PageImpl<>(List.of(), pageable, 0);
+        Long schoolId = currentSchool.resolve().getId();
+        Page<ClassEntity> page = classRepo.findPageByTeacherIdAndSchoolId(teacherId, schoolId, pageable);
+        List<Long> classIds = page.getContent().stream().map(ClassEntity::getId).toList();
+        if (!classIds.isEmpty()) {
+            classRepo.findWithCoursesByIdsAndSchoolId(classIds, schoolId);
+            classRepo.findWithTeachersByIdsAndSchoolId(classIds, schoolId);
         }
-        
-        // Convert to Page manually since repository returns List
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), classes.size());
-        List<ClassEntity> pageContent = classes.subList(start, end);
-        
-        List<ClassDto> classDtos = toDtos(pageContent);
-        
-        log.debug("Returning {} classes for teacher {}", classDtos.size(), teacherId);
-        return new PageImpl<>(classDtos, pageable, classes.size());
+        return toDtoPage(page);
     }
 
     @Override

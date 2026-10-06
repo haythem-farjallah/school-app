@@ -121,12 +121,14 @@ public class DynamicSpecificationBuilder {
             
             List<Predicate> searchPredicates = new ArrayList<>();
             for (String field : searchableFields) {
+                Path<String> fieldPath;
                 try {
-                    Path<String> fieldPath = getNestedPath(root, field);
-                    searchPredicates.add(cb.like(cb.lower(fieldPath), "%" + searchQuery + "%"));
-                } catch (Exception e) {
-                    // Field doesn't exist in this entity, skip it
+                    fieldPath = getNestedPath(root, field);
+                } catch (IllegalArgumentException e) {
+                    // Search spans entity-specific presentation fields; absent attributes are expected.
+                    continue;
                 }
+                searchPredicates.add(cb.like(cb.lower(fieldPath), "%" + searchQuery + "%"));
             }
             
             if (!searchPredicates.isEmpty()) {

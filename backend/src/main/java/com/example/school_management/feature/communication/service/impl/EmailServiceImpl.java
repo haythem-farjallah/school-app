@@ -88,7 +88,7 @@ public class EmailServiceImpl implements EmailService {
 
         } catch (Exception e) {
             log.error("❌ Failed to send email: {}", e.getClass().getSimpleName());
-            return EmailResponse.failure(emailRequest.getRecipientEmail(), e.getMessage());
+            return EmailResponse.failure(emailRequest.getRecipientEmail(), "Email sending failed");
         }
     }
 
@@ -132,7 +132,7 @@ public class EmailServiceImpl implements EmailService {
 
         } catch (Exception e) {
             log.error("❌ Failed to send templated email '{}': {}", templateName, e.getClass().getSimpleName());
-            return EmailResponse.failure(recipientEmail, e.getMessage());
+            return EmailResponse.failure(recipientEmail, "Email template processing failed");
         }
     }
 
@@ -212,7 +212,7 @@ public class EmailServiceImpl implements EmailService {
 
         } catch (Exception e) {
             log.error("❌ Failed to schedule email: {}", e.getClass().getSimpleName());
-            return EmailResponse.failure(emailRequest.getRecipientEmail(), e.getMessage());
+            return EmailResponse.failure(emailRequest.getRecipientEmail(), "Email scheduling failed");
         }
     }
 
@@ -403,7 +403,7 @@ public class EmailServiceImpl implements EmailService {
             }
         } catch (Exception e) {
             log.error("❌ Failed to process bulk email recipient: {}", e.getClass().getSimpleName());
-            return EmailResponse.failure(recipient.getEmail(), e.getMessage());
+            return EmailResponse.failure(recipient.getEmail(), "Email recipient processing failed");
         }
     }
 

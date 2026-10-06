@@ -29,6 +29,8 @@ import com.example.school_management.feature.school.entity.School;
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lowagie.text.pdf.PdfReader;
+import com.lowagie.text.pdf.parser.PdfTextExtractor;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -370,6 +373,115 @@ class GradeSchoolAccessIntegrationTest {
         response(get(BASE + "/student/{id}/sheet", student.getId()).param("semester", "FIRST"), 404);
         response(get(BASE + "/student/{id}/export", student.getId()).param("semester", "FIRST"), 404);
         response(get(BASE + "/student/{id}/sheet", foreignStudent.getId()).param("semester", "FIRST"), 404);
+    }
+
+    @Test
+    void gradeSheetExportIsARealPdfWithEscapedStudentAndSubjectText() throws Exception {
+        student.setFirstName("Alice & <Admin>");
+        ownCourse.setName("Math <script>alert('grade')</script> & Geometry");
+        ownClass.setName("Class <A> & B");
+        EnhancedGrade row = enhanced(student, ownClass, ownCourse, SEMESTER, 15.0);
+        row.setTeacherRemarks("Keep <img src=\"https://example.test/image\" /> as text & study");
+        enhanced(student, foreignClass, foreignCourse, SEMESTER, 1.0);
+        em.flush();
+
+        var response = mvc.perform(get(BASE + "/student/{id}/export", student.getId())
+                        .param("semester", "FIRST").with(user(DevFixtureLoader.ADMIN_EMAIL).roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andReturn().getResponse();
+        byte[] pdf = response.getContentAsByteArray();
+        assertThat(pdf).isNotEmpty();
+        assertThat(new String(pdf, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        assertThat(response.getHeader("Content-Disposition"))
+                .isEqualTo("attachment; filename=\"grade-sheet-" + student.getId() + "-FIRST.pdf\"");
+        PdfReader reader = new PdfReader(pdf);
+        try {
+            String text = new PdfTextExtractor(reader).getTextFromPage(1);
+            assertThat(text).contains("Alice & <Admin>", "Class <A> & B", ownCourse.getName(),
+                    row.getTeacherRemarks(), "75.00", "N/A").doesNotContain("Foreign course");
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void gradeSheetWithoutSubjectsStillExportsARealPdf() throws Exception {
+        byte[] pdf = mvc.perform(get(BASE + "/student/{id}/export", student.getId())
+                        .param("semester", "FIRST").with(user(DevFixtureLoader.ADMIN_EMAIL).roles("ADMIN")))
+                .andExpect(status().isOk()).andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(pdf).isNotEmpty();
+        assertThat(new String(pdf, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void gradeStatisticsLeaveUnimplementedTrendUnavailable(boolean hasGrades) throws Exception {
+        if (!hasGrades) {
+            em.remove(ownGrade);
+            em.remove(secondOwnGrade);
+            em.flush();
+        }
+        JsonNode statistics = response(get(BASE + "/statistics/student/{id}", student.getId()), 200);
+        assertThat(statistics.path("totalGrades").asLong()).isEqualTo(hasGrades ? 2 : 0);
+        assertThat(statistics.path("trend").isNull()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void internalBulkGradesPersistAllSameSchoolStudents(boolean enhanced) {
+        Student secondStudent = account(new Student(), UserRole.STUDENT);
+        membership(secondStudent, school, MembershipRole.STUDENT);
+        enrollment(secondStudent, ownClass, EnrollmentStatus.ACTIVE);
+        long before = enhanced ? enhancedGrades.count() : grades.count();
+        em.flush();
+
+        runBulkGrades(enhanced, secondStudent.getId());
+
+        em.flush();
+        assertThat(enhanced ? enhancedGrades.count() : grades.count()).isEqualTo(before + 2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void internalBulkGradesValidateEveryStudentBeforePersistingAnyEntry(boolean enhanced) {
+        EnhancedGrade existing = enhanced(student, ownClass, ownCourse, SEMESTER,
+                CreateEnhancedGradeRequest.ExamType.QUIZ, 10.0);
+        em.flush();
+        long before = enhanced ? enhancedGrades.count() : grades.count();
+
+        assertThatThrownBy(() -> runBulkGrades(enhanced, foreignStudent.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        em.flush();
+        em.clear();
+        assertThat(enhanced ? enhancedGrades.count() : grades.count()).isEqualTo(before);
+        assertThat(enhancedGrades.findById(existing.getId())).hasValueSatisfying(row ->
+                assertThat(row.getScore()).isEqualTo(10.0));
+    }
+
+    private void runBulkGrades(boolean enhanced, Long secondStudentId) {
+        var previousContext = SecurityContextHolder.getContext();
+        var context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(teacher.getEmail(), "unused", List.of()));
+        SecurityContextHolder.setContext(context);
+        try {
+            if (enhanced) {
+                gradeService.createBulkEnhancedGrades(json.convertValue(Map.of(
+                        "classId", ownClass.getId(), "courseId", ownCourse.getId(), "examType", "QUIZ",
+                        "semester", "FIRST", "maxScore", 20,
+                        "grades", List.of(Map.of("studentId", student.getId(), "score", 14),
+                                Map.of("studentId", secondStudentId, "score", 16))), BulkEnhancedGradeEntryRequest.class));
+            } else {
+                gradeService.enterBulkGrades(json.convertValue(Map.of(
+                        "classId", ownClass.getId(), "courseId", ownCourse.getId(), "assessmentType", "EXAM",
+                        "grades", List.of(Map.of("studentId", student.getId(), "value", 14),
+                                Map.of("studentId", secondStudentId, "value", 16))), BulkGradeEntryRequest.class));
+            }
+        } finally {
+            SecurityContextHolder.setContext(previousContext);
+        }
     }
 
     @ParameterizedTest

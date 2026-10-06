@@ -31,5 +31,4 @@ public interface TimetableService {
     
     // Class-specific operations
     void saveSlotsForClass(Long classId, List<TimetableSlot> slots);
-    void optimizeTimetableForClass(Long classId);
-} 
+}

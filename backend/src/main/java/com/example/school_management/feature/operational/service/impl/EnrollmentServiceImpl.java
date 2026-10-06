@@ -434,7 +434,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         return performAutoEnrollment(GradeLevel.valueOf(gradeLevel.toUpperCase()), false);
     }
 
-    // Pure planning has no writes; failed resolver reads must also leave the safe fatal result returnable.
+    // Planning has no writes; unavailable academic-year configuration returns a safe fatal result.
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AutoEnrollmentResultDto previewAutoEnrollment() {
@@ -518,7 +518,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                             .formatted(enrolled, usedClasses.size(), createdClasses.size());
             return autoResult(true, message, considered, enrolled, alreadyEnrolled, usedClasses.size(),
                     byGrade, createdClasses, errors, preview);
-        } catch (Exception e) {
+        } catch (CurrentAcademicYearResolver.ConfigurationException e) {
             log.error("Auto-enrollment failed: {}", e.getClass().getSimpleName());
             errors.add("Auto-enrollment failed");
             return autoResult(false, "Auto-enrollment process failed", considered, enrolled, alreadyEnrolled,

@@ -16,6 +16,24 @@ import java.util.Optional;
 @Repository
 public interface GradeRepository extends JpaRepository<Grade, Long>, JpaSpecificationExecutor<Grade> {
     
+    interface ClassGradeSummary {
+        Long getClassId();
+        Double getAverageGrade();
+        LocalDateTime getLastGradedAt();
+        Long getScoreCount();
+    }
+
+    @Query("""
+        SELECT g.enrollment.classEntity.id AS classId, AVG(g.score) AS averageGrade,
+               MAX(g.gradedAt) AS lastGradedAt, COUNT(g.score) AS scoreCount
+        FROM Grade g
+        WHERE g.enrollment.classEntity.id IN :classIds
+          AND g.enrollment.classEntity.academicYear.school.id = :schoolId
+        GROUP BY g.enrollment.classEntity.id
+        """)
+    List<ClassGradeSummary> summarizeByClassIdsAndSchoolId(@Param("classIds") List<Long> classIds,
+            @Param("schoolId") Long schoolId);
+
     // Legacy consumers outside Grade/Transcript workflows: TeacherClass and Dashboard.
     @Query("SELECT g FROM Grade g WHERE g.enrollment.classEntity.id = :classId")
     List<Grade> findByClassId(@Param("classId") Long classId);

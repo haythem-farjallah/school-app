@@ -91,11 +91,19 @@ public class DashboardServiceImpl implements DashboardService {
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
         List<ClassEntity> classes = classRepository.findByTeacherIdAndSchoolId(teacherId, schoolId);
         List<TeachingAssignment> assignments = teachingAssignmentRepository.findByTeacherIdAndSchoolId(teacherId, schoolId);
+        List<Long> classIds = classes.stream().map(ClassEntity::getId).toList();
+        if (!classIds.isEmpty()) classRepository.findWithCoursesByIdsAndSchoolId(classIds, schoolId);
+        Map<Long, Long> studentCounts = enrollmentRepository.countActiveRosters(classIds).stream()
+                .collect(Collectors.toMap(EnrollmentRepository.RosterCountRow::getClassId,
+                        EnrollmentRepository.RosterCountRow::getStudentCount));
+        Map<Long, GradeRepository.ClassGradeSummary> gradeSummaries = classIds.isEmpty() ? Map.of()
+                : gradeRepository.summarizeByClassIdsAndSchoolId(classIds, schoolId).stream()
+                    .collect(Collectors.toMap(GradeRepository.ClassGradeSummary::getClassId, summary -> summary));
         Map<String, Object> dashboard = new HashMap<>();
         dashboard.put("baseInfo", createBaseDashboard(teacher));
         dashboard.put("type", "TEACHER");
-        dashboard.put("stats", createTeacherStats(classes, assignments, schoolId));
-        dashboard.put("classes", createTeacherClasses(classes, schoolId));
+        dashboard.put("stats", createTeacherStats(classes, assignments, schoolId, gradeSummaries));
+        dashboard.put("classes", createTeacherClasses(classes, studentCounts, gradeSummaries));
         dashboard.put("pendingTasks", List.of());
         dashboard.put("studentAlerts", List.of());
         return dashboard;
@@ -194,8 +202,8 @@ public class DashboardServiceImpl implements DashboardService {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalEnrollments", enrollmentRepository.countByStudentIdAndSchoolId(studentId, schoolId));
         stats.put("averageGrade", averageGrade(gradeRepository.findByStudentIdAndSchoolId(studentId, schoolId)));
-        stats.put("completedCourses", 0);
-        stats.put("totalAssignments", 0);
+        stats.put("completedCourses", null);
+        stats.put("totalAssignments", null);
         stats.put("currentGPA", "N/A");
         stats.put("academicStanding", "N/A");
         return stats;
@@ -236,7 +244,8 @@ public class DashboardServiceImpl implements DashboardService {
         }).toList();
     }
 
-    private Map<String, Object> createTeacherStats(List<ClassEntity> classes, List<TeachingAssignment> assignments, Long schoolId) {
+    private Map<String, Object> createTeacherStats(List<ClassEntity> classes, List<TeachingAssignment> assignments,
+            Long schoolId, Map<Long, GradeRepository.ClassGradeSummary> gradeSummaries) {
         Map<Long, Course> courses = new LinkedHashMap<>();
         Map<Long, Course> activeCourses = new LinkedHashMap<>();
         for (TeachingAssignment assignment : assignments) {
@@ -257,30 +266,31 @@ public class DashboardServiceImpl implements DashboardService {
         List<Long> classIds = classes.stream().map(ClassEntity::getId).toList();
         long students = enrollmentRepository.findActiveRosterRows(classIds).stream()
                 .map(EnrollmentRepository.RosterRow::getStudentId).distinct().count();
-        List<Grade> grades = classes.stream()
-                .flatMap(clazz -> gradeRepository.findByClassIdAndSchoolId(clazz.getId(), schoolId).stream()).toList();
+        long scoreCount = gradeSummaries.values().stream().mapToLong(GradeRepository.ClassGradeSummary::getScoreCount).sum();
+        double scoreSum = gradeSummaries.values().stream().filter(summary -> summary.getAverageGrade() != null)
+                .mapToDouble(summary -> summary.getAverageGrade() * summary.getScoreCount()).sum();
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalClasses", classes.size());
         stats.put("totalStudents", students);
         stats.put("totalCourses", courses.size());
-        stats.put("pendingGrades", 0);
-        stats.put("averageClassGrade", averageGrade(grades));
+        stats.put("pendingGrades", null);
+        stats.put("averageClassGrade", scoreCount == 0 ? 0.0 : scoreSum / scoreCount);
         stats.put("activeCourses", activeCourses.size());
         return stats;
     }
 
-    private List<Map<String, Object>> createTeacherClasses(List<ClassEntity> classes, Long schoolId) {
+    private List<Map<String, Object>> createTeacherClasses(List<ClassEntity> classes, Map<Long, Long> studentCounts,
+            Map<Long, GradeRepository.ClassGradeSummary> gradeSummaries) {
         return classes.stream().map(clazz -> {
-            List<Grade> grades = gradeRepository.findByClassIdAndSchoolId(clazz.getId(), schoolId);
+            GradeRepository.ClassGradeSummary summary = gradeSummaries.get(clazz.getId());
             Map<String, Object> data = new HashMap<>();
             data.put("classId", clazz.getId());
             data.put("className", clazz.getName());
-            data.put("enrolledStudents", enrollmentRepository.countActiveByClassId(clazz.getId()));
-            data.put("totalAssignments", 0);
-            data.put("pendingGrades", 0);
-            data.put("averageGrade", averageGrade(grades));
-            data.put("lastActivity", grades.stream().map(Grade::getGradedAt)
-                    .filter(java.util.Objects::nonNull).max(java.util.Comparator.naturalOrder()).orElse(null));
+            data.put("enrolledStudents", studentCounts.getOrDefault(clazz.getId(), 0L));
+            data.put("totalAssignments", null);
+            data.put("pendingGrades", null);
+            data.put("averageGrade", summary == null || summary.getAverageGrade() == null ? 0.0 : summary.getAverageGrade());
+            data.put("lastActivity", summary == null ? null : summary.getLastGradedAt());
             return data;
         }).toList();
     }
@@ -308,7 +318,7 @@ public class DashboardServiceImpl implements DashboardService {
         stats.put("totalClasses", classRepository.countBySchoolId(schoolId));
         stats.put("totalCourses", courseRepository.countBySchoolId(schoolId));
         stats.put("activeEnrollments", enrollmentRepository.countBySchoolIdAndStatus(schoolId, EnrollmentStatus.ACTIVE));
-        stats.put("systemHealth", 0.0);
+        stats.put("systemHealth", null);
         stats.put("serverStatus", "N/A");
         return stats;
     }

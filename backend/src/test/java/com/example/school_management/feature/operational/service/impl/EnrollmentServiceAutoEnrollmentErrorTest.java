@@ -7,23 +7,20 @@ import com.example.school_management.feature.auth.entity.BaseUser;
 import com.example.school_management.feature.auth.repository.BaseUserRepository;
 import com.example.school_management.feature.auth.repository.StudentRepository;
 import com.example.school_management.feature.membership.repository.SchoolMembershipRepository;
-import com.example.school_management.feature.operational.dto.AutoEnrollmentResultDto;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.service.AuditService;
 import com.example.school_management.feature.school.entity.School;
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataAccessResourceFailureException;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * A failed auto-enrollment reports a generic error; the underlying exception's message, which may
- * carry SQL or internal state, never reaches the caller.
- */
+/** Unexpected planning failures propagate to the global server-error handler. */
 class EnrollmentServiceAutoEnrollmentErrorTest {
 
     private static final String INTERNAL_DETAIL =
@@ -46,21 +43,36 @@ class EnrollmentServiceAutoEnrollmentErrorTest {
             schoolResolver,
             mock(SchoolMembershipRepository.class));
 
-    @Test
-    void failureReportsOnlyAGenericError() {
+    @ParameterizedTest
+    @ValueSource(strings = {"all", "grade", "preview"})
+    void unexpectedDatabaseFailurePropagates(String operation) {
         AcademicYear year = mock(AcademicYear.class);
         School school = mock(School.class);
         when(year.getId()).thenReturn(1L);
         when(school.getId()).thenReturn(2L);
         when(academicYearResolver.resolve()).thenReturn(year);
         when(schoolResolver.resolve()).thenReturn(school);
-        when(studentRepo.findEligibleSchoolStudents(anyLong()))
-                .thenThrow(new DataAccessResourceFailureException(INTERNAL_DETAIL));
+        var failure = new DataAccessResourceFailureException(INTERNAL_DETAIL);
+        when(studentRepo.findEligibleSchoolStudents(anyLong())).thenThrow(failure);
 
-        AutoEnrollmentResultDto result = service.previewAutoEnrollment();
+        assertThatThrownBy(() -> run(operation)).isSameAs(failure);
+    }
 
-        assertThat(result.success()).isFalse();
-        assertThat(result.errors()).containsExactly("Auto-enrollment failed");
-        assertThat(result.message()).doesNotContain("students", "select", "ERROR");
+    @ParameterizedTest
+    @ValueSource(strings = {"all", "grade", "preview"})
+    void unexpectedResolverFailurePropagates(String operation) {
+        var failure = new IllegalStateException("unexpected internal resolver failure");
+        when(academicYearResolver.resolve()).thenThrow(failure);
+
+        assertThatThrownBy(() -> run(operation)).isSameAs(failure);
+    }
+
+    private void run(String operation) {
+        switch (operation) {
+            case "all" -> service.autoEnrollAllStudents();
+            case "grade" -> service.autoEnrollByGradeLevel("MIDDLE");
+            case "preview" -> service.previewAutoEnrollment();
+            default -> throw new AssertionError("Unknown operation");
+        }
     }
 }

@@ -46,7 +46,12 @@ import com.example.school_management.feature.academic.repository.CourseRepositor
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
+import com.lowagie.text.DocumentException;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+import org.xhtmlrenderer.pdf.ITextRenderer;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -77,6 +82,7 @@ public class GradeServiceImpl implements GradeService {
 
     private final AuditService auditService;
     private final OperationalMapper mapper;
+    private final TemplateEngine templateEngine;
 
     @Override
     @Transactional
@@ -103,8 +109,11 @@ public class GradeServiceImpl implements GradeService {
                 throw new BadRequestException("Duplicate grade for student ID: " + entry.getStudentId());
             }
         }
-        for (BulkGradeEntryRequest.StudentGradeEntry entry : request.getGrades()) {
-            Enrollment enrollment = requireSchoolActiveEnrollment(entry.getStudentId(), request.getClassId());
+        List<Enrollment> enrollments = request.getGrades().stream()
+                .map(entry -> requireSchoolActiveEnrollment(entry.getStudentId(), request.getClassId())).toList();
+        for (int index = 0; index < request.getGrades().size(); index++) {
+            BulkGradeEntryRequest.StudentGradeEntry entry = request.getGrades().get(index);
+            Enrollment enrollment = enrollments.get(index);
             Grade grade = new Grade();
             grade.setEnrollment(enrollment);
             grade.setScore(entry.getValue().floatValue());
@@ -411,7 +420,7 @@ public class GradeServiceImpl implements GradeService {
                 .weightedAverage(0.0)
                 .letterGrade("N/A")
                 .passStatus("PENDING")
-                .trend("STABLE")
+                .trend(null)
                 .build();
         }
         
@@ -454,7 +463,7 @@ public class GradeServiceImpl implements GradeService {
             .weightedAverage(weightedAverage)
             .letterGrade(calculateLetterGrade(weightedAverage))
             .passStatus(weightedAverage >= 10 ? "PASS" : "FAIL")
-            .trend("STABLE") // TODO: Implement trend calculation
+            .trend(null)
             .recentGrades(recentGrades)
             .build();
     }
@@ -570,10 +579,12 @@ public class GradeServiceImpl implements GradeService {
         requireSchoolClass(request.getClassId());
         Course course = requireSchoolCourse(request.getCourseId());
         List<EnhancedGradeResponse> responses = new ArrayList<>();
-        
-        for (BulkEnhancedGradeEntryRequest.StudentGradeEntry gradeEntry : request.getGrades()) {
-            // Get student and course information
-            Enrollment enrollment = requireSchoolActiveEnrollment(gradeEntry.getStudentId(), request.getClassId());
+
+        List<Enrollment> enrollments = request.getGrades().stream()
+                .map(entry -> requireSchoolActiveEnrollment(entry.getStudentId(), request.getClassId())).toList();
+        for (int index = 0; index < request.getGrades().size(); index++) {
+            BulkEnhancedGradeEntryRequest.StudentGradeEntry gradeEntry = request.getGrades().get(index);
+            Enrollment enrollment = enrollments.get(index);
 
             // Check if grade already exists
             Optional<EnhancedGrade> existingGrade = enhancedGradeRepository.findByStudentIdAndClassIdAndCourseIdAndExamTypeAndSemester(
@@ -903,13 +914,20 @@ public class GradeServiceImpl implements GradeService {
     public byte[] exportStudentGradeSheet(Long studentId, CreateEnhancedGradeRequest.Semester semester) {
         log.debug("Exporting grade sheet for student: {}, semester: {}", studentId, semester);
         
-        // Get the grade sheet data
         StudentGradeSheet gradeSheet = getStudentGradeSheet(studentId, semester);
-        
-        // For now, return a simple PDF placeholder
-        // In a real implementation, you would use a PDF library like iText or Apache PDFBox
-        String pdfContent = generateGradeSheetPdfContent(gradeSheet);
-        return pdfContent.getBytes();
+        Context context = new Context(Locale.ROOT);
+        context.setVariable("sheet", gradeSheet);
+        String xhtml = templateEngine.process("grades/grade-sheet", context);
+        ITextRenderer renderer = new ITextRenderer();
+        renderer.setDocumentFromString(xhtml);
+        renderer.layout();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try {
+            renderer.createPDF(output);
+        } catch (DocumentException exception) {
+            throw new IllegalStateException("Failed to render grade sheet PDF", exception);
+        }
+        return output.toByteArray();
     }
     
     // ===== HELPER METHODS =====
@@ -1094,27 +1112,4 @@ public class GradeServiceImpl implements GradeService {
                 .orElse(null);
     }
 
-    private String generateGradeSheetPdfContent(StudentGradeSheet gradeSheet) {
-        // This is a placeholder for PDF generation
-        // In a real implementation, you would use a PDF library
-        StringBuilder content = new StringBuilder();
-        content.append("GRADE SHEET\n");
-        content.append("Student: ").append(gradeSheet.getStudentFirstName()).append(" ").append(gradeSheet.getStudentLastName()).append("\n");
-        content.append("Class: ").append(gradeSheet.getClassName()).append("\n");
-        content.append("Semester: ").append(gradeSheet.getSemester()).append("\n");
-        content.append("Weighted Average: ").append(String.format("%.2f", gradeSheet.getWeightedAverage())).append("\n");
-        content.append("Class Rank: ").append(gradeSheet.getClassRank() == null ? "N/A" : gradeSheet.getClassRank() + "/" + gradeSheet.getTotalStudents()).append("\n");
-        content.append("Attendance Rate: ").append(gradeSheet.getAttendanceRate() == null ? "N/A" : String.format("%.1f%%", gradeSheet.getAttendanceRate())).append("\n");
-        
-        for (StudentGradeSheet.SubjectGrade subject : gradeSheet.getSubjects()) {
-            content.append("\nSubject: ").append(subject.getCourseName()).append(" (").append(subject.getCourseCode()).append(")\n");
-            content.append("Teacher: ").append(subject.getTeacherFirstName()).append(" ").append(subject.getTeacherLastName()).append("\n");
-            content.append("Average: ").append(String.format("%.2f", subject.getAverage())).append(" (").append(subject.getLetterGrade()).append(")\n");
-            if (subject.getTeacherRemarks() != null) {
-                content.append("Remarks: ").append(subject.getTeacherRemarks()).append("\n");
-            }
-        }
-        
-        return content.toString();
-    }
 }

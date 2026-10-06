@@ -18,10 +18,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+import org.xhtmlrenderer.pdf.ITextRenderer;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import com.lowagie.text.DocumentException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -43,6 +49,7 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     private final TeacherRepository teacherRepository;
     private final RoomRepository roomRepository;
     private final TimetableSlotRepository timetableSlotRepository;
+    private final TemplateEngine templateEngine;
     
     @Override
     public byte[] exportTimetable(Long timetableId, TimetableExportRequest request) {
@@ -87,38 +94,10 @@ public class TimetableExportServiceImpl implements TimetableExportService {
     
     @Override
     public Object getAvailableTemplates() {
-        log.debug("Getting available export templates");
-        
-        List<Map<String, Object>> templates = new ArrayList<>();
-        
-        // Professional Template
-        Map<String, Object> professional = new HashMap<>();
-        professional.put("id", "professional");
-        professional.put("name", "Professional");
-        professional.put("description", "Clean, professional layout suitable for official documents");
-        professional.put("features", Arrays.asList("Header/Footer", "Color coding", "Statistics"));
-        professional.put("preview", "/templates/professional-preview.png");
-        templates.add(professional);
-        
-        // Minimal Template
-        Map<String, Object> minimal = new HashMap<>();
-        minimal.put("id", "minimal");
-        minimal.put("name", "Minimal");
-        minimal.put("description", "Simple, clean layout with minimal styling");
-        minimal.put("features", Arrays.asList("Basic grid", "No colors", "Compact"));
-        minimal.put("preview", "/templates/minimal-preview.png");
-        templates.add(minimal);
-        
-        // Colorful Template
-        Map<String, Object> colorful = new HashMap<>();
-        colorful.put("id", "colorful");
-        colorful.put("name", "Colorful");
-        colorful.put("description", "Vibrant colors with subject-based color coding");
-        colorful.put("features", Arrays.asList("Subject colors", "Teacher highlights", "Visual appeal"));
-        colorful.put("preview", "/templates/colorful-preview.png");
-        templates.add(colorful);
-        
-        return Map.of("templates", templates, "defaultTemplate", "professional");
+        Map<String, Object> catalog = new HashMap<>();
+        catalog.put("templates", List.of());
+        catalog.put("defaultTemplate", null);
+        return catalog;
     }
     
     @Override
@@ -127,16 +106,17 @@ public class TimetableExportServiceImpl implements TimetableExportService {
         Timetable timetable = getTimetable(timetableId);
         List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
 
-        try {
-            
-            // For now, return a simple PDF content as bytes
-            // In a real implementation, you would use a PDF library like iText or Apache PDFBox
-            String pdfContent = generatePdfContent(timetable, slots, request);
-            return pdfContent.getBytes();
-            
-        } catch (Exception e) {
-            log.error("Failed to export PDF for timetable {}: {}", timetableId, e.getMessage(), e);
-            throw new RuntimeException("PDF export failed", e);
+        Context context = new Context();
+        context.setVariable("content", generatePdfText(timetable, slots, request));
+        String html = templateEngine.process("timetable/timetable-export-pdf", context);
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            ITextRenderer renderer = new ITextRenderer();
+            renderer.setDocumentFromString(html);
+            renderer.layout();
+            renderer.createPDF(output);
+            return output.toByteArray();
+        } catch (DocumentException | IOException e) {
+            throw new IllegalStateException("PDF export failed", e);
         }
     }
     
@@ -146,16 +126,26 @@ public class TimetableExportServiceImpl implements TimetableExportService {
         Timetable timetable = getTimetable(timetableId);
         List<TimetableSlot> slots = getFilteredSlots(timetableId, request);
 
-        try {
-            
-            // For now, return a simple Excel-like CSV content
-            // In a real implementation, you would use Apache POI
-            String excelContent = generateExcelContent(timetable, slots, request);
-            return excelContent.getBytes();
-            
-        } catch (Exception e) {
-            log.error("Failed to export Excel for timetable {}: {}", timetableId, e.getMessage(), e);
-            throw new RuntimeException("Excel export failed", e);
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Main Timetable");
+            writeRow(sheet, 0, "Timetable Name", timetable.getName());
+            writeRow(sheet, 1, "Academic Year", timetable.getAcademicYear());
+            writeRow(sheet, 2, "Semester", timetable.getSemester());
+            writeRow(sheet, 4, "Day", "Period", "Course", "Class", "Teacher", "Room");
+            int row = 5;
+            for (TimetableSlot slot : slots) {
+                if (isSlotAssigned(slot)) {
+                    writeRow(sheet, row++, slot.getDayOfWeek().name(), "Period " + slot.getPeriod().getIndex(),
+                            slot.getForCourse().getName(), slot.getForClass().getName(),
+                            slot.getTeacher().getFirstName() + " " + slot.getTeacher().getLastName(),
+                            slot.getRoom() == null ? "" : slot.getRoom().getName());
+                }
+            }
+            for (int column = 0; column < 6; column++) sheet.setColumnWidth(column, 24 * 256);
+            workbook.write(output);
+            return output.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("Excel export failed", e);
         }
     }
     
@@ -169,9 +159,8 @@ public class TimetableExportServiceImpl implements TimetableExportService {
             
             return generateCsvContent(timetable, slots, request).getBytes(request.getEncoding());
             
-        } catch (Exception e) {
-            log.error("Failed to export CSV for timetable {}: {}", timetableId, e.getMessage(), e);
-            throw new RuntimeException("CSV export failed", e);
+        } catch (java.io.UnsupportedEncodingException e) {
+            throw new IllegalStateException("CSV export failed", e);
         }
     }
     
@@ -262,7 +251,7 @@ public class TimetableExportServiceImpl implements TimetableExportService {
         return slot.getForClass() != null && slot.getForCourse() != null && slot.getTeacher() != null;
     }
     
-    private String generatePdfContent(Timetable timetable, List<TimetableSlot> slots, TimetableExportRequest request) {
+    private String generatePdfText(Timetable timetable, List<TimetableSlot> slots, TimetableExportRequest request) {
         StringBuilder content = new StringBuilder();
         
         // Header
@@ -332,36 +321,13 @@ public class TimetableExportServiceImpl implements TimetableExportService {
         return content.toString();
     }
     
-    private String generateExcelContent(Timetable timetable, List<TimetableSlot> slots, TimetableExportRequest request) {
-        StringBuilder content = new StringBuilder();
-        
-        // Excel-like format with tabs
-        content.append("TIMETABLE EXPORT - EXCEL FORMAT\n");
-        content.append("Sheet: Main Timetable\n\n");
-        
-        content.append("Timetable Name\t").append(timetable.getName()).append("\n");
-        content.append("Academic Year\t").append(timetable.getAcademicYear()).append("\n");
-        content.append("Semester\t").append(timetable.getSemester()).append("\n\n");
-        
-        // Headers
-        content.append("Day\tPeriod\tCourse\tClass\tTeacher\tRoom\n");
-        
-        // Data rows
-        for (TimetableSlot slot : slots) {
-            if (isSlotAssigned(slot)) {
-                content.append(slot.getDayOfWeek().name()).append("\t");
-                content.append("Period " + slot.getPeriod().getIndex()).append("\t");
-                content.append(slot.getForCourse().getName()).append("\t");
-                content.append(slot.getForClass().getName()).append("\t");
-                content.append(slot.getTeacher() != null ? 
-                    slot.getTeacher().getFirstName() + " " + slot.getTeacher().getLastName() : "").append("\t");
-                content.append(slot.getRoom() != null ? slot.getRoom().getName() : "").append("\n");
-            }
+    private void writeRow(Sheet sheet, int rowIndex, String... values) {
+        Row row = sheet.createRow(rowIndex);
+        for (int column = 0; column < values.length; column++) {
+            row.createCell(column).setCellValue(values[column] == null ? "" : values[column]);
         }
-        
-        return content.toString();
     }
-    
+
     private String generateCsvContent(Timetable timetable, List<TimetableSlot> slots, TimetableExportRequest request) {
         StringBuilder content = new StringBuilder();
         String delimiter = request.getDelimiter();

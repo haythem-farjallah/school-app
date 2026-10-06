@@ -254,7 +254,7 @@ public class TeachingAssignmentServiceImpl implements TeachingAssignmentService 
 
     @Override
     public void bulkAssignTeachersToCourses(List<CreateTeachingAssignmentDto> assignments) {
-        // Tenant invalidity is atomic even though existing non-tenant failures remain best effort.
+        // Validate every tenant reference before writing any assignment.
         for (CreateTeachingAssignmentDto dto : assignments) {
             requireSchoolTeacher(dto.teacherId());
             requireSchoolClass(dto.classId());
@@ -263,8 +263,8 @@ public class TeachingAssignmentServiceImpl implements TeachingAssignmentService 
         for (CreateTeachingAssignmentDto dto : assignments) {
             try {
                 create(dto);
-            } catch (Exception e) {
-                log.warn("Failed to create teaching assignment for class {} and course {}", dto.classId(), dto.courseId());
+            } catch (ConflictException e) {
+                log.warn("Duplicate teaching assignment for class {} and course {}", dto.classId(), dto.courseId());
             }
         }
     }

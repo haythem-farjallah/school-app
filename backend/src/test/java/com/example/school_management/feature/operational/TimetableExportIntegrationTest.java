@@ -18,10 +18,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.util.Map;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.endsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -38,6 +41,7 @@ class TimetableExportIntegrationTest {
 
     private static final String UNSUPPORTED_FORMAT = "format: Format must be PDF, EXCEL, or CSV";
 
+    @Autowired org.thymeleaf.TemplateEngine templateEngine;
     @Autowired
     MockMvc mockMvc;
 
@@ -79,6 +83,56 @@ class TimetableExportIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(contentType))
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
                         startsWith("attachment; filename=\"timetable_" + timetable.getId() + "_")));
+    }
+
+    @Test
+    void existingEmailTemplatesStillResolveAlongsideDocumentTemplates() {
+        org.thymeleaf.context.Context context = new org.thymeleaf.context.Context();
+        context.setVariable("subject", "Email verification");
+        context.setVariable("name", "Email reader");
+        context.setVariable("code", "test-value");
+        String html = templateEngine.process("otp", context);
+        assertThat(html).contains("Email reader", "test-value", "Email verification");
+    }
+
+    @Test
+    void pdfExportContainsGenuinePdfBytesAndEscapesDynamicMarkup() throws Exception {
+        timetable.setName("Export <unsafe> & \"quoted\" timetable");
+        timetables.saveAndFlush(timetable);
+        byte[] bytes = export("PDF").andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(new String(bytes, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        com.lowagie.text.pdf.PdfReader reader = new com.lowagie.text.pdf.PdfReader(bytes);
+        try {
+            assertThat(reader.getNumberOfPages()).isPositive();
+            assertThat(new com.lowagie.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1))
+                    .contains("Export <unsafe> & \"quoted\" timetable");
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void excelExportContainsReadableWorkbookWithTimetableMetadata() throws Exception {
+        byte[] bytes = export("EXCEL").andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, endsWith(".xlsx\"")))
+                .andReturn().getResponse().getContentAsByteArray();
+        try (var workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
+            var sheet = workbook.getSheet("Main Timetable");
+            assertThat(sheet).isNotNull();
+            assertThat(sheet.getRow(0).getCell(1).getStringCellValue()).isEqualTo("Export test timetable");
+            assertThat(sheet.getRow(1).getCell(1).getStringCellValue()).isEqualTo("2025-2026");
+            assertThat(sheet.getRow(2).getCell(1).getStringCellValue()).isEqualTo("Fall");
+        }
+    }
+
+    @Test
+    void templateCatalogDoesNotAdvertiseUnimplementedTemplates() throws Exception {
+        mockMvc.perform(get("/api/v1/timetables/export/templates")
+                        .header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.templates").isEmpty())
+                .andExpect(jsonPath("$.data.defaultTemplate").isEmpty());
     }
 
     @Test

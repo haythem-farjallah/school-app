@@ -11,7 +11,6 @@ import com.example.school_management.feature.academic.repository.TeachingAssignm
 import com.example.school_management.feature.academic.service.TeacherClassService;
 import com.example.school_management.feature.auth.entity.Teacher;
 import com.example.school_management.feature.auth.repository.TeacherRepository;
-import com.example.school_management.feature.operational.entity.Grade;
 import com.example.school_management.feature.operational.repository.EnrollmentRepository;
 import com.example.school_management.feature.operational.repository.GradeRepository;
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
@@ -26,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,18 +41,19 @@ public class TeacherClassServiceImpl implements TeacherClassService {
 
     @Override
     public Page<TeacherClassDto> getTeacherClasses(String teacherEmail, Pageable pageable, String search) {
-        List<TeacherClassDto> allClasses = getAllTeacherClasses(teacherEmail, search);
-        int start = (int) Math.min(pageable.getOffset(), allClasses.size());
-        int end = Math.min(start + pageable.getPageSize(), allClasses.size());
-        return new PageImpl<>(allClasses.subList(start, end), pageable, allClasses.size());
+        Long schoolId = currentSchool.resolve().getId();
+        Teacher teacher = findTeacher(teacherEmail, schoolId);
+        Page<ClassEntity> page = classRepository.findTeacherClassPage(teacher.getId(), schoolId,
+                searchPattern(search), pageable);
+        return new PageImpl<>(buildTeacherClassDtos(teacher, schoolId, page.getContent()), pageable, page.getTotalElements());
     }
 
     @Override
     public List<TeacherClassDto> getAllTeacherClasses(String teacherEmail, String search) {
         Long schoolId = currentSchool.resolve().getId();
-        Teacher teacher = teacherRepository.findByEmailAndSchoolId(teacherEmail, schoolId)
-                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
-        return buildTeacherClassDtos(teacher, schoolId, search);
+        Teacher teacher = findTeacher(teacherEmail, schoolId);
+        return buildTeacherClassDtos(teacher, schoolId,
+                classRepository.findTeacherClasses(teacher.getId(), schoolId, searchPattern(search)));
     }
 
     @Override
@@ -66,23 +67,38 @@ public class TeacherClassServiceImpl implements TeacherClassService {
         return new TeacherClassStatsDto(classes.size(), totalStudents, averageGrade, totalCapacity, capacityUsed);
     }
 
-    private List<TeacherClassDto> buildTeacherClassDtos(Teacher teacher, Long schoolId, String search) {
+    private Teacher findTeacher(String email, Long schoolId) {
+        return teacherRepository.findByEmailAndSchoolId(email, schoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+    }
+
+    private String searchPattern(String search) {
+        if (search == null || search.isBlank()) return null;
+        // SQL LIKE must preserve the existing literal substring search, including %, _ and backslash.
+        return "%" + search.trim().toLowerCase(Locale.ROOT).replace("\\", "\\\\")
+                .replace("%", "\\%").replace("_", "\\_") + "%";
+    }
+
+    private List<TeacherClassDto> buildTeacherClassDtos(Teacher teacher, Long schoolId, List<ClassEntity> classes) {
+        if (classes.isEmpty()) return List.of();
+        List<Long> classIds = classes.stream().map(ClassEntity::getId).toList();
+        classRepository.findWithCoursesByIdsAndSchoolId(classIds, schoolId);
         Map<Long, List<TeachingAssignment>> assignmentsByClass = teachingAssignmentRepository
                 .findByTeacherIdAndSchoolId(teacher.getId(), schoolId).stream()
                 .collect(Collectors.groupingBy(assignment -> assignment.getClazz().getId()));
-        // This scoped query includes assignments, timetable links and the legacy class_teachers relationship.
-        List<TeacherClassDto> classes = classRepository.findByTeacherIdAndSchoolId(teacher.getId(), schoolId).stream()
-                .map(clazz -> toDto(clazz, assignmentsByClass.getOrDefault(clazz.getId(), List.of()), schoolId))
-                .toList();
-        if (search == null || search.isBlank()) return classes;
-        String query = search.trim().toLowerCase();
-        return classes.stream().filter(dto ->
-                contains(dto.name(), query) || contains(dto.grade(), query) || contains(dto.room(), query)
-                        || dto.courses().stream().anyMatch(course -> contains(course.name(), query) || contains(course.code(), query)))
-                .toList();
+        Map<Long, Long> studentCounts = enrollmentRepository.countActiveRosters(classIds).stream()
+                .collect(Collectors.toMap(EnrollmentRepository.RosterCountRow::getClassId,
+                        EnrollmentRepository.RosterCountRow::getStudentCount));
+        Map<Long, GradeRepository.ClassGradeSummary> gradeSummaries = gradeRepository
+                .summarizeByClassIdsAndSchoolId(classIds, schoolId).stream()
+                .collect(Collectors.toMap(GradeRepository.ClassGradeSummary::getClassId, summary -> summary));
+        return classes.stream().map(clazz -> toDto(clazz,
+                assignmentsByClass.getOrDefault(clazz.getId(), List.of()), schoolId,
+                studentCounts.getOrDefault(clazz.getId(), 0L), gradeSummaries.get(clazz.getId()))).toList();
     }
 
-    private TeacherClassDto toDto(ClassEntity clazz, List<TeachingAssignment> assignments, Long schoolId) {
+    private TeacherClassDto toDto(ClassEntity clazz, List<TeachingAssignment> assignments, Long schoolId,
+            Long studentCount, GradeRepository.ClassGradeSummary summary) {
         for (Course course : clazz.getCourses()) {
             if (!schoolId.equals(course.getSchool().getId())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has a Course from a different School");
@@ -98,19 +114,9 @@ public class TeacherClassServiceImpl implements TeacherClassService {
                         assignment.getCourse().getId(), assignment.getCourse().getName(),
                         assignment.getCourse().getCode(), assignment.getWeeklyHours())).toList();
         return new TeacherClassDto(clazz.getId(), clazz.getName(), clazz.getGradeLevel(), clazz.getCapacity(),
-                (int) enrollmentRepository.countActiveByClassId(clazz.getId()),
+                studentCount.intValue(),
                 clazz.getAssignedRoom() != null ? clazz.getAssignedRoom().getName() : "TBD", "",
-                calculateClassAverageGrade(clazz.getId(), schoolId), "active", courses, null, null);
+                summary == null ? null : (summary.getAverageGrade() == null ? 0.0 : summary.getAverageGrade()), "active", courses, null, null);
     }
 
-    private Double calculateClassAverageGrade(Long classId, Long schoolId) {
-        List<Grade> grades = gradeRepository.findByClassIdAndSchoolId(classId, schoolId);
-        if (grades.isEmpty()) return null;
-        return grades.stream().filter(grade -> grade.getScore() != null)
-                .mapToDouble(grade -> grade.getScore().doubleValue()).average().orElse(0.0);
-    }
-
-    private boolean contains(String value, String query) {
-        return value != null && value.toLowerCase().contains(query);
-    }
 }

@@ -54,6 +54,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -67,8 +71,8 @@ class AttendanceSchoolAccessIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired EntityManager em;
-    @Autowired AttendanceRepository attendance;
-    @Autowired NotificationRepository notifications;
+    @MockitoSpyBean AttendanceRepository attendance;
+    @MockitoSpyBean NotificationRepository notifications;
     @Autowired AttendanceService attendanceService;
     @MockitoSpyBean CurrentSchoolResolver currentSchool;
 
@@ -485,6 +489,58 @@ class AttendanceSchoolAccessIntegrationTest {
                         .content(json.writeValueAsString(List.of(valid, request(foreignStudent, MONDAY)))), "ADMIN"))
                 .andExpect(status().isNotFound());
         assertThat(attendance.findAll()).noneMatch(a -> a.getUser().getId().equals(foreignStudent.getId()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"batch", "class", "slot"})
+    void sameSchoolBatchStillMarksEveryStudent(String route) throws Exception {
+        Student second = account(new Student(), UserRole.STUDENT);
+        membership(second, school, MembershipRole.STUDENT);
+        enrollment(second, ownClass, EnrollmentStatus.ACTIVE);
+        em.flush();
+        Map<String, Object> firstRequest = request(student, MONDAY);
+        firstRequest.put("classId", ownClass.getId());
+        firstRequest.put("courseId", ownCourse.getId());
+        Map<String, Object> secondRequest = new LinkedHashMap<>(firstRequest);
+        secondRequest.put("userId", second.getId());
+        String endpoint = switch (route) {
+            case "batch" -> BASE + "/batch";
+            case "class" -> BASE + "/class/" + ownClass.getId() + "/mark";
+            case "slot" -> BASE + "/slot/" + ownSlot.getId() + "/mark";
+            default -> throw new AssertionError("Unknown route");
+        };
+
+        JsonNode data = response(post(endpoint).param("date", MONDAY.toString()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(List.of(firstRequest, secondRequest))), 201);
+
+        assertThat(data).hasSize(2);
+        assertThat(attendance.findByClassIdAndDateAndSchoolId(ownClass.getId(), MONDAY, school.getId()))
+                .extracting(row -> row.getUser().getId()).containsExactlyInAnyOrder(student.getId(), second.getId());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"batch", "class", "slot"})
+    void mixedSchoolBatchValidatesEveryEntryBeforeWritesOrNotifications(String route) throws Exception {
+        Map<String, Object> valid = request(student, MONDAY);
+        valid.put("classId", ownClass.getId());
+        valid.put("courseId", ownCourse.getId());
+        valid.put("status", "ABSENT");
+        Map<String, Object> foreign = new LinkedHashMap<>(valid);
+        foreign.put("userId", foreignStudent.getId());
+        String endpoint = switch (route) {
+            case "batch" -> BASE + "/batch";
+            case "class" -> BASE + "/class/" + ownClass.getId() + "/mark";
+            case "slot" -> BASE + "/slot/" + ownSlot.getId() + "/mark";
+            default -> throw new AssertionError("Unknown route");
+        };
+        clearInvocations(attendance, notifications);
+
+        mvc.perform(as(post(endpoint).param("date", MONDAY.toString()).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(List.of(valid, foreign))), "ADMIN"))
+                .andExpect(status().isNotFound());
+
+        verify(attendance, never()).save(any());
+        verify(notifications, never()).save(any());
     }
 
     @Test

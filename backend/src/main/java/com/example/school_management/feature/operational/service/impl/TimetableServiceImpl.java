@@ -13,10 +13,8 @@ import com.example.school_management.feature.operational.entity.*;
 import com.example.school_management.feature.operational.mapper.OperationalMapper;
 import com.example.school_management.feature.operational.repository.*;
 import com.example.school_management.feature.operational.service.TimetableService;
-import com.example.school_management.feature.operational.entity.enums.DayOfWeek;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,7 +29,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-@Slf4j
 public class TimetableServiceImpl implements TimetableService {
     
     private final TimetableRepository timetableRepository;
@@ -222,31 +219,6 @@ public class TimetableServiceImpl implements TimetableService {
         }
     }
 
-    @Override
-    @Transactional
-    public void optimizeTimetableForClass(Long classId) {
-        Long schoolId = currentSchoolResolver.resolve().getId();
-        ClassEntity classEntity = requireSchoolClass(classId, schoolId);
-        for (Course course : classEntity.getCourses()) {
-            if (!schoolId.equals(course.getSchool().getId())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Class has a Course from a different School");
-            }
-            requireSchoolCourse(course.getId(), schoolId);
-        }
-        Timetable timetable = findOrCreateTimetable(classEntity, schoolId);
-        var periods = periodRepository.findBySchoolIdOrderByIndex(schoolId);
-        var teachers = teacherRepository.findBySchoolId(schoolId);
-        var rooms = roomRepository.findBySchoolId(schoolId);
-        if (teachers.isEmpty() || periods.isEmpty() || rooms.isEmpty() || classEntity.getCourses().isEmpty()) {
-            log.warn("Missing required data for timetable optimization");
-            return;
-        }
-        List<TimetableSlot> existing = timetableSlotRepository.findByClassIdAndPeriodSchoolId(classId, schoolId);
-        existing.forEach(slot -> validateSlotResources(slot, schoolId));
-        timetableSlotRepository.deleteAll(existing);
-        timetableSlotRepository.saveAll(generateEnhancedSchedule(timetable, classEntity, classEntity.getCourses(), periods, teachers, rooms));
-    }
-
     private Timetable findOrCreateTimetable(ClassEntity classEntity, Long schoolId) {
         List<Timetable> existing = timetableRepository.findBySchoolIdAndClassId(schoolId, classEntity.getId());
         if (!existing.isEmpty()) {
@@ -347,164 +319,4 @@ public class TimetableServiceImpl implements TimetableService {
         target.setRoom(source.getRoom());
     }
 
-    private List<TimetableSlot> generateEnhancedSchedule(
-            Timetable timetable,
-            ClassEntity classEntity,
-            Set<Course> courses,
-            List<Period> periods,
-            List<Teacher> teachers,
-            List<Room> rooms
-    ) {
-        List<TimetableSlot> slots = new ArrayList<>();
-        Map<String, Integer> courseWeeklyCount = new HashMap<>();
-        Map<Long, Integer> teacherWeeklyCount = new HashMap<>();
-        
-        DayOfWeek[] days = {DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY};
-        Random random = new Random();
-        
-        // Initialize course weekly count
-        for (Course course : courses) {
-            courseWeeklyCount.put(course.getCode(), 0);
-        }
-        
-        // Try to schedule each course according to its weekly frequency
-        for (Course course : courses) {
-            int targetFrequency = course.getWeeklyFrequency() != null ? course.getWeeklyFrequency() : 3;
-            int scheduledCount = 0;
-            
-            // Find a teacher who can teach this course
-            Teacher assignedTeacher = findTeacherForCourse(course, teachers);
-            if (assignedTeacher == null) {
-                log.warn("No teacher found for course: {}", course.getName());
-                continue;
-            }
-            
-            // Try to schedule the course
-            for (int attempt = 0; attempt < targetFrequency * 3 && scheduledCount < targetFrequency; attempt++) {
-                DayOfWeek day = days[random.nextInt(days.length)];
-                Period period = periods.get(random.nextInt(Math.min(periods.size(), 6))); // Prefer earlier periods
-                
-                // Check if slot is available
-                boolean slotAvailable = slots.stream().noneMatch(s -> 
-                    s.getDayOfWeek().equals(day) && 
-                    s.getPeriod().getId().equals(period.getId())
-                );
-                
-                if (slotAvailable) {
-                    // Check teacher availability
-                    long teacherSlotsCount = slots.stream()
-                        .filter(s -> s.getTeacher() != null && s.getTeacher().getId().equals(assignedTeacher.getId()))
-                        .count();
-                        
-                    if (teacherSlotsCount < (assignedTeacher.getWeeklyCapacity() != null ? assignedTeacher.getWeeklyCapacity() : 20)) {
-                        // Check if teacher is free at this time
-                        boolean teacherFree = slots.stream().noneMatch(s ->
-                            s.getDayOfWeek().equals(day) &&
-                            s.getPeriod().getId().equals(period.getId()) &&
-                            s.getTeacher() != null &&
-                            s.getTeacher().getId().equals(assignedTeacher.getId())
-                        );
-                        
-                        if (teacherFree) {
-                            // Create slot
-                            TimetableSlot slot = new TimetableSlot();
-                            slot.setTimetable(timetable);
-                            slot.setForClass(classEntity);
-                            slot.setDayOfWeek(day);
-                            slot.setPeriod(period);
-                            slot.setForCourse(course);
-                            slot.setTeacher(assignedTeacher);
-                            
-                            // Assign a suitable room
-                            Room assignedRoom = findSuitableRoom(course, rooms, slots, day, period);
-                            slot.setRoom(assignedRoom);
-                            
-                            slot.setDescription(course.getName() + " - " + assignedTeacher.getFirstName() + " " + assignedTeacher.getLastName());
-                            
-                            slots.add(slot);
-                            scheduledCount++;
-                            
-                            // Handle multi-period courses
-                            if (course.getDurationPeriods() != null && course.getDurationPeriods() > 1) {
-                                int periodIndex = periods.indexOf(period);
-                                for (int i = 1; i < course.getDurationPeriods() && periodIndex + i < periods.size(); i++) {
-                                    Period nextPeriod = periods.get(periodIndex + i);
-                                    
-                                    // Check if next slot is available
-                                    boolean nextSlotAvailable = slots.stream().noneMatch(s -> 
-                                        s.getDayOfWeek().equals(day) && 
-                                        s.getPeriod().getId().equals(nextPeriod.getId())
-                                    );
-                                    
-                                    if (nextSlotAvailable) {
-                                        TimetableSlot continuationSlot = new TimetableSlot();
-                                        continuationSlot.setTimetable(timetable);
-                                        continuationSlot.setForClass(classEntity);
-                                        continuationSlot.setDayOfWeek(day);
-                                        continuationSlot.setPeriod(nextPeriod);
-                                        continuationSlot.setForCourse(course);
-                                        continuationSlot.setTeacher(assignedTeacher);
-                                        continuationSlot.setRoom(assignedRoom);
-                                        continuationSlot.setDescription(course.getName() + " (cont.)");
-                                        
-                                        slots.add(continuationSlot);
-                                    } else {
-                                        // Can't schedule multi-period course, remove the first slot
-                                        slots.remove(slots.size() - 1);
-                                        scheduledCount--;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            courseWeeklyCount.put(course.getCode(), scheduledCount);
-            log.info("Scheduled {} sessions for course {} (target: {})", scheduledCount, course.getName(), targetFrequency);
-        }
-        
-        return slots;
-    }
-    
-    private Teacher findTeacherForCourse(Course course, List<Teacher> teachers) {
-        // Try to find a teacher who teaches this subject
-        return teachers.stream()
-            .filter(t -> t.getSubjectsTaught() != null && 
-                        (t.getSubjectsTaught().toLowerCase().contains(course.getName().toLowerCase()) ||
-                         course.getName().toLowerCase().contains(t.getSubjectsTaught().toLowerCase())))
-            .findFirst()
-            .orElse(teachers.isEmpty() ? null : teachers.get(new Random().nextInt(teachers.size())));
-    }
-    
-    private Room findSuitableRoom(Course course, List<Room> rooms, List<TimetableSlot> existingSlots, DayOfWeek day, Period period) {
-        // Find available rooms
-        List<Room> availableRooms = rooms.stream()
-            .filter(room -> existingSlots.stream().noneMatch(slot ->
-                slot.getDayOfWeek().equals(day) &&
-                slot.getPeriod().getId().equals(period.getId()) &&
-                slot.getRoom() != null &&
-                slot.getRoom().getId().equals(room.getId())
-            ))
-            .collect(Collectors.toList());
-        
-        if (availableRooms.isEmpty()) {
-            return rooms.isEmpty() ? null : rooms.get(0); // Fallback
-        }
-        
-        // Prefer labs for science courses (identified by name)
-        if (course.getName().toLowerCase().contains("computer") || 
-            course.getName().toLowerCase().contains("science") ||
-            course.getName().toLowerCase().contains("chemistry")) {
-            Room lab = availableRooms.stream()
-                .filter(r -> r.getName() != null && r.getName().toLowerCase().contains("lab"))
-                .findFirst()
-                .orElse(null);
-            if (lab != null) return lab;
-        }
-        
-        // Return a random available room
-        return availableRooms.get(new Random().nextInt(availableRooms.size()));
-    }
 }

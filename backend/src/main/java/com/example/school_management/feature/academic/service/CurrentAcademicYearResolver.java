@@ -17,11 +17,17 @@ public class CurrentAcademicYearResolver {
     public AcademicYear resolve() {
         var candidates = academicYears.findAllBySchoolIdAndActiveTrue(currentSchool.resolve().getId());
         if (candidates.isEmpty()) {
-            throw new IllegalStateException("Current School has no active AcademicYear configured");
+            throw new ConfigurationException("Current School has no active AcademicYear configured");
         }
         if (candidates.size() != 1) {
-            throw new IllegalStateException("Current School has multiple active AcademicYears");
+            throw new ConfigurationException("Current School has multiple active AcademicYears");
         }
         return candidates.get(0);
+    }
+
+    public static final class ConfigurationException extends IllegalStateException {
+        public ConfigurationException(String message) {
+            super(message);
+        }
     }
 }

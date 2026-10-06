@@ -104,8 +104,8 @@ class DashboardSchoolAccessIntegrationTest {
         assertThat(clazz.path("classId").asLong()).isEqualTo(ownClass.getId());
         assertThat(clazz.path("totalStudents").asLong()).isEqualTo(1);
         assertThat(clazz.path("schedule").asText()).isEmpty();
-        assertThat(data.path("stats").path("completedCourses").asInt()).isZero();
-        assertThat(data.path("stats").path("totalAssignments").asInt()).isZero();
+        assertThat(data.path("stats").path("completedCourses").isNull()).isTrue();
+        assertThat(data.path("stats").path("totalAssignments").isNull()).isTrue();
         assertThat(data.path("stats").path("currentGPA").asText()).isEqualTo("N/A");
         assertThat(data.path("upcomingEvents")).isEmpty();
         assertThat(data.toString()).doesNotContain("85.5", "Good Standing", "Mathematics Exam", "Room 101", "Foreign class", "Historical class");
@@ -126,10 +126,10 @@ class DashboardSchoolAccessIntegrationTest {
         assertThat(data.path("stats").path("totalCourses").asInt()).isEqualTo(2);
         assertThat(data.path("stats").path("activeCourses").asInt()).isEqualTo(2);
         assertThat(data.path("stats").path("averageClassGrade").asDouble()).isEqualTo(14);
-        assertThat(data.path("stats").path("pendingGrades").asInt()).isZero();
+        assertThat(data.path("stats").path("pendingGrades").isNull()).isTrue();
         for (JsonNode clazz : data.path("classes")) {
-            assertThat(clazz.path("totalAssignments").asInt()).isZero();
-            assertThat(clazz.path("pendingGrades").asInt()).isZero();
+            assertThat(clazz.path("totalAssignments").isNull()).isTrue();
+            assertThat(clazz.path("pendingGrades").isNull()).isTrue();
             if (clazz.path("classId").asLong() == ownClass.getId()) {
                 assertThat(clazz.path("enrolledStudents").asInt()).isEqualTo(1);
                 assertThat(clazz.path("averageGrade").asDouble()).isEqualTo(14);
@@ -137,6 +137,28 @@ class DashboardSchoolAccessIntegrationTest {
         }
         assertThat(data.path("pendingTasks")).isEmpty(); assertThat(data.path("studentAlerts")).isEmpty();
         assertThat(data.toString()).doesNotContain("Foreign class", "Foreign direct", "John Doe", "82.3");
+    }
+
+    @Test
+    void teacherGradeSummaryPreservesWeightedAcrossClassAverageAndLastActivity() throws Exception {
+        ClassEntity second = clazz(ownYear, "Second class"); second.getTeachers().add(teacher);
+        Student other = account(new Student(), UserRole.STUDENT);
+        Enrollment secondEnrollment = enrollment(other, second, EnrollmentStatus.ACTIVE);
+        grade(secondEnrollment, 20f); grade(secondEnrollment, 26f);
+        Grade latest = new Grade(); latest.setEnrollment(ownEnrollment); latest.setAssignedBy(teacher);
+        latest.setContent("Recent quiz"); latest.setScore(12f);
+        latest.setGradedAt(LocalDateTime.of(2031, 10, 5, 11, 0)); em.persist(latest);
+        em.flush(); em.clear();
+        JsonNode data = response(get("/api/v1/dashboard/teacher/{id}", teacher.getId()), 200);
+        assertThat(data.path("stats").path("averageClassGrade").asDouble()).isEqualTo(18);
+        assertThat(data.path("stats").path("totalStudents").asInt()).isEqualTo(2);
+        for (JsonNode clazz : data.path("classes")) {
+            assertThat(clazz.path("enrolledStudents").asInt()).isEqualTo(1);
+            if (clazz.path("classId").asLong() == ownClass.getId()) {
+                assertThat(clazz.path("averageGrade").asDouble()).isEqualTo(13);
+                assertThat(clazz.path("lastActivity").asText()).startsWith("2031-10-05T11:00");
+            } else assertThat(clazz.path("averageGrade").asDouble()).isEqualTo(23);
+        }
     }
 
     @Test
@@ -166,7 +188,7 @@ class DashboardSchoolAccessIntegrationTest {
         assertThat(stats.path("totalClasses").asInt()).isEqualTo(2);
         assertThat(stats.path("totalCourses").asInt()).isEqualTo(1);
         assertThat(stats.path("activeEnrollments").asInt()).isEqualTo(1);
-        assertThat(stats.path("systemHealth").asDouble()).isZero();
+        assertThat(stats.path("systemHealth").isNull()).isTrue();
         assertThat(stats.path("serverStatus").asText()).isEqualTo("N/A");
         for (String field : List.of("systemAlerts", "enrollmentTrends", "performanceMetrics", "recentSystemActivities")) assertThat(data.path(field)).isEmpty();
         assertThat(data.toString()).doesNotContain("98.5", "3.2", "92.5", "System Maintenance", "New student registered", "January");

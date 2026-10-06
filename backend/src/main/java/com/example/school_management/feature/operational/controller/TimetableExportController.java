@@ -75,7 +75,7 @@ public class TimetableExportController {
         String timestamp = java.time.LocalDateTime.now().format(
             java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
         );
-        return String.format("timetable_%d_%s.%s", timetableId, timestamp, format.toLowerCase());
+        return String.format("timetable_%d_%s.%s", timetableId, timestamp, ("EXCEL".equals(format) ? "xlsx" : format.toLowerCase()));
     }
     
     private String getContentType(String format) {

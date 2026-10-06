@@ -25,8 +25,15 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Optional;
+import java.util.List;
+import org.springframework.data.domain.PageImpl;
+import com.example.school_management.feature.academic.entity.ClassEntity;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -75,10 +82,27 @@ class ClassServiceImplTest {
         School school = mock(School.class);
         when(school.getId()).thenReturn(1L);
         when(currentSchool.resolve()).thenReturn(school);
-        when(classes.findByTeacherIdAndSchoolId(5L, 1L)).thenThrow(new DataAccessResourceFailureException("connection refused"));
+        when(classes.findPageByTeacherIdAndSchoolId(5L, 1L, PageRequest.of(0, 10))).thenThrow(new DataAccessResourceFailureException("connection refused"));
 
         assertThatThrownBy(() -> service.getCurrentTeacherClasses(PageRequest.of(0, 10)))
                 .isInstanceOf(DataAccessResourceFailureException.class);
+    }
+
+    @Test
+    void teacherPaginationUsesRepositoryPageAndOnlyLoadsSelectedRelations() {
+        School school = mock(School.class); when(school.getId()).thenReturn(1L);
+        when(currentSchool.resolve()).thenReturn(school);
+        var request = PageRequest.of(1, 2);
+        ClassEntity first = new ClassEntity(); first.setId(10L);
+        ClassEntity second = new ClassEntity(); second.setId(11L);
+        when(classes.findPageByTeacherIdAndSchoolId(5L, 1L, request))
+                .thenReturn(new PageImpl<>(List.of(first, second), request, 8));
+        var page = service.getClassesByTeacherId(5L, request);
+        assertThat(page.getTotalElements()).isEqualTo(8);
+        assertThat(page.getContent()).hasSize(2);
+        verify(classes).findWithCoursesByIdsAndSchoolId(List.of(10L, 11L), 1L);
+        verify(classes).findWithTeachersByIdsAndSchoolId(List.of(10L, 11L), 1L);
+        verify(classes, never()).findByTeacherIdAndSchoolId(anyLong(), anyLong());
     }
 
     @Test

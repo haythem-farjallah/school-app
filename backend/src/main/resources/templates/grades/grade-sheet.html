@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Student Grade Sheet</title>
+    <style>
+        @page { size: A4; margin: 2cm; }
+        body { font-family: Helvetica, sans-serif; font-size: 10pt; color: #263238; line-height: 1.5; }
+        h1 { font-size: 22pt; border-bottom: 2px solid #37474f; padding-bottom: 8pt; }
+        h2 { font-size: 14pt; margin-top: 20pt; }
+        h3 { font-size: 11pt; margin: 0 0 6pt; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 5pt; border-bottom: 1px solid #cfd8dc; }
+        td.label { width: 35%; font-weight: bold; }
+        .subject { border: 1px solid #cfd8dc; padding: 10pt; margin-bottom: 10pt; page-break-inside: avoid; }
+        .subject p { margin: 4pt 0; }
+        .footer { margin-top: 20pt; font-size: 8pt; color: #546e7a; }
+    </style>
+</head>
+<body>
+<h1>Student Grade Sheet</h1>
+<table>
+    <tr><td class="label">Student</td><td th:text="|${sheet.studentFirstName} ${sheet.studentLastName}|"></td></tr>
+    <tr><td class="label">Class</td><td th:text="${sheet.className}"></td></tr>
+    <tr><td class="label">Semester</td><td th:text="${sheet.semester}"></td></tr>
+    <tr><td class="label">Weighted average</td><td th:text="${#numbers.formatDecimal(sheet.weightedAverage, 1, 2, 'POINT')}"></td></tr>
+    <tr><td class="label">Class rank</td><td th:text="${sheet.classRank == null ? 'N/A' : sheet.classRank + '/' + sheet.totalStudents}"></td></tr>
+    <tr><td class="label">Attendance rate</td><td th:text="${sheet.attendanceRate == null ? 'N/A' : #numbers.formatDecimal(sheet.attendanceRate, 1, 1, 'POINT') + '%'}"></td></tr>
+</table>
+<h2>Subjects</h2>
+<p th:if="${#lists.isEmpty(sheet.subjects)}">No recorded subject grades for this semester.</p>
+<div class="subject" th:each="subject : ${sheet.subjects}">
+    <h3 th:text="|${subject.courseName} (${subject.courseCode})|"></h3>
+    <p>Teacher: <span th:text="|${subject.teacherFirstName} ${subject.teacherLastName}|"></span></p>
+    <p>Average: <span th:text="${#numbers.formatDecimal(subject.average, 1, 2, 'POINT')}"></span>
+        (<span th:text="${subject.letterGrade}"></span>)</p>
+    <p th:if="${subject.teacherRemarks != null}">Remarks: <span th:text="${subject.teacherRemarks}"></span></p>
+</div>
+<p class="footer">Generated at <span th:text="${sheet.generatedAt}"></span></p>
+</body>
+</html>

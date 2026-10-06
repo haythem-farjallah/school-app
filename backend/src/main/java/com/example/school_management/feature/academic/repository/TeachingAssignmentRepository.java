@@ -66,6 +66,7 @@ public interface TeachingAssignmentRepository
         SELECT ta FROM TeachingAssignment ta
         JOIN FETCH ta.clazz c
         JOIN FETCH ta.course co
+        LEFT JOIN FETCH co.teacher
         WHERE ta.teacher.id = :teacherId
           AND c.academicYear.school.id = :schoolId AND co.school.id = :schoolId
           AND EXISTS (SELECT m.id FROM SchoolMembership m JOIN m.roles role

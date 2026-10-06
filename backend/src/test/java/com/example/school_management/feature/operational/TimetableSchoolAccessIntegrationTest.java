@@ -64,6 +64,7 @@ class TimetableSchoolAccessIntegrationTest {
     @Autowired TimetableRepository timetables;
     @Autowired TimetableSlotRepository slots;
     @Autowired TimetableService service;
+    @Autowired org.springframework.context.ApplicationContext applicationContext;
     @MockitoBean TimetablePdfService pdfService;
     @MockitoSpyBean CurrentSchoolResolver currentSchool;
     private School ownSchool, foreignSchool;
@@ -90,6 +91,85 @@ class TimetableSchoolAccessIntegrationTest {
         ownSlot = slot(ownTimetable, ownClass, ownCourse, ownPeriod, ownRoom);
         foreignSlot = slot(foreignTimetable, foreignClass, foreignCourse, foreignPeriod, foreignRoom);
         em.flush();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"timetable", "class"})
+    void legacyOptimizationReturnsUnavailableWithoutMutatingSlots(String target) throws Exception {
+        Long slotId = ownSlot.getId();
+        long slotCount = slots.count(), timetableCount = timetables.count();
+        String route = target.equals("timetable") ? BASE + "/{id}/optimize" : BASE + "/class/{id}/optimize";
+        Long id = target.equals("timetable") ? ownTimetable.getId() : ownClass.getId();
+        var result = mvc.perform(post(route, id).with(user(DevFixtureLoader.ADMIN_EMAIL).roles("ADMIN")))
+                .andExpect(status().isServiceUnavailable()).andReturn().getResponse();
+        JsonNode problem = json.readTree(result.getContentAsString());
+        assertThat(result.getContentType()).startsWith("application/problem+json");
+        assertThat(problem.path("status").asInt()).isEqualTo(503);
+        assertThat(problem.path("detail").asText()).isEqualTo("TIMETABLE_OPTIMIZER_NOT_CONFIGURED");
+        em.flush();
+        em.clear();
+        assertThat(slots.count()).isEqualTo(slotCount);
+        assertThat(timetables.count()).isEqualTo(timetableCount);
+        TimetableSlot unchanged = slots.findById(slotId).orElseThrow();
+        assertThat(unchanged.getDayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
+        assertThat(unchanged.getPeriod().getId()).isEqualTo(ownPeriod.getId());
+        assertThat(unchanged.getForClass().getId()).isEqualTo(ownClass.getId());
+        assertThat(unchanged.getForCourse().getId()).isEqualTo(ownCourse.getId());
+        assertThat(unchanged.getTeacher().getId()).isEqualTo(teacher.getId());
+        assertThat(unchanged.getRoom().getId()).isEqualTo(ownRoom.getId());
+        assertThat(slots.existsById(foreignSlot.getId())).isTrue();
+    }
+
+    @Test
+    void smartTimetableIsAbsentFromNormalApplicationContext() throws Exception {
+        assertThat(applicationContext.getBeansOfType(
+                com.example.school_management.feature.operational.controller.SmartTimetableController.class)).isEmpty();
+        assertThat(applicationContext.getBeansOfType(
+                com.example.school_management.feature.operational.service.SmartTimetableService.class)).isEmpty();
+        assertThat(applicationContext.getBeansOfType(
+                com.example.school_management.feature.operational.service.TimetableOptimizationService.class)).isEmpty();
+        assertThat(applicationContext.containsBean("mockSolverManager")).isFalse();
+        response(post("/api/v1/smart-timetable/optimize").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timetableId\":" + ownTimetable.getId() + "}"), 404);
+    }
+
+    @Test
+    void classSlotViewDoesNotInventAcademicYearOrSemester() throws Exception {
+        JsonNode data = response(get(BASE + "/class/{id}", ownClass.getId()), 200);
+        assertThat(data.path("academicYear").isNull()).isTrue();
+        assertThat(data.path("semester").isNull()).isTrue();
+        assertThat(data.path("slots")).hasSize(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PDF", "EXCEL"})
+    void binaryTimetableExportsPreserveCurrentSchoolSlotData(String format) throws Exception {
+        byte[] bytes = mvc.perform(post(BASE + "/{id}/export", ownTimetable.getId())
+                        .with(user(DevFixtureLoader.ADMIN_EMAIL).roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("format", format))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        if (format.equals("PDF")) {
+            var reader = new com.lowagie.text.pdf.PdfReader(bytes);
+            try {
+                String text = new com.lowagie.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1)
+                        .replaceAll("\\s+", " ");
+                assertThat(text).contains(ownClass.getName(), ownCourse.getName(), ownRoom.getName(), "Schedule Teacher")
+                        .doesNotContain(foreignClass.getName(), foreignCourse.getName(), foreignRoom.getName());
+            } finally {
+                reader.close();
+            }
+        } else {
+            try (var workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(new java.io.ByteArrayInputStream(bytes))) {
+                var row = workbook.getSheet("Main Timetable").getRow(5);
+                assertThat(row.getCell(0).getStringCellValue()).isEqualTo("MONDAY");
+                assertThat(row.getCell(2).getStringCellValue()).isEqualTo(ownCourse.getName());
+                assertThat(row.getCell(3).getStringCellValue()).isEqualTo(ownClass.getName());
+                assertThat(row.getCell(4).getStringCellValue()).isEqualTo("Schedule Teacher");
+                assertThat(row.getCell(5).getStringCellValue()).isEqualTo(ownRoom.getName());
+                assertThat(workbook.getSheet("Main Timetable").getLastRowNum()).isEqualTo(5);
+            }
+        }
     }
 
     @Test
@@ -286,10 +366,13 @@ class TimetableSchoolAccessIntegrationTest {
     }
 
     @Test
-    void optimizationRejectsForeignClassAndCorruptCourseContext() throws Exception {
+    void optimizationRejectsForeignClassAndCannotMutateCorruptCourseContext() throws Exception {
         response(post(BASE + "/class/{id}/optimize", foreignClass.getId()), 404);
+        response(post(BASE + "/{id}/optimize", foreignTimetable.getId()), 404);
         ownClass.getCourses().add(foreignCourse); em.flush();
-        response(post(BASE + "/class/{id}/optimize", ownClass.getId()), 409);
+        long slotCount = slots.count();
+        response(post(BASE + "/class/{id}/optimize", ownClass.getId()), 503);
+        assertThat(slots.count()).isEqualTo(slotCount);
         assertThat(slots.existsById(ownSlot.getId())).isTrue();
     }
 
@@ -305,23 +388,24 @@ class TimetableSchoolAccessIntegrationTest {
     }
 
     @Test
-    void optimizationRejectsForeignNestedCourseTeacherBeforeCreatingTimetable() throws Exception {
+    void unavailableOptimizationCannotCreateTimetableFromForeignNestedCourseTeacher() throws Exception {
         ClassEntity unscheduled = clazz(ownSchool, "Invalid context");
         Course course = course(ownSchool); course.setTeacher(foreignTeacher);
         unscheduled.getCourses().add(course); em.flush();
         long timetableCount = timetables.count(), slotCount = slots.count();
-        response(post(BASE + "/class/{id}/optimize", unscheduled.getId()), 409);
+        response(post(BASE + "/class/{id}/optimize", unscheduled.getId()), 503);
         assertThat(timetables.count()).isEqualTo(timetableCount);
         assertThat(slots.count()).isEqualTo(slotCount);
     }
 
     @Test
-    void optimizationCandidatePoolsCannotScheduleForeignResources() throws Exception {
-        response(post(BASE + "/class/{id}/optimize", ownClass.getId()), 200);
+    void unavailableOptimizationPreservesExistingSchoolScopedResources() throws Exception {
+        Long slotId = ownSlot.getId();
+        response(post(BASE + "/class/{id}/optimize", ownClass.getId()), 503);
         em.flush();
         em.clear();
         var result = service.getSlotsByClassId(ownClass.getId());
-        assertThat(result).isNotEmpty();
+        assertThat(result).extracting(TimetableSlot::getId).containsExactly(slotId);
         assertThat(result).allSatisfy(slot -> {
             assertThat(slot.getPeriod().getId()).isEqualTo(ownPeriod.getId());
             assertThat(slot.getRoom().getId()).isEqualTo(ownRoom.getId());

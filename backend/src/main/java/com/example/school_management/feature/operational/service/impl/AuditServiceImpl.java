@@ -79,13 +79,13 @@ public class AuditServiceImpl implements AuditService {
                             eventType, summary, details, performedBy, entityType, entityId);
                 }
             } catch (Exception notificationError) {
-                log.warn("Failed to broadcast real-time notification for audit event: {}", notificationError.getMessage());
+                log.warn("Failed to broadcast real-time notification for audit event: {}", notificationError.getClass().getSimpleName());
             }
             
             log.info("Audit event created: {} for {} {} by user {}", 
-                eventType, entityType, entityId, actedBy.getEmail());
+                eventType, entityType, entityId, actedBy == null ? null : actedBy.getId());
         } catch (Exception e) {
-            log.error("Failed to create audit event: {} for {} {}", eventType, entityType, entityId, e);
+            log.error("Failed to create audit event: {} for {} {}: {}", eventType, entityType, entityId, e.getClass().getSimpleName());
             // Don't throw exception to avoid disrupting main business logic
         }
     }

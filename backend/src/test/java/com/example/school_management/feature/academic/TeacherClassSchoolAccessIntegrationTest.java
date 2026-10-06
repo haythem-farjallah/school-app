@@ -97,6 +97,87 @@ class TeacherClassSchoolAccessIntegrationTest {
     }
 
     @Test
+    void bothTeacherListingsPageInDatabaseWithSchoolScopedTotals() throws Exception {
+        ClassEntity fourth = clazz(ownSchool, "Own fourth");
+        fourth.getTeachers().add(em.find(Teacher.class, teacher.getId()));
+        em.flush(); em.clear();
+        for (String route : List.of("/api/v1/teacher/classes", "/api/v1/classes/teacher/me")) {
+            JsonNode first = response(get(route).param("page", "0").param("size", "2"), 200);
+            JsonNode second = response(get(route).param("page", "1").param("size", "2"), 200);
+            assertThat(first.path("totalElements").asLong()).isEqualTo(4);
+            assertThat(second.path("totalElements").asLong()).isEqualTo(4);
+            assertThat(ids(first.path("content"))).containsExactly(ownAssignmentClass.getId(), ownDirectClass.getId());
+            assertThat(ids(second.path("content"))).containsExactly(fourth.getId(), ownSlotClass.getId());
+            JsonNode beyond = response(get(route).param("page", "8").param("size", "2"), 200);
+            assertThat(beyond.path("content")).isEmpty();
+            assertThat(beyond.path("totalElements").asLong()).isEqualTo(4);
+        }
+    }
+
+    @Test
+    void paginatedSearchPreservesPresentationFieldsAndLiteralSubstringMatching() throws Exception {
+        ClassEntity direct = em.find(ClassEntity.class, ownDirectClass.getId());
+        direct.setGradeLevel("Special grade");
+        Room room = new Room(); room.setSchool(ownSchool); room.setName("Blue room"); room.setRoomType(com.example.school_management.feature.operational.entity.enums.RoomType.CLASSROOM); em.persist(room);
+        direct.setAssignedRoom(room);
+        Course assigned = em.find(Course.class, ownCourse.getId()); assigned.setName("Algebra"); assigned.setCode("ALG_100%");
+        Course hiddenLegacy = course(ownSchool); hiddenLegacy.setName("Not presented legacy course");
+        em.find(ClassEntity.class, ownAssignmentClass.getId()).getCourses().add(hiddenLegacy);
+        em.flush(); em.clear();
+        for (String search : List.of("special GRADE", "blue ROOM", "own direct")) {
+            JsonNode page = response(get("/api/v1/teacher/classes").param("size", "1").param("search", search), 200);
+            assertThat(page.path("totalElements").asLong()).isEqualTo(1);
+            assertThat(ids(page.path("content"))).containsExactly(ownDirectClass.getId());
+        }
+        for (String search : List.of(" algebra ", "ALG_100%", "100%", "_")) {
+            JsonNode page = response(get("/api/v1/teacher/classes").param("size", "1").param("page", "1").param("search", search), 200);
+            assertThat(page.path("totalElements").asLong()).isEqualTo(2);
+            assertThat(ids(page.path("content"))).containsExactly(ownDirectClass.getId());
+        }
+        assertThat(response(get("/api/v1/teacher/classes").param("search", "Not presented legacy"), 200)
+                .path("totalElements").asLong()).isZero();
+        assertThat(response(get("/api/v1/teacher/classes").param("search", "Foreign"), 200)
+                .path("totalElements").asLong()).isZero();
+        assertThat(response(get("/api/v1/teacher/classes").param("search", "TBD"), 200)
+                .path("totalElements").asLong()).isEqualTo(2);
+    }
+
+    @Test
+    void foreignPresentationFieldsCannotInfluenceSearchTotalsEvenOnEmptyPages() throws Exception {
+        ClassEntity direct = em.find(ClassEntity.class, ownDirectClass.getId());
+        direct.getCourses().add(em.find(Course.class, foreignCourse.getId()));
+        Room foreignRoom = new Room(); foreignRoom.setSchool(foreignSchool); foreignRoom.setName("Secret foreign room");
+        foreignRoom.setRoomType(com.example.school_management.feature.operational.entity.enums.RoomType.CLASSROOM);
+        em.persist(foreignRoom); direct.setAssignedRoom(foreignRoom); em.flush(); em.clear();
+        for (String search : List.of("Course TeacherClass foreign", "Secret foreign room")) {
+            JsonNode page = response(get("/api/v1/teacher/classes").param("page", "8").param("size", "2")
+                    .param("search", search), 200);
+            assertThat(page.path("content")).isEmpty();
+            assertThat(page.path("totalElements").asLong()).isZero();
+        }
+        // A selected corrupt row still follows the accepted safe-conflict behavior.
+        response(get("/api/v1/teacher/classes").param("search", "Own direct"), 409);
+    }
+
+    @Test
+    void gradeAverageUsesAllScoresAndEmptyClassRetainsNull() throws Exception {
+        Enrollment additional = enrollment(em.find(ClassEntity.class, ownAssignmentClass.getId()), EnrollmentStatus.ACTIVE);
+        grade(additional, 90f); em.flush(); em.clear();
+        JsonNode page = response(get("/api/v1/teacher/classes").param("size", "10"), 200);
+        for (JsonNode clazz : page.path("content")) {
+            if (clazz.path("id").asLong() == ownAssignmentClass.getId()) {
+                assertThat(clazz.path("enrolled").asInt()).isEqualTo(2);
+                assertThat(clazz.path("averageGrade").asDouble()).isEqualTo(80);
+                assertThat(clazz.path("courses").get(0).path("weeklyHours").asInt()).isEqualTo(2);
+            }
+            if (clazz.path("id").asLong() == ownSlotClass.getId()) {
+                assertThat(clazz.path("averageGrade").isNull()).isTrue();
+                assertThat(clazz.path("enrolled").asInt()).isZero();
+            }
+        }
+    }
+
+    @Test
     void foreignTeacherAndAccountRoleWithoutTeacherMembershipReturn404() throws Exception {
         doReturn(school("No teacher membership")).when(currentSchool).resolve();
         response(get("/api/v1/teacher/classes/all"), 404);

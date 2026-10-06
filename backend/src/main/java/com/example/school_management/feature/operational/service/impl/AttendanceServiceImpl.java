@@ -94,6 +94,10 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     public AttendanceDto recordAttendance(AttendanceDto attendanceDto) {
         log.debug("Recording attendance for user: {}", attendanceDto.getUserId());
+        return savePreparedAttendance(prepareAttendance(attendanceDto));
+    }
+
+    private Attendance prepareAttendance(AttendanceDto attendanceDto) {
         School school = currentSchool.resolve();
         BaseUser user = requireAttendanceUser(attendanceDto);
         Attendance attendance = new Attendance();
@@ -108,16 +112,20 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendance.setRecordedAt(LocalDateTime.now());
         applyAttendanceContext(attendance, attendanceDto, attendanceDto.getTimetableSlotId());
 
-        // Validate every supplied resource before an existing row can short-circuit the write.
+        return attendance;
+    }
+
+    private AttendanceDto savePreparedAttendance(Attendance attendance) {
+        BaseUser user = attendance.getUser();
         Attendance existingAttendance = findExistingAttendance(attendance);
         if (existingAttendance != null) {
             log.warn("Attendance record already exists for user {} on date {}",
-                    attendanceDto.getUserId(), attendanceDto.getDate());
+                    user.getId(), attendance.getDate());
             return mapper.toAttendanceDto(existingAttendance);
         }
         attendance.setRecordedBy(getCurrentUser());
         Attendance savedAttendance = attendanceRepository.save(attendance);
-        log.info("Attendance recorded for user {} on date {}", user.getId(), attendanceDto.getDate());
+        log.info("Attendance recorded for user {} on date {}", user.getId(), attendance.getDate());
         if (user instanceof Student student && savedAttendance.isAbsent()) {
             sendAbsenceNotifications(student, savedAttendance);
         }
@@ -128,9 +136,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     public List<AttendanceDto> recordBatchAttendance(List<AttendanceDto> attendanceDtos) {
         log.debug("Recording batch attendance for {} records", attendanceDtos.size());
         
-        return attendanceDtos.stream()
-                .map(this::recordAttendance)
-                .collect(Collectors.toList());
+        List<Attendance> prepared = attendanceDtos.stream().map(this::prepareAttendance).toList();
+        return prepared.stream().map(this::savePreparedAttendance).toList();
     }
 
     @Override
@@ -601,7 +608,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new ConflictException("Timetable slot must have an associated class");
         }
         School school = currentSchool.resolve();
-        List<AttendanceDto> result = new ArrayList<>();
+        Map<Long, Student> students = new HashMap<>();
 
         for (AttendanceDto attendanceDto : attendanceList) {
             Student student = requireSchoolStudent(attendanceDto.getUserId());
@@ -619,6 +626,11 @@ public class AttendanceServiceImpl implements AttendanceService {
                     attendanceDto.getClassId() == null ? null : requireSchoolClass(attendanceDto.getClassId()),
                     attendanceDto.getCourseId() == null ? null : requireSchoolCourse(attendanceDto.getCourseId()));
 
+            students.put(student.getId(), student);
+        }
+        List<AttendanceDto> result = new ArrayList<>();
+        for (AttendanceDto attendanceDto : attendanceList) {
+            Student student = students.get(attendanceDto.getUserId());
             Optional<Attendance> existingAttendance = attendanceRepository
                     .findByUserIdAndClassIdAndDateAndSchoolId(student.getId(), slot.getForClass().getId(), date, school.getId());
             
@@ -958,7 +970,8 @@ public class AttendanceServiceImpl implements AttendanceService {
         ClassEntity classEntity = requireSchoolClass(classId);
         
         BaseUser currentUser = getCurrentUser();
-        List<AttendanceDto> result = new ArrayList<>();
+        record ClassMarking(AttendanceDto request, Student student, Attendance context) {}
+        List<ClassMarking> prepared = new ArrayList<>();
         
         for (AttendanceDto attendanceDto : attendanceList) {
             // Verify student is in the class
@@ -978,6 +991,14 @@ public class AttendanceServiceImpl implements AttendanceService {
                 throw new ConflictException("Class does not match the marking route");
             }
             requestedContext.setClassEntity(classEntity);
+
+            prepared.add(new ClassMarking(attendanceDto, student, requestedContext));
+        }
+        List<AttendanceDto> result = new ArrayList<>();
+        for (ClassMarking marking : prepared) {
+            AttendanceDto attendanceDto = marking.request();
+            Student student = marking.student();
+            Attendance requestedContext = marking.context();
 
             // Check if attendance record already exists
             Attendance existingAttendance = attendanceRepository.findByUserIdAndClassIdAndDateAndSchoolId(
