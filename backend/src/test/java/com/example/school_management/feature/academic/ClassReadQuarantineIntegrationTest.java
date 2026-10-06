@@ -219,7 +219,7 @@ class ClassReadQuarantineIntegrationTest {
     private List<String> broadRoutes() {
         return List.of(
                 "/api/v1/classes",
-                "/api/v1/classes/new",
+                "/api/v1/classes/filter",
                 "/api/v1/classes/cards",
                 "/api/v1/classes/" + otherClass.getId(),
                 "/api/v1/classes/" + otherClass.getId() + "/details");

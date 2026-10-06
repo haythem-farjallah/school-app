@@ -1,11 +1,12 @@
 package com.example.school_management.feature.academic.service;
 
-import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.feature.academic.dto.CourseDto;
 import com.example.school_management.feature.academic.dto.CreateCourseRequest;
 import com.example.school_management.feature.academic.dto.UpdateCourseRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.util.Map;
 
 public interface CourseService {
 
@@ -17,5 +18,5 @@ public interface CourseService {
     Page<CourseDto> list(Pageable page,
                          Long teacherId,
                          String nameLike);
-    Page<CourseDto> listCourses(QueryParams qp);
+    Page<CourseDto> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap);
 }

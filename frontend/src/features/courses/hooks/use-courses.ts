@@ -11,51 +11,28 @@ const LIST_KEY = "courses";
 export function useCourses(
   options: { page?: number; size?: number; search?: string } & Record<string, unknown> = {},
 ) {
-  const { page, size = 10, search, ...filters } = options;
+  const { page, size = 10, search, name, credit, weeklyCapacity, teacherId } = options;
 
-  console.log("🔍 useCourses - Called with options:", { size, search, filters });
+  const queryParams = React.useMemo(() => {
+    const params: Record<string, string> = {};
+    if (search?.trim()) params.search = search.trim();
+    if (typeof name === "string" && name.trim()) params.name_like = name.trim();
 
-  // Map frontend column keys to backend filter parameter names
-  const apiParams = React.useMemo(() => {
-    const keyMap: Record<string, string> = {
-      name: "nameLike",
-      credit: "credit",
-      weeklyCapacity: "weeklyCapacity", 
-      teacherId: "teacherId",
-    };
-
-    const params: Record<string, unknown> = {};
-
-    Object.entries(filters).forEach(([key, val]) => {
-      if (typeof val === "string" && val.trim()) {
-        const backendKey = keyMap[key] ?? key;
-        params[backendKey] = val.trim();
+    for (const [parameter, value] of [
+      ["credit_eq", credit],
+      ["weeklyCapacity_eq", weeklyCapacity],
+      ["teacher.id_eq", teacherId],
+    ] as const) {
+      if (typeof value === "string" && value.trim()) {
+        params[parameter] = value.trim();
+      } else if (typeof value === "number" && Number.isFinite(value)) {
+        params[parameter] = String(value);
       }
-    });
-
+    }
     return params;
-  }, [filters]);
+  }, [search, name, credit, weeklyCapacity, teacherId]);
 
-  // Add search to filters if provided
-  const searchFilters = search ? { search, ...apiParams } : apiParams;
-
-  const result = usePaginated<Course>(
-    "/v1/courses",
-    LIST_KEY,
-    size,
-    searchFilters,
-    page, // external page number
-  );
-
-  console.log("🔍 useCourses - Result:", {
-    data: result.data,
-    isLoading: result.isLoading,
-    error: result.error?.message,
-    totalElements: result.data?.totalItems,
-    totalPages: result.data?.totalPages
-  });
-
-  return result;
+  return usePaginated<Course>("/v1/courses/filter", LIST_KEY, size, queryParams, page);
 }
 
 export function useCreateCourse() {

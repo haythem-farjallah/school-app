@@ -2,16 +2,14 @@ package com.example.school_management.feature.academic.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
-import com.example.school_management.commons.utils.FieldFilterUtil;
-import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.feature.academic.dto.*;
 import com.example.school_management.feature.academic.service.CourseService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.json.MappingJacksonValue;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,7 +31,7 @@ public class CourseController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.create(req)));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:[0-9]+}")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<CourseDto>> update(
             @PathVariable Long id,
@@ -42,13 +40,13 @@ public class CourseController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.update(id, req)));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<CourseDto>> get(@PathVariable Long id) {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.get(id)));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<ApiSuccessResponse<Void>> delete(@PathVariable Long id) {
         service.delete(id);
@@ -69,16 +67,13 @@ public class CourseController {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
 
-    @GetMapping("/new")
-    public ResponseEntity<MappingJacksonValue> list(
-            QueryParams qp  // automatically resolved by your ArgumentResolver
-    ) {
-        var page = service.listCourses(qp);
-        var dto  = new PageDto<>(page);
-
-        var resp    = new ApiSuccessResponse<>("success", dto);
-        var wrapper = new MappingJacksonValue(resp);
-        FieldFilterUtil.apply(wrapper, qp);
-        return ResponseEntity.ok(wrapper);
+    @GetMapping("/filter")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT', 'STAFF')")
+    public ResponseEntity<ApiSuccessResponse<PageDto<CourseDto>>> filter(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        var dto = new PageDto<>(service.findWithAdvancedFilters(PageRequest.of(page, size), request.getParameterMap()));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
 }

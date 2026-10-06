@@ -48,7 +48,7 @@ export function CoursesTable() {
   // Map frontend column keys to backend filter parameter names
   const apiParams = React.useMemo(() => {
     const keyMap: Record<string, string> = {
-      name: "nameLike",
+      name: "name",
       credit: "credit",
       weeklyCapacity: "weeklyCapacity", 
       teacherId: "teacherId",

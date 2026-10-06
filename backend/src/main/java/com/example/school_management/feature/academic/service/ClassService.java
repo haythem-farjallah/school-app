@@ -1,9 +1,10 @@
 package com.example.school_management.feature.academic.service;
 
-import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.feature.academic.dto.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.util.Map;
 
 public interface ClassService {
 
@@ -24,9 +25,9 @@ public interface ClassService {
     ClassDto addCourse    (Long classId, Long courseId);
     ClassDto removeCourse (Long classId, Long courseId);
 
-    Page<ClassDto> listClasses(QueryParams qp);
+    Page<ClassDto> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap);
     ClassViewDto getDetails(Long classId);
-    Page<ClassCardDto> listCards(QueryParams qp);
+    Page<ClassCardDto> findCardsWithFilters(Pageable pageable, Map<String, String[]> parameterMap);
 
     /* ─── ROLE-BASED CLASS RETRIEVAL ─────────────────────── */
     Page<ClassDto> getClassesByTeacherId(Long teacherId, Pageable pageable);

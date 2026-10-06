@@ -1,9 +1,10 @@
 package com.example.school_management.feature.academic.service.impl;
 
 import com.example.school_management.commons.exceptions.ConflictException;
-import com.example.school_management.commons.utils.FetchJoinSpecification;
-import com.example.school_management.commons.utils.QueryParams;
-import com.example.school_management.commons.utils.SpecificationBuilder;
+import com.example.school_management.commons.dto.FilterCriteria;
+import com.example.school_management.commons.utils.DynamicSpecificationBuilder;
+import com.example.school_management.commons.utils.FilterCriteriaParser;
+import com.example.school_management.commons.utils.FilterFields;
 import com.example.school_management.feature.academic.dto.*;
 import com.example.school_management.feature.academic.entity.*;
 import com.example.school_management.feature.academic.mapper.AcademicMapper;
@@ -47,6 +48,10 @@ import static com.example.school_management.feature.academic.dto.BatchIdsRequest
 @Transactional
 @RequiredArgsConstructor
 public class ClassServiceImpl implements ClassService {
+
+    private static final FilterFields FILTER_FIELDS = new FilterFields(
+            Set.of("name", "yearOfStudy", "maxStudents"),
+            Set.of("name", "yearOfStudy", "maxStudents"));
 
     private final ClassRepository   classRepo;
     private final CourseRepository  courseRepo;
@@ -218,38 +223,24 @@ public class ClassServiceImpl implements ClassService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ClassDto> listClasses(QueryParams qp) {
-        // 1) Build a spec that fetches any includes AND applies your filters
-        Specification<ClassEntity> fetchSpec  =
-                FetchJoinSpecification.joinRelations(qp.getInclude());
-        Specification<ClassEntity> filterSpec =
-                new SpecificationBuilder<ClassEntity>(qp).build();
-
-        Specification<ClassEntity> combined = inCurrentSchool().and(fetchSpec).and(filterSpec);
-
-        // 2) Build a PageRequest with sort & pagination
-        PageRequest pageReq = PageRequest.of(
-                qp.getPage(),
-                qp.getSize(),
-                qp.getSort().isEmpty()
-                        ? Sort.unsorted()
-                        : Sort.by(qp.getSort())
-        );
-
-        // 3) Execute and map
-        return toDtoPage(classRepo.findAll(combined, pageReq));
+    public Page<ClassDto> findWithAdvancedFilters(Pageable pageable, Map<String, String[]> parameterMap) {
+        FILTER_FIELDS.requireSortable(pageable.getSort());
+        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, FILTER_FIELDS);
+        Specification<ClassEntity> spec = inCurrentSchool()
+                .and(DynamicSpecificationBuilder.build(criteria));
+        return toDtoPage(classRepo.findAll(spec, pageable));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ClassCardDto> listCards(QueryParams qp) {
-
-        Page<ClassEntity> page = classRepo.findAll(
-                inCurrentSchool().and(new SpecificationBuilder<ClassEntity>(qp).build()),
-                PageRequest.of(qp.getPage(), qp.getSize(),
-                        qp.getSort().isEmpty()
-                                ? Sort.by("name")
-                                : Sort.by(qp.getSort())));
+    public Page<ClassCardDto> findCardsWithFilters(Pageable pageable, Map<String, String[]> parameterMap) {
+        FILTER_FIELDS.requireSortable(pageable.getSort());
+        FilterCriteria criteria = FilterCriteriaParser.parseRequestParams(parameterMap, FILTER_FIELDS);
+        if ((criteria.getSortCriteria() == null || criteria.getSortCriteria().isEmpty()) && pageable.getSort().isUnsorted()) {
+            pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("name"));
+        }
+        Specification<ClassEntity> spec = inCurrentSchool().and(DynamicSpecificationBuilder.build(criteria));
+        Page<ClassEntity> page = classRepo.findAll(spec, pageable);
 
         /* -------- aggregate counts -------- */
         List<Long> classIds = page.getContent().stream().map(ClassEntity::getId).toList();

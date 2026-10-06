@@ -3,7 +3,6 @@ package com.example.school_management.feature.academic;
 import com.example.school_management.IntegrationTest;
 import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
-import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.dto.*;
 import com.example.school_management.feature.academic.entity.*;
@@ -38,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -129,7 +129,7 @@ class AcademicMasterSchoolAccessIntegrationTest {
     }
 
     @Test
-    void bothCourseListsKeepSchoolConstraintWithFiltersIncludesSortAndPagination() {
+    void bothCourseListsKeepSchoolConstraintWithFiltersSortAndPagination() {
         var teacher = teachers.findByEmail(DevFixtureLoader.TEACHER_EMAIL).orElseThrow();
         var first = course(school, "Math A");
         first.setTeacher(teacher);
@@ -141,14 +141,13 @@ class AcademicMasterSchoolAccessIntegrationTest {
         var simple = courseService.list(PageRequest.of(0, 1, Sort.by("name")), teacher.getId(), "math");
         assertThat(simple.getContent()).extracting(CourseDto::id).containsExactly(first.getId());
         assertThat(simple.getTotalElements()).isEqualTo(2);
-        var qp = query("name", "Math");
-        qp.setInclude(List.of("teacher"));
-        qp.setSize(1);
-        qp.setSort(List.of(Sort.Order.desc("name")));
-        var dynamic = courseService.listCourses(qp);
+        var dynamic = courseService.findWithAdvancedFilters(PageRequest.of(0, 1),
+                Map.of("name_like", new String[]{"Math"}, "sort", new String[]{"name:desc"}));
         assertThat(dynamic.getContent()).extracting(CourseDto::id).containsExactly(second.getId());
         assertThat(dynamic.getTotalElements()).isEqualTo(2);
-        assertThat(courseService.listCourses(query("school.id", otherSchool.getId().toString()))).isEmpty();
+        assertThatThrownBy(() -> courseService.findWithAdvancedFilters(PageRequest.of(0, 10),
+                Map.of("school.id_eq", new String[]{otherSchool.getId().toString()})))
+                .isInstanceOf(ResponseStatusException.class);
     }
 
     @ParameterizedTest
@@ -212,21 +211,20 @@ class AcademicMasterSchoolAccessIntegrationTest {
         var broad = classService.list(PageRequest.of(0, 1, Sort.by("name")), "7-");
         assertThat(broad.getContent()).extracting(ClassDto::id).containsExactly(own.getId());
         assertThat(broad.getTotalElements()).isEqualTo(2);
-        var qp = query("name", "7-");
-        qp.setInclude(List.of("courses"));
-        qp.setSort(List.of(Sort.Order.desc("name")));
-        qp.setSize(1);
-        var dynamic = classService.listClasses(qp);
+        var dynamic = classService.findWithAdvancedFilters(PageRequest.of(0, 1),
+                Map.of("name_like", new String[]{"7-"}, "sort", new String[]{"name:desc"}));
         assertThat(dynamic.getContent()).extracting(ClassDto::id).containsExactly(previous.getId());
         assertThat(dynamic.getTotalElements()).isEqualTo(2);
-        var cards = classService.listCards(new QueryParams());
+        var cards = classService.findCardsWithFilters(PageRequest.of(0, 10), Map.of());
         assertThat(cards.getContent()).extracting(ClassCardDto::id).containsExactly(own.getId(), previous.getId());
         assertThat(cards.getContent().get(0).teacherCount()).isEqualTo(1);
         assertThat(cards.getContent().get(0).courseCount()).isEqualTo(1);
         assertThat(classService.getDetails(own.getId()).courses()).hasSize(1);
-        var foreignFilter = query("academicYear.school.id", otherSchool.getId().toString());
-        assertThat(classService.listClasses(foreignFilter)).isEmpty();
-        assertThat(classService.listCards(foreignFilter)).isEmpty();
+        Map<String, String[]> foreignFilter = Map.of("academicYear.school.id_eq", new String[]{otherSchool.getId().toString()});
+        assertThatThrownBy(() -> classService.findWithAdvancedFilters(PageRequest.of(0, 10), foreignFilter))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> classService.findCardsWithFilters(PageRequest.of(0, 10), foreignFilter))
+                .isInstanceOf(ResponseStatusException.class);
     }
 
     @ParameterizedTest
@@ -494,11 +492,5 @@ class AcademicMasterSchoolAccessIntegrationTest {
 
     private static UpdateCourseRequest courseUpdate(String name) {
         return new UpdateCourseRequest(name, null, null, null, null);
-    }
-
-    private static QueryParams query(String attribute, String value) {
-        var qp = new QueryParams();
-        qp.setFilters(Map.of(attribute, List.of(value)));
-        return qp;
     }
 }

@@ -1,7 +1,6 @@
 package com.example.school_management.feature.academic;
 
 import com.example.school_management.IntegrationTest;
-import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.dto.ClassCardDto;
 import com.example.school_management.feature.academic.dto.ClassDto;
@@ -43,6 +42,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -106,7 +106,7 @@ class ClassEnrollmentRosterIntegrationTest {
         assertThat(roster(classA)).containsExactly(active.getId());
         assertThat(classService.list(PageRequest.of(0, 10), "roster a").getContent())
                 .singleElement().extracting(ClassDto::studentIds).isEqualTo(Set.of(active.getId()));
-        assertThat(classService.listClasses(query(0, 10)).getContent())
+        assertThat(classService.findWithAdvancedFilters(PageRequest.of(0, 10), Map.of()).getContent())
                 .filteredOn(c -> c.id().equals(classA.getId()))
                 .singleElement().extracting(ClassDto::studentIds).isEqualTo(Set.of(active.getId()));
         assertThat(classService.getClassesByTeacherId(teacher.getId(), PageRequest.of(0, 10)).getContent())
@@ -123,7 +123,7 @@ class ClassEnrollmentRosterIntegrationTest {
         enrollment(student(), classA, EnrollmentStatus.WITHDRAWN);
         enrollment(student(), classB, EnrollmentStatus.TRANSFERRED);
 
-        var cards = classService.listCards(query(0, 10)).getContent();
+        var cards = classService.findCardsWithFilters(PageRequest.of(0, 10), Map.of()).getContent();
         assertThat(cards).filteredOn(c -> c.id().equals(classA.getId())).singleElement()
                 .extracting(ClassCardDto::studentCount).isEqualTo(2);
         assertThat(cards).filteredOn(c -> c.id().equals(classB.getId())).singleElement()
@@ -183,7 +183,7 @@ class ClassEnrollmentRosterIntegrationTest {
         enrollmentService.updateEnrollmentStatus(toComplete.getId(), EnrollmentStatus.COMPLETED);
 
         assertThat(roster(classA)).containsExactly(staying.getId());
-        assertThat(classService.listCards(query(0, 10)).getContent())
+        assertThat(classService.findCardsWithFilters(PageRequest.of(0, 10), Map.of()).getContent())
                 .filteredOn(c -> c.id().equals(classA.getId())).singleElement()
                 .extracting(ClassCardDto::studentCount).isEqualTo(1);
         assertThat(enrollments.findById(toWithdraw.getId())).isPresent();
@@ -200,7 +200,7 @@ class ClassEnrollmentRosterIntegrationTest {
         assertThat(roster(classA)).containsExactly(student.getId());
         assertThat(enrollments.findActiveStudentIdsByClassId(classA.getId())).containsExactly(student.getId());
         assertThat(enrollments.countActiveByClassId(classA.getId())).isEqualTo(1);
-        assertThat(classService.listCards(query(0, 10)).getContent())
+        assertThat(classService.findCardsWithFilters(PageRequest.of(0, 10), Map.of()).getContent())
                 .filteredOn(c -> c.id().equals(classA.getId())).singleElement()
                 .extracting(ClassCardDto::studentCount).isEqualTo(1);
     }
@@ -214,17 +214,16 @@ class ClassEnrollmentRosterIntegrationTest {
             enrollment(student(), c, EnrollmentStatus.ACTIVE);
             enrollment(student(), c, EnrollmentStatus.WITHDRAWN);
         }
-        QueryParams qp = query(1, 2);
-        qp.setSort(List.of(Sort.Order.asc("name")));
+        var pageable = PageRequest.of(1, 2, Sort.by("name"));
 
-        var page = classService.listClasses(qp);
+        var page = classService.findWithAdvancedFilters(pageable, Map.of());
 
         // The school holds the seven classes of this test; a page of two keeps the full total.
         assertThat(page.getTotalElements()).isEqualTo(7);
         assertThat(page.getContent()).hasSize(2);
         assertThat(page.getContent()).allSatisfy(c -> assertThat(c.studentIds()).hasSize(
                 created.stream().anyMatch(p -> p.getId().equals(c.id())) ? 1 : 0));
-        var cards = classService.listCards(qp).getContent();
+        var cards = classService.findCardsWithFilters(pageable, Map.of()).getContent();
         assertThat(cards).hasSize(2);
         assertThat(cards).allSatisfy(c -> assertThat(c.studentCount()).isEqualTo(
                 created.stream().anyMatch(p -> p.getId().equals(c.id())) ? 1 : 0));
@@ -237,12 +236,6 @@ class ClassEnrollmentRosterIntegrationTest {
         return new HashSet<>(classService.get(clazz.getId()).studentIds());
     }
 
-    private QueryParams query(int page, int size) {
-        QueryParams qp = new QueryParams();
-        qp.setPage(page);
-        qp.setSize(size);
-        return qp;
-    }
 
     private AcademicYear year() {
         AcademicYear created = new AcademicYear();

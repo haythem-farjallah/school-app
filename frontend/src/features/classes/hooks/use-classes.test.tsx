@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
-import { useClass, useCreateClass, useDeleteClass, useUpdateClass } from "./use-classes";
+import { useClass, useClasses, useCreateClass, useDeleteClass, useUpdateClass } from "./use-classes";
 import { apiUrl, server } from "@/test/server";
 import type { Class, CreateClassRequest, UpdateClassRequest } from "@/types/class";
 
@@ -78,5 +78,28 @@ describe("class hooks", () => {
 
     await expect(result.current.mutateAsync(4)).resolves.toBeUndefined();
     expect(deleted).toBe(true);
+  });
+});
+
+describe("useClasses filter contract", () => {
+  it.each([
+    [{ name: "  Room A ", yearOfStudy: "1", maxStudents: 20 }, { name_like: "Room A", yearOfStudy_eq: "1", maxStudents_eq: "20" }],
+    [{ yearOfStudy: [1, 2, 3], maxStudents: [20, 30] }, { yearOfStudy_in: "1,2,3", maxStudents_in: "20,30" }],
+    [{ yearOfStudy: ["1", "2"], maxStudents: "30", search: "  room  " }, { yearOfStudy_in: "1,2", maxStudents_eq: "30", search: "room" }],
+    [{ "academicYear.school.id": 99, password: "secret", include: "teachers", "fields[class]": "id", sort: "password:asc" }, {}],
+    [{ name: " ", yearOfStudy: [], maxStudents: undefined, search: " " }, {}],
+  ])("sends only canonical parameters and preserves pagination: %j", async (filters, expected) => {
+    let url: URL | undefined;
+    server.use(
+      http.get(apiUrl("/v1/classes/filter"), ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json({ status: "success", data: { content: [schoolClass], page: 1, size: 2, totalElements: 5 } });
+      }),
+    );
+    const { result } = renderHook(() => useClasses({ page: 1, size: 2, ...filters }), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(Object.fromEntries(url!.searchParams)).toEqual({ page: "1", size: "2", ...expected });
+    expect(result.current.data).toEqual({ data: [schoolClass], page: 1, totalPages: 3, totalItems: 5 });
   });
 });

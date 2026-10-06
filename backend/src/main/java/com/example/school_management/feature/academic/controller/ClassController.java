@@ -2,8 +2,6 @@ package com.example.school_management.feature.academic.controller;
 
 import com.example.school_management.commons.dtos.ApiSuccessResponse;
 import com.example.school_management.commons.dtos.PageDto;
-import com.example.school_management.commons.utils.FieldFilterUtil;
-import com.example.school_management.commons.utils.QueryParams;
 import com.example.school_management.feature.academic.dto.*;
 import com.example.school_management.feature.academic.service.ClassService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,13 +12,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.json.MappingJacksonValue;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,7 +50,7 @@ public class ClassController {
 
     @Operation(summary = "Update an existing class by ID")
     @Parameter(name = "id", description = "ID of the class to update", required = true)
-    @PutMapping("/{id}")
+    @PutMapping("/{id:[0-9]+}")
     public ResponseEntity<ApiSuccessResponse<ClassDto>> update(
             @PathVariable Long id,
             @RequestBody @Valid UpdateClassRequest req) {
@@ -62,14 +59,14 @@ public class ClassController {
 
     @Operation(summary = "Get class details by ID")
     @Parameter(name = "id", description = "ID of the class to retrieve", required = true)
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public ResponseEntity<ApiSuccessResponse<ClassDto>> get(@PathVariable Long id) {
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.get(id)));
     }
 
     @Operation(summary = "Delete a class by ID")
     @Parameter(name = "id", description = "ID of the class to delete", required = true)
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public ResponseEntity<ApiSuccessResponse<Void>> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.ok(new ApiSuccessResponse<>("success", null));
@@ -115,24 +112,13 @@ public class ClassController {
     }
 
 
-    @GetMapping("/new")
-    public ResponseEntity<MappingJacksonValue> list(
-            QueryParams qp  // automatically resolved by your ArgumentResolver
-    ) {
-        // 1) Call service
-        Page<ClassDto> page = service.listClasses(qp);
-        PageDto<ClassDto> dtoPage = new PageDto<>(page);
-
-        // 2) Wrap in your ApiSuccessResponse
-        ApiSuccessResponse<PageDto<ClassDto>> resp =
-                new ApiSuccessResponse<>("success", dtoPage);
-
-        // 3) Wrap again so we can apply sparse-field filtering
-        MappingJacksonValue wrapper = new MappingJacksonValue(resp);
-        FieldFilterUtil.apply(wrapper, qp);  // "class" matches fields[class]=...
-
-        // 4) Return
-        return ResponseEntity.ok(wrapper);
+    @GetMapping("/filter")
+    public ResponseEntity<ApiSuccessResponse<PageDto<ClassDto>>> filter(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        var dto = new PageDto<>(service.findWithAdvancedFilters(PageRequest.of(page, size), request.getParameterMap()));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
 
 
@@ -145,15 +131,12 @@ public class ClassController {
                    ready for a grid / cards UI.
                    """)
     @GetMapping("/cards")
-    public ResponseEntity<MappingJacksonValue> listCards(QueryParams qp) {
-
-        var page     = service.listCards(qp);
-        var dtoPage  = new PageDto<>(page);
-        var response = new ApiSuccessResponse<>("success", dtoPage);
-
-        MappingJacksonValue wrapper = new MappingJacksonValue(response);
-        FieldFilterUtil.apply(wrapper, qp);         // supports fields[classCard]=…
-        return ResponseEntity.ok(wrapper);
+    public ResponseEntity<ApiSuccessResponse<PageDto<ClassCardDto>>> listCards(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            HttpServletRequest request) {
+        var dto = new PageDto<>(service.findCardsWithFilters(PageRequest.of(page, size), request.getParameterMap()));
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", dto));
     }
 
 
@@ -165,14 +148,8 @@ public class ClassController {
                    Perfect for a details-&-sidebar page.
                    """)
     @GetMapping("/{id}/details")
-    public ResponseEntity<MappingJacksonValue> details(@PathVariable Long id,
-                                                       QueryParams qp) {
-        ClassViewDto dto = service.getDetails(id);
-
-        MappingJacksonValue wrapper = new MappingJacksonValue(
-                new ApiSuccessResponse<>("success", dto));
-        FieldFilterUtil.apply(wrapper, qp);          // <-- installs filterProvider
-        return ResponseEntity.ok(wrapper);
+    public ResponseEntity<ApiSuccessResponse<ClassViewDto>> details(@PathVariable Long id) {
+        return ResponseEntity.ok(new ApiSuccessResponse<>("success", service.getDetails(id)));
     }
 
     @Operation(summary = "Get classes taught by a teacher")
