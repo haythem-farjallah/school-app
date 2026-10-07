@@ -22,25 +22,12 @@ public class RealTimeNotificationService {
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
-     * Broadcast admin feed notification to all admin users
+     * The global admin topic is not tenant scoped, so nothing is broadcast to it until a
+     * tenant-owned feed exists. Audit history is persisted independently.
      */
     public void broadcastAdminFeed(AuditEventType eventType, String summary, String details,
                                   String performedBy, String entityType, Long entityId) {
-        // Announcement audit history remains stored. Its content must never reach
-        // this global feed; Announcement realtime delivery uses resolved user queues.
-        if ("Announcement".equalsIgnoreCase(entityType)) return;
-        try {
-            RealTimeNotificationDto notification = RealTimeNotificationDto.adminFeed(
-                eventType, summary, details, performedBy, entityType, entityId
-            );
-
-            // Send to admin-specific topic
-            messagingTemplate.convertAndSend("/topic/admin-feeds", notification);
-            log.debug("Admin feed notification sent");
-
-        } catch (Exception e) {
-            log.error("Realtime notification delivery failed: {}", e.getClass().getSimpleName());
-        }
+        log.debug("Legacy admin feed realtime delivery is quarantined");
     }
 
     /**

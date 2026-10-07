@@ -56,15 +56,10 @@ class RealTimeNotificationServiceTest {
     }
 
     @Test
-    void announcementAuditCannotBroadcastAnnouncementContentGlobally() {
+    void auditEventsNeverReachTheGlobalAdminFeedTopic() {
         service.broadcastAdminFeed(AuditEventType.ANNOUNCEMENT_CREATED, "Created", "Private content", "Teacher", "Announcement", 1L);
-        verifyNoInteractions(messagingTemplate);
-    }
-
-    @Test
-    void unrelatedAdminAuditDestinationIsPreserved() {
         service.broadcastAdminFeed(AuditEventType.GRADE_RECORDED, "Recorded", "Details", "Teacher", "Grade", 1L);
-        assertThat(destinations(1)).containsExactly("/topic/admin-feeds");
+        verifyNoInteractions(messagingTemplate);
     }
 
     /** The destinations of exactly {@code expected} sends, in order. */
