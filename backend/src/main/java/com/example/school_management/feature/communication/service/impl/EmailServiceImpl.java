@@ -217,6 +217,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    @Transactional
     public EmailResponse sendWelcomeEmail(Long recipientId, String recipientEmail, String userName, String temporaryPassword) {
         Map<String, Object> variables = Map.of(
                 "userName", userName,
@@ -419,13 +420,17 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private Notification createNotificationRecord(EmailRequest emailRequest, Long recipientId) {
+        // Welcome templates carry credentials for SMTP only; persist a safe confirmation.
+        boolean welcomeEmail = "welcome-email".equals(emailRequest.getTemplateName());
         return Notification.builder()
                 .recipientId(recipientId)
                 .recipientType(Notification.RecipientType.STUDENT) // Default, should be determined from context
                 .notificationType(Notification.NotificationType.CUSTOM)
                 .channel(Notification.NotificationChannel.EMAIL)
-                .title(emailRequest.getSubject())
-                .content(emailRequest.getContent())
+                .title(welcomeEmail ? "Welcome to Our School!" : emailRequest.getSubject())
+                .content(welcomeEmail
+                        ? "Your account has been created successfully. Please login at: https://schoolmanagement.com/login"
+                        : emailRequest.getContent())
                 .status(Notification.NotificationStatus.PENDING)
                 .priority(emailRequest.getPriority())
                 .scheduledAt(emailRequest.getScheduledAt())

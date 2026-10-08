@@ -1,10 +1,10 @@
 package com.example.school_management.feature.auth.service;
 
-import com.example.school_management.feature.communication.service.EmailService;
 import com.example.school_management.feature.auth.dto.CreateStudentWithParentsRequest;
 import com.example.school_management.feature.auth.dto.ParentCreateDto;
 import com.example.school_management.feature.auth.dto.StudentDtoCreate;
 import com.example.school_management.feature.auth.dto.UserProfileDTO;
+import com.example.school_management.feature.auth.dto.WelcomeEmailRequestedEvent;
 import com.example.school_management.feature.auth.entity.*;
 import com.example.school_management.feature.auth.entity.enums.ContactMethod;
 import com.example.school_management.feature.auth.repository.ParentRepository;
@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +27,7 @@ public class AdminService {
     private final StudentRepository studentRepo;
     private final ParentRepository  parentRepo;
     private final PasswordEncoder   passwordEncoder;
-    private final EmailService      emailService;
+    private final ApplicationEventPublisher events;
     private final SchoolMembershipProvisioningService membershipProvisioner;
     private final SecureRandom      secureRandom = new SecureRandom();
 
@@ -51,12 +52,12 @@ public class AdminService {
         student = studentRepo.save(student);
         membershipProvisioner.provisionFor(student);
         log.info("Created STUDENT id={}", student.getId());
-        emailService.sendWelcomeEmail(
+        events.publishEvent(new WelcomeEmailRequestedEvent(
                 student.getId(),
                 student.getEmail(),
                 student.getFirstName(),
                 studentPw
-        );
+        ));
 
         // 2) Create each parent, link, save & notify
         for (ParentCreateDto pd : req.parents()) {
@@ -90,12 +91,12 @@ public class AdminService {
             parent = parentRepo.save(parent);
             membershipProvisioner.provisionFor(parent);
             log.info("Created PARENT id={} and linked to STUDENT id={}", parent.getId(), student.getId());
-            emailService.sendWelcomeEmail(
+            events.publishEvent(new WelcomeEmailRequestedEvent(
                     parent.getId(),
                     parent.getEmail(),
                     parent.getFirstName(),
                     parentPw
-            );
+            ));
         }
     }
 
