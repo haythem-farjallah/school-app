@@ -118,12 +118,34 @@ test("a session whose refresh token is also rejected ends on the login page", as
   expect(await storedTokens(page)).toEqual({ accessToken: null, refreshToken: null });
 });
 
+async function logInAsStudent(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("Email Address").fill("student@fixtures.school.test");
+  await page.getByLabel("Password").fill("Fixture-Pass-2024");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
+async function expectSingleLandmarks(page: Page) {
+  await expect(page.getByRole("banner")).toHaveCount(1);
+  await expect(page.getByRole("main")).toHaveCount(1);
+  await expect(page.getByRole("link", { name: "Skip to main content" })).toHaveCount(1);
+}
+
 test("admin signs out and protected pages require a new login", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email Address").fill(admin.email);
   await page.getByLabel("Password").fill(admin.password);
   await page.getByRole("button", { name: "Sign In" }).click();
   await expect(page).toHaveURL(/\/$/);
+
+  // Home keeps its plain personal layout for non-student roles: no student navigation.
+  await expect(page.getByRole("heading", { level: 1, name: /^Welcome, / })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Go to your dashboard" })).toHaveAttribute("href", "/admin/dashboard");
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Account menu|Open navigation menu/ })).toHaveCount(0);
+  await expectSingleLandmarks(page);
+
   await page.goto("/admin/dashboard");
   await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 
@@ -139,51 +161,8 @@ test("admin signs out and protected pages require a new login", async ({ page })
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test("student uses the top navigation and logs out from the account menu", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByLabel("Email Address").fill("student@fixtures.school.test");
-  await page.getByLabel("Password").fill("Fixture-Pass-2024");
-  await page.getByRole("button", { name: "Sign In" }).click();
-  await expect(page).toHaveURL(/\/$/);
-
-  await page.goto("/student/dashboard");
-  const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  await expect(navigation.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("button", { name: /sidebar/i })).toHaveCount(0);
-
-  await navigation.getByRole("link", { name: "Announcements" }).click();
-  await expect(page).toHaveURL(/\/student\/announcements$/);
-  await expect(navigation.getByRole("link", { name: "Announcements" })).toHaveAttribute("aria-current", "page");
-
-  await page.getByRole("button", { name: /Account menu/ }).click();
-  await page.getByRole("menuitem", { name: "Log out" }).click();
-
-  await expect(page).toHaveURL(/\/login$/);
-  expect(await page.evaluate(() => [localStorage.getItem("accessToken"), localStorage.getItem("refreshToken")])).toEqual([
-    null,
-    null,
-  ]);
-  await page.goto("/student/dashboard");
-  await expect(page).toHaveURL(/\/login$/);
-  await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "One place for school life" })).toBeVisible();
-});
-
-async function logInAsStudent(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("Email Address").fill("student@fixtures.school.test");
-  await page.getByLabel("Password").fill("Fixture-Pass-2024");
-  await page.getByRole("button", { name: "Sign In" }).click();
-  await expect(page).toHaveURL(/\/$/);
-}
-
-async function expectSingleLandmarks(page: Page) {
-  await expect(page.getByRole("banner")).toHaveCount(1);
-  await expect(page.getByRole("main")).toHaveCount(1);
-  await expect(page.getByRole("link", { name: "Skip to main content" })).toHaveCount(1);
-}
-
-test("student keeps the top navigation on Home, moves between pages and logs out from Home", async ({ page }) => {
+// Logins are rate limited to 10 per minute per address, so one journey covers Home and the student pages.
+test("student keeps the top navigation on Home and the student pages and logs out from Home", async ({ page }) => {
   await logInAsStudent(page);
 
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
@@ -243,25 +222,12 @@ test("a visitor sees the public home without any student navigation", async ({ p
   await expectSingleLandmarks(page);
 });
 
-test("an admin keeps the plain personal home without the student navigation", async ({ page }) => {
-  await logInAsAdmin(page);
-
-  await expect(page.getByRole("heading", { level: 1, name: /^Welcome, / })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Go to your dashboard" })).toHaveAttribute("href", "/admin/dashboard");
-  await expect(page.getByRole("navigation", { name: "Main navigation" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Account menu|Open navigation menu/ })).toHaveCount(0);
-  await expectSingleLandmarks(page);
-});
-
-// The page itself, not only its controls, must not scroll sideways on a phone.
+// The page itself, not only its controls, must not scroll sideways on a phone. The expression is a
+// string because the e2e tooling config has no DOM typings.
 async function expectNoHorizontalOverflow(page: Page) {
-  const widths = await page.evaluate(() => ({
-    viewport: document.documentElement.clientWidth,
-    document: document.documentElement.scrollWidth,
-    body: document.body.scrollWidth,
-  }));
-  expect(widths.document).toBeLessThanOrEqual(widths.viewport);
-  expect(widths.body).toBeLessThanOrEqual(widths.viewport);
+  for (const element of ["document.documentElement", "document.body"]) {
+    expect(await page.evaluate(`${element}.scrollWidth <= document.documentElement.clientWidth`)).toBe(true);
+  }
 }
 
 for (const [language, direction, menuButton, home, dashboard, announcements, welcome] of [
