@@ -77,6 +77,43 @@
             "signOut": "Sign out"
         }
     },
+    "home": {
+        "skipToContent": "Skip to main content",
+        "logIn": "Log in",
+        "public": {
+            "title": "One place for school life",
+            "intro": "School App connects students, teachers, parents and school staff around classes, grades and announcements.",
+            "loginHint": "Log in with the account your school gave you.",
+            "audiencesHeading": "Who it is for",
+            "audiences": {
+                "student": {
+                    "title": "Students",
+                    "description": "Follow your grades and the announcements from your school."
+                },
+                "teacher": {
+                    "title": "Teachers",
+                    "description": "Manage your classes and keep grades and attendance up to date."
+                },
+                "parent": {
+                    "title": "Parents",
+                    "description": "Stay informed about your children's school life."
+                },
+                "staff": {
+                    "title": "Staff and administrators",
+                    "description": "Run the school day: students, classes, enrollments and announcements."
+                }
+            }
+        },
+        "personal": {
+            "welcome": "Welcome, {{name}}",
+            "intro": "Everything starts from your dashboard.",
+            "dashboard": "Go to your dashboard",
+            "profile": "My profile",
+            "logout": "Log out",
+            "unknownRole": "Your account role is not recognised, so no dashboard is available. You can still manage your profile or log out.",
+            "shortcutsLabel": "Your shortcuts"
+        }
+    },
     "roles": {
         "admin": "Admin",
         "teacher": "Teacher",

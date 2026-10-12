@@ -77,6 +77,43 @@
             "signOut": "Se déconnecter"
         }
     },
+    "home": {
+        "skipToContent": "Aller au contenu principal",
+        "logIn": "Se connecter",
+        "public": {
+            "title": "Toute la vie scolaire au même endroit",
+            "intro": "School App relie élèves, enseignants, parents et personnel de l'établissement autour des classes, des notes et des annonces.",
+            "loginHint": "Connectez-vous avec le compte fourni par votre établissement.",
+            "audiencesHeading": "À qui s'adresse l'application",
+            "audiences": {
+                "student": {
+                    "title": "Élèves",
+                    "description": "Consultez vos notes et les annonces de votre établissement."
+                },
+                "teacher": {
+                    "title": "Enseignants",
+                    "description": "Gérez vos classes et tenez à jour les notes et les présences."
+                },
+                "parent": {
+                    "title": "Parents",
+                    "description": "Suivez la vie scolaire de vos enfants."
+                },
+                "staff": {
+                    "title": "Personnel et administrateurs",
+                    "description": "Gérez le quotidien de l'établissement : élèves, classes, inscriptions et annonces."
+                }
+            }
+        },
+        "personal": {
+            "welcome": "Bienvenue, {{name}}",
+            "intro": "Tout commence depuis votre tableau de bord.",
+            "dashboard": "Accéder à votre tableau de bord",
+            "profile": "Mon profil",
+            "logout": "Se déconnecter",
+            "unknownRole": "Le rôle de votre compte n'est pas reconnu : aucun tableau de bord n'est disponible. Vous pouvez tout de même gérer votre profil ou vous déconnecter.",
+            "shortcutsLabel": "Vos raccourcis"
+        }
+    },
     "roles": {
         "admin": "Administrateur",
         "teacher": "Enseignant",
