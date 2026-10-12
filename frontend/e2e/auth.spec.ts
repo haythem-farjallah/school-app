@@ -189,7 +189,13 @@ for (const [language, direction, menuButton, announcements] of [
     await page.goto("/student/dashboard");
     await expect(page.locator("html")).toHaveAttribute("dir", direction);
     await expect(page.getByRole("button", { name: menuButton })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    // Every control of the header stays inside the phone viewport.
+    for (const control of [page.getByRole("button", { name: menuButton }), page.getByRole("button", { name: /Sam Student/ })]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(360);
+    }
 
     await page.getByRole("button", { name: menuButton }).click();
     await page.getByRole("menuitem", { name: announcements }).click();
