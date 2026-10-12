@@ -2,12 +2,19 @@ import type { CSSProperties } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AppSidebar } from '../Elements/AppSidebar';
 import { TopNavbar } from '../Elements/TopNavbar';
+import { StudentShell } from './StudentShell';
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { useAuth } from '@/hooks/useAuth';
 
 // Width of the collapsed (icon-only) desktop sidebar.
 const shellStyle = { '--sidebar-width-icon': '3.5rem' } as CSSProperties;
 
 export const Layout = () => {
+  const { user } = useAuth();
+
+  // Students get their own top navigation; every other role keeps the sidebar shell.
+  if (user?.role === 'STUDENT') return <StudentShell />;
+
   return (
     <SidebarProvider style={shellStyle}>
       <AppSidebar />

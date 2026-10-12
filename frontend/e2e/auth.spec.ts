@@ -139,15 +139,24 @@ test("admin signs out and protected pages require a new login", async ({ page })
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test("student logs out from the sidebar and protected pages require a new login", async ({ page }) => {
+test("student uses the top navigation and logs out from the account menu", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email Address").fill("student@fixtures.school.test");
   await page.getByLabel("Password").fill("Fixture-Pass-2024");
   await page.getByRole("button", { name: "Sign In" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await page.goto("/student/exams");
 
-  await page.getByRole("button", { name: "Logout", exact: true }).click();
+  await page.goto("/student/dashboard");
+  const navigation = page.getByRole("navigation", { name: "Main navigation" });
+  await expect(navigation.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("button", { name: /sidebar/i })).toHaveCount(0);
+
+  await navigation.getByRole("link", { name: "Announcements" }).click();
+  await expect(page).toHaveURL(/\/student\/announcements$/);
+  await expect(navigation.getByRole("link", { name: "Announcements" })).toHaveAttribute("aria-current", "page");
+
+  await page.getByRole("button", { name: /Account menu/ }).click();
+  await page.getByRole("menuitem", { name: "Log out" }).click();
 
   await expect(page).toHaveURL(/\/login$/);
   expect(await page.evaluate(() => [localStorage.getItem("accessToken"), localStorage.getItem("refreshToken")])).toEqual([
@@ -156,4 +165,35 @@ test("student logs out from the sidebar and protected pages require a new login"
   ]);
   await page.goto("/student/dashboard");
   await expect(page).toHaveURL(/\/login$/);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: "One place for school life" })).toBeVisible();
 });
+
+for (const [language, direction, menuButton, announcements] of [
+  ["en", "ltr", "Open navigation menu", "Announcements"],
+  ["ar", "rtl", "فتح قائمة التنقل", "الإعلانات"],
+] as const) {
+  test(`student navigation fits a phone screen in ${language} and opens from the menu button`, async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto("/login");
+    await page.getByLabel("Email Address").fill("student@fixtures.school.test");
+    await page.getByLabel("Password").fill("Fixture-Pass-2024");
+    await page.getByRole("button", { name: "Sign In" }).click();
+    await expect(page).toHaveURL(/\/$/);
+
+    // Both keys, as the language provider and i18next read different ones at load.
+    await page.evaluate((lng) => {
+      localStorage.setItem("lang", lng);
+      localStorage.setItem("i18nextLng", lng);
+    }, language);
+    await page.goto("/student/dashboard");
+    await expect(page.locator("html")).toHaveAttribute("dir", direction);
+    await expect(page.getByRole("button", { name: menuButton })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+    await page.getByRole("button", { name: menuButton }).click();
+    await page.getByRole("menuitem", { name: announcements }).click();
+    await expect(page).toHaveURL(/\/student\/announcements$/);
+    await expect(page.getByRole("menu")).toHaveCount(0);
+  });
+}

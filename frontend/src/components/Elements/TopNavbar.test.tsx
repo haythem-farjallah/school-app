@@ -20,7 +20,8 @@ import type { SupportedLocale } from "@/services/i18n";
 vi.mock("@/features/notifications/components/NotificationBell", () => ({ NotificationBell: () => null }));
 
 const admin = { id: 1, email: "admin@fixtures.school.test", firstName: "Ada", lastName: "Admin", role: "ADMIN" };
-const student = { id: 2, email: "student@fixtures.school.test", firstName: "Sam", lastName: "Student", role: "STUDENT" };
+// Students have their own shell (StudentShell); a parent is a role that still uses the sidebar.
+const parent = { id: 2, email: "parent@fixtures.school.test", firstName: "Pia", lastName: "Parent", role: "PARENT" };
 
 function signIn(user: typeof admin, permissions: string[] = []) {
   store.dispatch(
@@ -51,7 +52,7 @@ function renderShell(path = "/", lng: SupportedLocale = "en") {
                 }
               >
                 <Route path="/" element={<p>Home page</p>} />
-                <Route path="/student/results" element={<p>Results page</p>} />
+                <Route path="/parent/grades" element={<p>Results page</p>} />
               </Route>
             </Routes>
           </MemoryRouter>
@@ -110,7 +111,7 @@ describe("TopNavbar", () => {
   });
 
   it("searches only the current role's pages and never lists logout", async () => {
-    signIn(student);
+    signIn(parent);
     renderShell();
 
     const { dialog } = await openSearch();
@@ -141,7 +142,7 @@ describe("TopNavbar", () => {
   });
 
   it("opens the keyboard-selected result", async () => {
-    signIn(student);
+    signIn(parent);
     renderShell();
 
     const { user, dialog } = await openSearch();
@@ -154,7 +155,7 @@ describe("TopNavbar", () => {
 
   it("opens the mobile navigation from the menu trigger and closes it after choosing a page", async () => {
     window.innerWidth = 390;
-    signIn(student);
+    signIn(parent);
     renderShell();
 
     const user = userEvent.setup();
@@ -166,19 +167,19 @@ describe("TopNavbar", () => {
     expect(screen.queryByRole("dialog", { name: "Sidebar" })).not.toBeInTheDocument();
   });
   it("shows the shell, navigation, search and account menu in French", async () => {
-    signIn(student);
+    signIn(parent);
     const { container } = renderShell("/", "fr");
 
     const nav = screen.getByRole("navigation", { name: "Navigation principale" });
     expect(within(nav).getByRole("link", { name: "Résultats" })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "Déconnexion" })).toBeInTheDocument();
     expect(nav).toHaveTextContent("Autres");
-    expect(screen.getByText("Élève")).toBeInTheDocument();
+    expect(screen.getByText("Parent")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Réduire la barre latérale" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Espace d'apprentissage" })).toBeInTheDocument();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Menu du compte, Sam Student" }));
+    await user.click(screen.getByRole("button", { name: "Menu du compte, Pia Parent" }));
     expect(await screen.findByRole("menuitem", { name: "Paramètres du profil" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Se déconnecter" })).toBeInTheDocument();
     await user.keyboard("{Escape}");
@@ -200,15 +201,15 @@ describe("TopNavbar", () => {
     expect(container.textContent).not.toMatch(rawKey);
   });
   it("puts the sidebar on the right and translates the shell in Arabic", async () => {
-    signIn(student);
+    signIn(parent);
     const { container } = renderShell("/", "ar");
 
     const nav = screen.getByRole("navigation", { name: "التنقل الرئيسي" });
     expect(container.querySelector('[data-side="right"]')).toContainElement(nav);
     expect(within(nav).getByRole("link", { name: "النتائج" })).toBeInTheDocument();
-    expect(screen.getByText("طالب")).toBeInTheDocument();
+    expect(screen.getByText("وليّ أمر")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "طيّ الشريط الجانبي" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "قائمة الحساب، Sam Student" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "قائمة الحساب، Pia Parent" })).toBeInTheDocument();
 
     const { dialog } = await openSearch("البحث عن صفحة");
     expect(within(dialog).getByRole("option", { name: /النتائج/ })).toBeInTheDocument();
@@ -217,16 +218,16 @@ describe("TopNavbar", () => {
   });
 
   it("translates the shell to Traditional Chinese and keeps the sidebar on the left", async () => {
-    signIn(student);
+    signIn(parent);
     const { container } = renderShell("/", "zh-TW");
 
     const nav = screen.getByRole("navigation", { name: "主要導覽" });
     expect(container.querySelector('[data-side="left"]')).toContainElement(nav);
     expect(within(nav).getByRole("link", { name: "成績單" })).toBeInTheDocument();
-    expect(screen.getByText("學生")).toBeInTheDocument();
+    expect(screen.getByText("家長")).toBeInTheDocument();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "帳號選單，Sam Student" }));
+    await user.click(screen.getByRole("button", { name: "帳號選單，Pia Parent" }));
     expect(await screen.findByRole("menuitem", { name: "個人資料設定" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "登出" })).toBeInTheDocument();
     expect(container.textContent).not.toMatch(rawKey);

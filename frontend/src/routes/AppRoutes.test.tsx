@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -18,6 +18,8 @@ import { apiUrl, server } from "@/test/server";
 // The dashboards load their own data; routing is what is under test here.
 vi.mock("@/pages/admin/Dashboard", () => ({ default: () => <h1>Admin dashboard page</h1> }));
 vi.mock("@/pages/student/Dashboard", () => ({ default: () => <h1>Student dashboard page</h1> }));
+vi.mock("@/pages/student/Announcements", () => ({ default: () => <h1>Student announcements page</h1> }));
+vi.mock("@/pages/Profile", () => ({ default: () => <h1>Profile page</h1> }));
 vi.mock("@/features/notifications/components/NotificationBell", () => ({ NotificationBell: () => null }));
 
 const account = (role: string) => ({
@@ -215,6 +217,98 @@ describe("login destination", () => {
 
     await vi.waitFor(() => expect(router.state.location.pathname).toBe("/change-password"));
     expect(screen.queryByText(/Welcome, Ada/)).not.toBeInTheDocument();
+  });
+});
+
+describe("student shell", () => {
+  it("gives a student the top navigation and no sidebar or staff top bar", async () => {
+    signIn("STUDENT");
+    renderApp("/student/dashboard");
+
+    expect(await screen.findByRole("heading", { name: "Student dashboard page" })).toBeInTheDocument();
+    const nav = within(screen.getByRole("navigation", { name: "Main navigation" }));
+    expect(nav.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+    expect(nav.getAllByRole("link").map((link) => link.textContent)).toEqual(["Home", "Dashboard", "Announcements"]);
+    expect(screen.queryByRole("button", { name: /sidebar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Search pages" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+  });
+
+  it("opens the existing announcements route from the navigation", async () => {
+    signIn("STUDENT");
+    const router = renderApp("/student/dashboard");
+    await screen.findByRole("heading", { name: "Student dashboard page" });
+
+    await userEvent.setup().click(
+      within(screen.getByRole("navigation", { name: "Main navigation" })).getByRole("link", { name: "Announcements" }),
+    );
+
+    expect(await screen.findByRole("heading", { name: "Student announcements page" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/student/announcements");
+    expect(
+      within(screen.getByRole("navigation", { name: "Main navigation" })).getByRole("link", { name: "Announcements" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("opens the student's own profile at /profile from the account menu", async () => {
+    signIn("STUDENT");
+    const router = renderApp("/student/dashboard");
+    await screen.findByRole("heading", { name: "Student dashboard page" });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Account menu, Ada Lovelace" }));
+    await user.click(await screen.findByRole("menuitem", { name: "My Profile" }));
+
+    expect(await screen.findByRole("heading", { name: "Profile page" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/profile");
+    expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
+  });
+
+  it("logs out to the login page and leaves the public home reachable", async () => {
+    setSessionEndedHandler(() => store.dispatch(resetAuth()));
+    signIn("STUDENT");
+    queryClient.setQueryData(["private"], { secret: true });
+    const router = renderApp("/student/dashboard");
+    await screen.findByRole("heading", { name: "Student dashboard page" });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Account menu, Ada Lovelace" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Log out" }));
+
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(queryClient.getQueryData(["private"])).toBeUndefined();
+    expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
+
+    await act(() => router.navigate("/"));
+    expect(await screen.findByRole("heading", { level: 1, name: "One place for school life" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
+  });
+});
+
+describe("shell of the other roles", () => {
+  it.each(["ADMIN", "TEACHER", "PARENT", "STAFF"])("keeps the sidebar and top bar for %s", async (role) => {
+    signIn(role);
+    renderApp("/profile");
+
+    expect(await screen.findByRole("heading", { name: "Profile page" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search pages" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Skip to main content" })).not.toBeInTheDocument();
+  });
+
+  it.each(["ADMIN", "TEACHER", "PARENT", "STAFF"])("lets %s open their profile settings and sign out from the account menu", async (role) => {
+    setSessionEndedHandler(() => store.dispatch(resetAuth()));
+    signIn(role);
+    const router = renderApp("/profile");
+    await screen.findByRole("heading", { name: "Profile page" });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Account menu, Ada Lovelace" }));
+    expect(await screen.findByRole("menuitem", { name: "Profile settings" })).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
+
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe("/login"));
   });
 });
 
