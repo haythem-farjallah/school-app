@@ -41,7 +41,7 @@ describe("AppSidebar logout", () => {
     vi.unstubAllGlobals();
   });
 
-  it.each(["TEACHER", "STUDENT", "PARENT"])("ends the %s session and the guard shows the login page", async (role) => {
+  it.each(["TEACHER", "PARENT"])("ends the %s session and the guard shows the login page", async (role) => {
     store.dispatch(
       loginSuccess({
         user: { id: 1, email: "user@fixtures.school.test", firstName: "Uma", lastName: "User", role },

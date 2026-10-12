@@ -11,7 +11,6 @@ import {
   User2,
   GraduationCap,
   BookMarked,
-  FileText,
   Bell,
   // Add new icons
   Library,
@@ -25,6 +24,7 @@ import {
   CalendarCheck,
   Brain,
   LogOut,
+  LayoutDashboard,
 } from 'lucide-react';
 
 /**
@@ -109,23 +109,22 @@ export const menuConfig: Record<string, MenuSection[]> = {
       ],
     },
   ],
+  // Rendered by StudentShell: the first section is the top navigation, the second the account menu.
+  // Only destinations backed by real data are listed; other /student routes stay reachable by URL.
   STUDENT: [
     {
       title: 'navigation.sections.menu',
       items: [
-        { icon: Home, label: 'navigation.home', href: '/student/dashboard' },
-        { icon: Calendar, label: 'navigation.schedule', href: '/student/schedule' },
-        { icon: FileText, label: 'navigation.exams', href: '/student/exams' },
-        { icon: FileText, label: 'navigation.results', href: '/student/results' },
-        { icon: Calendar, label: 'navigation.events', href: '/student/events' },
+        { icon: Home, label: 'navigation.home', href: '/' },
+        { icon: LayoutDashboard, label: 'navigation.dashboard', href: '/student/dashboard' },
         { icon: Bell, label: 'navigation.announcements', href: '/student/announcements' },
       ],
     },
     {
-      title: 'navigation.sections.other',
+      title: 'navigation.sections.account',
       items: [
-        { icon: User, label: 'navigation.settings', href: '/student/profile' },
-        { icon: LogOut, label: 'navigation.logout', action: 'logout' },
+        { icon: User, label: 'navigation.myProfile', href: '/profile' },
+        { icon: LogOut, label: 'navigation.logOut', action: 'logout' },
       ],
     },
   ],

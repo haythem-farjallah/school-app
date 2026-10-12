@@ -27,7 +27,7 @@ export const useLogin = () => {
           // Redirect to password change page if password change is required
           navigate("/change-password", { replace: true });
         } else {
-          // Normal login flow - redirect to dashboard
+          // Normal login flow - land on the home page
           navigate("/", { replace: true });
         }
       },

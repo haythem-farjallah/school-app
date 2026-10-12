@@ -3,8 +3,10 @@ import {
   createBrowserRouter,
   RouterProvider,
   Outlet,
+  type RouteObject,
 } from "react-router-dom";
 import { Layout } from "@/components/Layout/Layout";
+import { HomeLayout } from "@/components/Layout/HomeLayout";
 import Shimmer from "@/components/Shimmer/Shimmer";
 import ErrorRouteElement from "@/components/Shared/ErrorRouteElement";
 import { RoleGuard } from "@/components/guards/RoleGuard";
@@ -145,7 +147,9 @@ const TeacherResourceUpload = lazy(() => import("@/features/learning-resources/c
 /* -------------------------------------------------------------------------- */
 /*  Router definition                                                         */
 /* -------------------------------------------------------------------------- */
-const router = createBrowserRouter([
+// Exported so the route table, guards included, can be tested with a memory router.
+// eslint-disable-next-line react-refresh/only-export-components
+export const appRoutes: RouteObject[] = [
   {
     path: "/login",
     element: (
@@ -179,7 +183,16 @@ const router = createBrowserRouter([
     ),
   },
   {
+    // Public: visitors see the landing page, signed-in users their personal home.
     path: "/",
+    element: <HomeLayout />,
+    errorElement: <ErrorRouteElement />,
+    children: [
+      { index: true, element: <Suspense fallback={<Shimmer />}><Home /></Suspense> },
+    ],
+  },
+  {
+    // Protected application. A layout route without a path, so "/" itself stays the public home.
     element: <RequireAuth><Layout /></RequireAuth>,
     errorElement: <ErrorRouteElement />,
     children: [
@@ -342,10 +355,11 @@ const router = createBrowserRouter([
       // Common Routes
       { path: "profile", element: <Suspense fallback={<Shimmer />}><SettingsPage /></Suspense> },
       { path: "learning-space", element: <Suspense fallback={<Shimmer />}><LearningSpace /></Suspense> },
-      { path: "", element: <Suspense fallback={<Shimmer />}><Home /></Suspense> },
     ],
   },
-]);
+];
+
+const router = createBrowserRouter(appRoutes);
 
 /* -------------------------------------------------------------------------- */
 /*  Router provider                                                           */

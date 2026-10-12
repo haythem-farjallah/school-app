@@ -77,6 +77,43 @@
             "signOut": "登出"
         }
     },
+    "home": {
+        "skipToContent": "跳至主要內容",
+        "logIn": "登入",
+        "public": {
+            "title": "校園生活，集中一處",
+            "intro": "School App 將學生、教師、家長與學校行政人員串連在班級、成績與公告之上。",
+            "loginHint": "請使用學校提供的帳號登入。",
+            "audiencesHeading": "適用對象",
+            "audiences": {
+                "student": {
+                    "title": "學生",
+                    "description": "查看你的成績與學校公告。"
+                },
+                "teacher": {
+                    "title": "教師",
+                    "description": "管理你的班級，並隨時更新成績與出缺勤紀錄。"
+                },
+                "parent": {
+                    "title": "家長",
+                    "description": "掌握孩子的校園生活。"
+                },
+                "staff": {
+                    "title": "行政人員與管理員",
+                    "description": "處理校園日常事務：學生、班級、註冊與公告。"
+                }
+            }
+        },
+        "personal": {
+            "welcome": "歡迎，{{name}}",
+            "intro": "一切都從你的儀表板開始。",
+            "dashboard": "前往你的儀表板",
+            "profile": "我的個人資料",
+            "logout": "登出",
+            "unknownRole": "無法辨識你的帳號角色，因此沒有可用的儀表板。你仍可管理個人資料或登出。",
+            "shortcutsLabel": "你的捷徑"
+        }
+    },
     "roles": {
         "admin": "管理員",
         "teacher": "教師",
@@ -125,6 +162,9 @@
         "children": "子女",
         "meetings": "親師會談",
         "logout": "登出",
+        "dashboard": "儀表板",
+        "myProfile": "我的個人資料",
+        "logOut": "登出",
         "studentManagement": "學生管理",
         "teacherManagement": "教師管理",
         "parentManagement": "家長管理",
