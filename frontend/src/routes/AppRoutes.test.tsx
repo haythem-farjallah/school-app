@@ -10,6 +10,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { appRoutes } from "./AppRoutes";
 import { queryClient } from "@/lib/query-client";
 import { setSessionEndedHandler } from "@/lib/session";
+import { token } from "@/lib/token";
 import { store } from "@/stores/store";
 import { loginSuccess, resetAuth } from "@/stores/authSlice";
 import { createTestI18n } from "@/test/i18n";
@@ -49,6 +50,22 @@ function renderApp(path: string) {
   );
   return router;
 }
+
+// One header, one skip link and one main landmark, whichever shell wraps the page.
+function expectSingleLandmarks() {
+  expect(screen.getAllByRole("banner")).toHaveLength(1);
+  expect(screen.getAllByRole("main")).toHaveLength(1);
+  expect(screen.getAllByRole("link", { name: "Skip to main content" })).toHaveLength(1);
+  expect(screen.getAllByRole("link", { name: "School App" })).toHaveLength(1);
+}
+
+const mainNavigation = () => within(screen.getByRole("navigation", { name: "Main navigation" }));
+
+const currentPages = () =>
+  mainNavigation()
+    .getAllByRole("link")
+    .filter((link) => link.getAttribute("aria-current") === "page")
+    .map((link) => link.textContent);
 
 function loginResponse(role: string, passwordChangeRequired: boolean) {
   return http.post(apiUrl("/auth/login"), () =>
@@ -101,6 +118,17 @@ describe("public home", () => {
     expect(screen.queryByRole("button", { name: /Account menu/ })).not.toBeInTheDocument();
   });
 
+  it("never shows the private student links to a visitor", async () => {
+    renderApp("/");
+
+    await screen.findByRole("heading", { level: 1 });
+    for (const name of ["Dashboard", "Announcements", "My Profile"]) {
+      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: "Open navigation menu" })).not.toBeInTheDocument();
+    expectSingleLandmarks();
+  });
+
   it("offers a skip link to the main content", async () => {
     renderApp("/");
 
@@ -121,8 +149,10 @@ describe("public home", () => {
 describe("personalised home", () => {
   it.each([
     ["ADMIN", "/admin/dashboard"],
-    ["STUDENT", "/student/dashboard"],
-  ])("keeps a signed-in %s on / and links to their dashboard", async (role, dashboard) => {
+    ["TEACHER", "/teacher/dashboard"],
+    ["PARENT", "/parent/dashboard"],
+    ["STAFF", "/staff/dashboard"],
+  ])("keeps a signed-in %s on / without the student navigation", async (role, dashboard) => {
     signIn(role);
     const router = renderApp("/");
 
@@ -130,6 +160,104 @@ describe("personalised home", () => {
     expect(router.state.location.pathname).toBe("/");
     expect(screen.getByRole("link", { name: "Go to your dashboard" })).toHaveAttribute("href", dashboard);
     expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Account menu/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open navigation menu" })).not.toBeInTheDocument();
+    expectSingleLandmarks();
+  });
+
+  it("keeps a signed-in student on / with the student navigation around the personal home", async () => {
+    signIn("STUDENT");
+    const router = renderApp("/");
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Welcome, Ada Lovelace" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/");
+    expect(screen.getByRole("link", { name: "Go to your dashboard" })).toHaveAttribute("href", "/student/dashboard");
+    expect(screen.getByRole("link", { name: "My profile" })).toHaveAttribute("href", "/profile");
+    expect(mainNavigation().getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Home",
+      "Dashboard",
+      "Announcements",
+    ]);
+    expect(currentPages()).toEqual(["Home"]);
+    expect(screen.getByRole("main")).toContainElement(screen.getByRole("heading", { level: 1 }));
+    expect(screen.queryByRole("button", { name: /sidebar/i })).not.toBeInTheDocument();
+    expectSingleLandmarks();
+  });
+
+  it("marks only Home as current in the mobile menu of a student on /", async () => {
+    signIn("STUDENT");
+    renderApp("/");
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Open navigation menu" }));
+
+    const menu = within(await screen.findByRole("menu"));
+    expect(
+      menu.getAllByRole("menuitem").filter((item) => item.getAttribute("aria-current") === "page").map((item) => item.textContent),
+    ).toEqual(["Home"]);
+  });
+
+  it("moves a student between Home, Dashboard and Announcements in both directions keeping the shell", async () => {
+    signIn("STUDENT");
+    const router = renderApp("/");
+    await screen.findByRole("heading", { level: 1, name: "Welcome, Ada Lovelace" });
+    const user = userEvent.setup();
+
+    const open = async (link: string, heading: string, path: string, current: string) => {
+      await user.click(mainNavigation().getByRole("link", { name: link }));
+      expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe(path);
+      expect(currentPages()).toEqual([current]);
+      expectSingleLandmarks();
+    };
+
+    await open("Dashboard", "Student dashboard page", "/student/dashboard", "Dashboard");
+    await open("Home", "Welcome, Ada Lovelace", "/", "Home");
+    await open("Announcements", "Student announcements page", "/student/announcements", "Announcements");
+    await open("Home", "Welcome, Ada Lovelace", "/", "Home");
+    await open("Announcements", "Student announcements page", "/student/announcements", "Announcements");
+    await open("Dashboard", "Student dashboard page", "/student/dashboard", "Dashboard");
+  });
+
+  it("opens the student's profile from the account menu on Home and from the Home shortcut", async () => {
+    signIn("STUDENT");
+    const router = renderApp("/");
+    await screen.findByRole("heading", { level: 1, name: "Welcome, Ada Lovelace" });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Account menu, Ada Lovelace" }));
+    await user.click(await screen.findByRole("menuitem", { name: "My Profile" }));
+    expect(await screen.findByRole("heading", { name: "Profile page" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/profile");
+    expect(mainNavigation().getAllByRole("link")).toHaveLength(3);
+
+    await act(() => router.navigate("/"));
+    await user.click(await screen.findByRole("link", { name: "My profile" }));
+    expect(await screen.findByRole("heading", { name: "Profile page" })).toBeInTheDocument();
+    expectSingleLandmarks();
+  });
+
+  it("logs a student out from the account menu on Home and reveals the public home", async () => {
+    setSessionEndedHandler(() => store.dispatch(resetAuth()));
+    signIn("STUDENT");
+    queryClient.setQueryData(["private"], { secret: true });
+    const router = renderApp("/");
+    await screen.findByRole("heading", { level: 1, name: "Welcome, Ada Lovelace" });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Account menu, Ada Lovelace" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Log out" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "One place for school life" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/");
+    expect(token.access).toBeNull();
+    expect(token.refresh).toBeNull();
+    expect(store.getState().auth.user).toBeNull();
+    expect(queryClient.getQueryData(["private"])).toBeUndefined();
+    expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Account menu/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Welcome,/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Log in" })[0]).toHaveAttribute("href", "/login");
+    expectSingleLandmarks();
   });
 
   it("follows the dashboard link into the protected application shell", async () => {

@@ -2,12 +2,24 @@ import { GraduationCap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { StudentShell } from './StudentShell'
 import { useAuth } from '@/hooks/useAuth'
 
-/** Shell of the home page, shared by visitors and signed-in users. It has no application sidebar. */
+/**
+ * Shell of the home page, shared by visitors and signed-in users. It has no application sidebar.
+ * A signed-in student gets the same top navigation as in the student area.
+ */
 export const HomeLayout = () => {
   const { t } = useTranslation()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
+
+  if (isAuthenticated && user?.role === 'STUDENT') {
+    return (
+      <StudentShell>
+        <Outlet />
+      </StudentShell>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">

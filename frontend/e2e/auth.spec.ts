@@ -169,33 +169,145 @@ test("student uses the top navigation and logs out from the account menu", async
   await expect(page.getByRole("heading", { level: 1, name: "One place for school life" })).toBeVisible();
 });
 
-for (const [language, direction, menuButton, announcements] of [
-  ["en", "ltr", "Open navigation menu", "Announcements"],
-  ["ar", "rtl", "فتح قائمة التنقل", "الإعلانات"],
+async function logInAsStudent(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("Email Address").fill("student@fixtures.school.test");
+  await page.getByLabel("Password").fill("Fixture-Pass-2024");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
+async function expectSingleLandmarks(page: Page) {
+  await expect(page.getByRole("banner")).toHaveCount(1);
+  await expect(page.getByRole("main")).toHaveCount(1);
+  await expect(page.getByRole("link", { name: "Skip to main content" })).toHaveCount(1);
+}
+
+test("student keeps the top navigation on Home, moves between pages and logs out from Home", async ({ page }) => {
+  await logInAsStudent(page);
+
+  const navigation = page.getByRole("navigation", { name: "Main navigation" });
+  const current = navigation.locator('[aria-current="page"]');
+  await expect(page.getByRole("heading", { level: 1, name: /^Welcome, Sam Student/ })).toBeVisible();
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveText("Home");
+  await expect(page.getByRole("button", { name: /sidebar/i })).toHaveCount(0);
+  await expectSingleLandmarks(page);
+
+  for (const [link, path, label] of [
+    ["Dashboard", /\/student\/dashboard$/, "Dashboard"],
+    ["Home", /\/$/, "Home"],
+    ["Announcements", /\/student\/announcements$/, "Announcements"],
+    ["Home", /\/$/, "Home"],
+  ] as const) {
+    await navigation.getByRole("link", { name: link }).click();
+    await expect(page).toHaveURL(path);
+    await expect(current).toHaveCount(1);
+    await expect(current).toHaveText(label);
+    await expectSingleLandmarks(page);
+  }
+  await expect(page.getByRole("heading", { level: 1, name: /^Welcome, Sam Student/ })).toBeVisible();
+
+  // The student's own profile stays reachable from the account menu.
+  await page.getByRole("button", { name: /Account menu/ }).click();
+  await page.getByRole("menuitem", { name: "My Profile" }).click();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(navigation).toBeVisible();
+  await navigation.getByRole("link", { name: "Home" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  // Logging out from Home ends the session and shows the public home, without private navigation.
+  await page.getByRole("button", { name: /Account menu/ }).click();
+  await page.getByRole("menuitem", { name: "Log out" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "One place for school life" })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(navigation).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Account menu/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Log in" }).first()).toBeVisible();
+  expect(await page.evaluate(() => [localStorage.getItem("accessToken"), localStorage.getItem("refreshToken")])).toEqual([
+    null,
+    null,
+  ]);
+  await page.goto("/student/dashboard");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
+test("a visitor sees the public home without any student navigation", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { level: 1, name: "One place for school life" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Log in" }).first()).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Account menu|Open navigation menu/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^(Dashboard|Announcements)$/ })).toHaveCount(0);
+  await expectSingleLandmarks(page);
+});
+
+test("an admin keeps the plain personal home without the student navigation", async ({ page }) => {
+  await logInAsAdmin(page);
+
+  await expect(page.getByRole("heading", { level: 1, name: /^Welcome, / })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Go to your dashboard" })).toHaveAttribute("href", "/admin/dashboard");
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Account menu|Open navigation menu/ })).toHaveCount(0);
+  await expectSingleLandmarks(page);
+});
+
+// The page itself, not only its controls, must not scroll sideways on a phone.
+async function expectNoHorizontalOverflow(page: Page) {
+  const widths = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+    body: document.body.scrollWidth,
+  }));
+  expect(widths.document).toBeLessThanOrEqual(widths.viewport);
+  expect(widths.body).toBeLessThanOrEqual(widths.viewport);
+}
+
+for (const [language, direction, menuButton, home, dashboard, announcements, welcome] of [
+  ["en", "ltr", "Open navigation menu", "Home", "Dashboard", "Announcements", /^Welcome, Sam Student/],
+  ["ar", "rtl", "فتح قائمة التنقل", "الرئيسية", "لوحة التحكم", "الإعلانات", /^مرحباً، Sam Student/],
 ] as const) {
-  test(`student navigation fits a phone screen in ${language} and opens from the menu button`, async ({ page }) => {
+  test(`student navigation fits a phone screen in ${language}, on Home and the dashboard, and opens from the menu button`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 740 });
-    await page.goto("/login");
-    await page.getByLabel("Email Address").fill("student@fixtures.school.test");
-    await page.getByLabel("Password").fill("Fixture-Pass-2024");
-    await page.getByRole("button", { name: "Sign In" }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await logInAsStudent(page);
 
     // Both keys, as the language provider and i18next read different ones at load.
     await page.evaluate((lng) => {
       localStorage.setItem("lang", lng);
       localStorage.setItem("i18nextLng", lng);
     }, language);
-    await page.goto("/student/dashboard");
-    await expect(page.locator("html")).toHaveAttribute("dir", direction);
-    await expect(page.getByRole("button", { name: menuButton })).toBeVisible();
-    // Every control of the header stays inside the phone viewport.
-    for (const control of [page.getByRole("button", { name: menuButton }), page.getByRole("button", { name: /Sam Student/ })]) {
-      const box = await control.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.x).toBeGreaterThanOrEqual(0);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(360);
-    }
+
+    // Every control of the header stays inside the phone viewport, and the page does not scroll sideways.
+    const expectHeaderWithinViewport = async () => {
+      await expect(page.locator("html")).toHaveAttribute("dir", direction);
+      await expect(page.getByRole("button", { name: menuButton })).toBeVisible();
+      for (const control of [page.getByRole("button", { name: menuButton }), page.getByRole("button", { name: /Sam Student/ })]) {
+        const box = await control.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(360);
+      }
+    };
+
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1, name: welcome })).toBeVisible();
+    await expectHeaderWithinViewport();
+    await expectNoHorizontalOverflow(page);
+
+    await page.getByRole("button", { name: menuButton }).click();
+    await expect(page.getByRole("menuitem", { name: home })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("menuitem", { name: dashboard })).not.toHaveAttribute("aria-current", "page");
+    await page.getByRole("menuitem", { name: dashboard }).click();
+    await expect(page).toHaveURL(/\/student\/dashboard$/);
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expectHeaderWithinViewport();
+
+    await page.getByRole("button", { name: menuButton }).click();
+    await page.getByRole("menuitem", { name: home }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { level: 1, name: welcome })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
 
     await page.getByRole("button", { name: menuButton }).click();
     await page.getByRole("menuitem", { name: announcements }).click();

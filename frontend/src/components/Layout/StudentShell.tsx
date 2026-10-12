@@ -1,4 +1,5 @@
 import { ChevronDown, GraduationCap, Menu, User } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -39,9 +40,10 @@ function initialsOf(firstName?: string, lastName?: string) {
 
 /**
  * Shell of the student area: a top navigation instead of the staff sidebar.
- * Renders the matched child route inside its single main landmark.
+ * Renders its children inside its single main landmark, or the matched child route when
+ * it is used as a layout route.
  */
-export const StudentShell = () => {
+export const StudentShell = ({ children }: { children?: ReactNode }) => {
   const { t, i18n } = useTranslation()
   const { pathname } = useLocation()
   const { user } = useAuth()
@@ -175,7 +177,7 @@ export const StudentShell = () => {
       </header>
 
       <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-6 sm:py-8">
-        <Outlet />
+        {children ?? <Outlet />}
       </main>
     </div>
   )

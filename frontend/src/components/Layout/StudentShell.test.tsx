@@ -55,6 +55,22 @@ function renderShell(path = "/student/dashboard", lng: SupportedLocale = "en") {
   );
 }
 
+function renderShellWithChildren() {
+  return render(
+    <I18nextProvider i18n={createTestI18n("en")}>
+      <Provider store={store}>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/"]}>
+            <StudentShell>
+              <p>Supplied content</p>
+            </StudentShell>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </Provider>
+    </I18nextProvider>,
+  );
+}
+
 const topNavigation = () => screen.getByRole("navigation", { name: "Main navigation" });
 
 afterEach(() => {
@@ -86,6 +102,16 @@ describe("StudentShell navigation", () => {
     expect(document.querySelector("[data-sidebar]")).toBeNull();
     expect(screen.getByRole("link", { name: "Skip to main content" })).toHaveAttribute("href", "#main-content");
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
+  it("renders supplied children in its single main landmark instead of a matched route", () => {
+    signIn();
+    renderShellWithChildren();
+
+    expect(within(screen.getByRole("main")).getByText("Supplied content")).toBeInTheDocument();
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getAllByRole("banner")).toHaveLength(1);
+    expect(within(topNavigation()).getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
   });
 
   it("does not advertise timetable, courses or other unverified destinations", async () => {
