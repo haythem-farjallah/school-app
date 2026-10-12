@@ -1,7 +1,6 @@
 package com.example.school_management.feature.operational;
 
 import com.example.school_management.IntegrationTest;
-import com.example.school_management.dev.DevFixtureLoader;
 import com.example.school_management.feature.academic.entity.*;
 import com.example.school_management.feature.auth.entity.*;
 import com.example.school_management.feature.membership.entity.*;
@@ -16,7 +15,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -48,7 +49,7 @@ class DashboardSchoolAccessIntegrationTest {
     private Teacher teacher, foreignTeacher;
     private Parent parent, foreignParent;
     private Administration admin, foreignAdmin;
-    private SchoolMembership studentMembership;
+    private SchoolMembership studentMembership, parentMembership, adminMembership;
     private Enrollment ownEnrollment;
 
     @BeforeEach
@@ -65,9 +66,9 @@ class DashboardSchoolAccessIntegrationTest {
         membership(student, foreignSchool, MembershipRole.STUDENT); membership(foreignStudent, foreignSchool, MembershipRole.STUDENT);
         membership(teacher, ownSchool, MembershipRole.TEACHER); membership(teacher, foreignSchool, MembershipRole.TEACHER);
         membership(foreignTeacher, foreignSchool, MembershipRole.TEACHER);
-        membership(parent, ownSchool, MembershipRole.GUARDIAN); membership(parent, foreignSchool, MembershipRole.GUARDIAN);
+        parentMembership = membership(parent, ownSchool, MembershipRole.GUARDIAN); membership(parent, foreignSchool, MembershipRole.GUARDIAN);
         membership(foreignParent, foreignSchool, MembershipRole.GUARDIAN);
-        membership(admin, ownSchool, MembershipRole.ADMIN); membership(foreignAdmin, foreignSchool, MembershipRole.ADMIN);
+        adminMembership = membership(admin, ownSchool, MembershipRole.ADMIN); membership(foreignAdmin, foreignSchool, MembershipRole.ADMIN);
         ownEnrollment = enrollment(student, ownClass, EnrollmentStatus.ACTIVE);
         Enrollment foreignEnrollment = enrollment(student, foreignClass, EnrollmentStatus.ACTIVE);
         enrollment(foreignStudent, foreignClass, EnrollmentStatus.ACTIVE);
@@ -229,10 +230,148 @@ class DashboardSchoolAccessIntegrationTest {
         response(get("/api/v1/dashboard/base/{id}", staff.getId()).with(user(staff.getEmail()).roles("STAFF")), 200, false);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/dashboard/parent/{id}", "/api/v1/dashboard/parent/children-summary/{id}"})
+    void parentCanReadOwnDashboardAndOnlyRelatedCurrentSchoolChildren(String route) throws Exception {
+        Parent other = anotherParentWithChild();
+        JsonNode data = response(parentRequest(route, parent), 200, false);
+        assertThat(data.path("baseInfo").path("userInfo").path("id").asLong()).isEqualTo(parent.getId());
+        assertThat(data.path("type").asText()).isEqualTo("PARENT");
+        assertThat(data.path("children")).hasSize(1);
+        assertThat(data.path("children").get(0).path("studentId").asLong()).isEqualTo(student.getId());
+        assertThat(data.path("children").get(0).path("averageGrade").asDouble()).isEqualTo(14);
+        assertThat(data.toString()).doesNotContain(other.getEmail(), "Private child");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/dashboard/parent/{id}", "/api/v1/dashboard/parent/children-summary/{id}"})
+    void parentCannotReadAnotherParentInSameSchool(String route) throws Exception {
+        Parent other = anotherParentWithChild();
+        denied(parentRequest(route, other), 403, other);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/dashboard/parent/{id}", "/api/v1/dashboard/parent/children-summary/{id}"})
+    void parentCannotReadForeignParentAndSchoolDetailsRemainHidden(String route) throws Exception {
+        foreignParent.getChildren().add(foreignStudent); em.flush();
+        denied(parentRequest(route, foreignParent), 404, foreignParent);
+        denied(get(route, foreignParent.getId()).with(user(admin.getEmail()).authorities(
+                new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ADMIN_READ_WRITE"))), 404, foreignParent);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/dashboard/parent/{id}", "/api/v1/dashboard/parent/children-summary/{id}"})
+    void currentSchoolAdministratorCanReadParentAndChildDetails(String route) throws Exception {
+        Parent other = anotherParentWithChild();
+        JsonNode data = response(get(route, other.getId()), 200);
+        assertThat(data.path("baseInfo").path("userInfo").path("id").asLong()).isEqualTo(other.getId());
+        assertThat(data.path("children")).hasSize(1);
+        assertThat(data.path("children").get(0).path("name").asText()).isEqualTo("Private child");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/dashboard/parent/{id}", "/api/v1/dashboard/parent/children-summary/{id}"})
+    void administratorAuthorityCannotBypassCallerSchoolMembership(String route) throws Exception {
+        denied(get(route, parent.getId()).with(user(foreignAdmin.getEmail()).authorities(
+                new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ADMIN_READ_WRITE"))), 403, parent);
+        Administration withoutMembership = account(new Administration(), UserRole.ADMIN); em.flush();
+        denied(get(route, parent.getId()).with(user(withoutMembership.getEmail()).authorities(
+                new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ADMIN_READ_WRITE"))), 403, parent);
+        adminMembership.setRoles(Set.of(MembershipRole.GUARDIAN)); em.flush();
+        denied(get(route, parent.getId()).with(user(admin.getEmail()).authorities(
+                new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ADMIN_READ_WRITE"))), 403, parent);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = UserRole.class, names = {"STUDENT", "TEACHER", "STAFF"})
+    void otherRolesCannotReadParentEvenWithParentAndAdminAuthorities(UserRole role) throws Exception {
+        BaseUser caller = switch (role) {
+            case STUDENT -> account(new Student(), UserRole.STUDENT);
+            case TEACHER -> account(new Teacher(), UserRole.TEACHER);
+            default -> account(new Staff(), UserRole.STAFF);
+        };
+        membership(caller, ownSchool, MembershipRole.ADMIN);
+        em.flush();
+        for (String route : parentRoutes()) {
+            denied(get(route, parent.getId()).with(user(caller.getEmail()).authorities(
+                    new SimpleGrantedAuthority("ROLE_" + role.name()), new SimpleGrantedAuthority("PARENT_READ"),
+                    new SimpleGrantedAuthority("ADMIN_READ_WRITE"))), 403, parent);
+        }
+    }
+
+    @Test
+    void parentWithAdminAuthorityAndMembershipCannotImpersonateAdministrator() throws Exception {
+        Parent other = anotherParentWithChild();
+        parentMembership.setRoles(Set.of(MembershipRole.GUARDIAN, MembershipRole.ADMIN)); em.flush();
+        for (String route : parentRoutes()) {
+            denied(get(route, other.getId()).with(user(parent.getEmail()).authorities(
+                    new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ADMIN_READ_WRITE"))), 403, other);
+        }
+    }
+
+    @Test
+    void explicitParentRoutesStillRequireReadAuthorityAndPersistedIdentity() throws Exception {
+        for (String route : parentRoutes()) {
+            denied(get(route, parent.getId()).with(user(parent.getEmail()).roles("PARENT")), 403, parent);
+            denied(get(route, parent.getId()).with(user(admin.getEmail()).roles("ADMIN")), 403, parent);
+            denied(get(route, parent.getId()).with(user(admin.getEmail()).authorities(
+                    new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("PARENT_READ"))), 403, parent);
+            denied(get(route, parent.getId()).with(user("missing@dashboard.school.test").authorities(
+                    new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ADMIN_READ_WRITE"))), 403, parent);
+        }
+    }
+
+    @Test
+    void anonymousCannotReadParentRoutes() throws Exception {
+        for (String route : parentRoutes()) denied(get(route, parent.getId()), 401, parent);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = MembershipStatus.class, names = {"ACTIVE", "SUSPENDED", "INACTIVE"})
+    void parentHistoricalReadsPreserveMembershipStatusConvention(MembershipStatus membershipStatus) throws Exception {
+        parentMembership.setStatus(membershipStatus); em.flush();
+        for (String route : parentRoutes()) response(parentRequest(route, parent), 200, false);
+    }
+
+    @Test
+    void parentWithoutGuardianMembershipCannotReadOwnDashboardOrCurrentUserDashboard() throws Exception {
+        parentMembership.setRoles(Set.of(MembershipRole.STUDENT)); em.flush();
+        for (String route : parentRoutes()) denied(parentRequest(route, parent), 404, parent);
+        denied(get("/api/v1/dashboard/current-user").with(user(parent.getEmail()).roles("PARENT")), 404, parent);
+        em.remove(parentMembership); em.flush();
+        for (String route : parentRoutes()) denied(parentRequest(route, parent), 404, parent);
+    }
+
+    private List<String> parentRoutes() {
+        return List.of("/api/v1/dashboard/parent/{id}", "/api/v1/dashboard/parent/children-summary/{id}");
+    }
+
+    private MockHttpServletRequestBuilder parentRequest(String route, Parent target) {
+        return get(route, target.getId()).with(user(parent.getEmail()).authorities(
+                new SimpleGrantedAuthority("ROLE_PARENT"), new SimpleGrantedAuthority("PARENT_READ")));
+    }
+
+    private Parent anotherParentWithChild() {
+        Parent other = account(new Parent(), UserRole.PARENT); membership(other, ownSchool, MembershipRole.GUARDIAN);
+        Student child = account(new Student(), UserRole.STUDENT); child.setFirstName("Private"); child.setLastName("child");
+        membership(child, ownSchool, MembershipRole.STUDENT);
+        Enrollment childEnrollment = enrollment(child, ownClass, EnrollmentStatus.ACTIVE); grade(childEnrollment, 19f);
+        other.getChildren().add(child); em.flush(); return other;
+    }
+
+    private void denied(MockHttpServletRequestBuilder request, int expected, Parent target) throws Exception {
+        String body = mvc.perform(request).andExpect(status().is(expected)).andReturn().getResponse().getContentAsString();
+        JsonNode problem = json.readTree(body);
+        assertThat(problem.path("status").asInt()).isEqualTo(expected);
+        assertThat(problem.has("data")).isFalse();
+        assertThat(problem.has("children")).isFalse();
+        assertThat(body).doesNotContain(target.getEmail(), "Private child", "baseInfo", "averageGrade");
+    }
+
     private JsonNode response(MockHttpServletRequestBuilder request, int expected) throws Exception { return response(request, expected, true); }
     private JsonNode response(MockHttpServletRequestBuilder request, int expected, boolean adminRequest) throws Exception {
-        if (adminRequest) request.with(user(DevFixtureLoader.ADMIN_EMAIL).authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"),
-                new org.springframework.security.core.authority.SimpleGrantedAuthority("ADMIN_READ_WRITE")));
+        if (adminRequest) request.with(user(admin.getEmail()).authorities(new SimpleGrantedAuthority("ROLE_ADMIN"),
+                new SimpleGrantedAuthority("ADMIN_READ_WRITE")));
         return json.readTree(mvc.perform(request).andExpect(status().is(expected)).andReturn().getResponse().getContentAsString()).path("data");
     }
     private School school(String name) { School school = new School(); school.setName(name); em.persist(school); return school; }

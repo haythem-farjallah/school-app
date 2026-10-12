@@ -2,6 +2,7 @@ package com.example.school_management.feature.operational.service.impl;
 
 import com.example.school_management.commons.exceptions.ConflictException;
 import com.example.school_management.commons.exceptions.ResourceNotFoundException;
+import com.example.school_management.commons.security.SecurityService;
 import com.example.school_management.feature.academic.entity.ClassEntity;
 import com.example.school_management.feature.academic.entity.Course;
 import com.example.school_management.feature.academic.entity.TeachingAssignment;
@@ -33,6 +34,7 @@ import com.example.school_management.feature.operational.service.DashboardServic
 import com.example.school_management.feature.school.service.CurrentSchoolResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +64,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final SchoolMembershipRepository schoolMembershipRepository;
     private final CurrentSchoolResolver currentSchool;
     private final CurrentAcademicYearResolver currentAcademicYear;
+    private final SecurityService securityService;
 
     private BaseUser getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -114,6 +117,9 @@ public class DashboardServiceImpl implements DashboardService {
         Long schoolId = currentSchool.resolve().getId();
         Parent parent = parentRepository.findByIdAndSchoolId(parentId, schoolId)
                 .orElseThrow(() -> new ResourceNotFoundException("Parent not found"));
+        if (!securityService.isCurrentUser(parentId) && !securityService.isSchoolAdministrator(schoolId)) {
+            throw new AccessDeniedException("ACCESS_DENIED");
+        }
         Map<String, Object> dashboard = new HashMap<>();
         dashboard.put("baseInfo", createBaseDashboard(parent));
         dashboard.put("type", "PARENT");
