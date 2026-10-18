@@ -14,10 +14,14 @@ import { token } from "@/lib/token";
 import { store } from "@/stores/store";
 import { loginSuccess, resetAuth } from "@/stores/authSlice";
 import { createTestI18n } from "@/test/i18n";
+import { studentTimetable } from "@/test/fixtures/student-timetable";
 import { apiUrl, server } from "@/test/server";
 
 // The dashboards load their own data; routing is what is under test here.
 vi.mock("@/pages/admin/Dashboard", () => ({ default: () => <h1>Admin dashboard page</h1> }));
+vi.mock("@/pages/teacher/Dashboard", () => ({ default: () => <h1>Teacher dashboard page</h1> }));
+vi.mock("@/pages/parent/Dashboard", () => ({ default: () => <h1>Parent dashboard page</h1> }));
+vi.mock("@/pages/staff/Dashboard", () => ({ default: () => <h1>Staff dashboard page</h1> }));
 vi.mock("@/pages/student/Dashboard", () => ({ default: () => <h1>Student dashboard page</h1> }));
 vi.mock("@/pages/student/Announcements", () => ({ default: () => <h1>Student announcements page</h1> }));
 vi.mock("@/pages/Profile", () => ({ default: () => <h1>Profile page</h1> }));
@@ -177,6 +181,7 @@ describe("personalised home", () => {
       "Home",
       "Dashboard",
       "Announcements",
+      "My Timetable",
     ]);
     expect(currentPages()).toEqual(["Home"]);
     expect(screen.getByRole("main")).toContainElement(screen.getByRole("heading", { level: 1 }));
@@ -228,7 +233,7 @@ describe("personalised home", () => {
     await user.click(await screen.findByRole("menuitem", { name: "My Profile" }));
     expect(await screen.findByRole("heading", { name: "Profile page" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/profile");
-    expect(mainNavigation().getAllByRole("link")).toHaveLength(3);
+    expect(mainNavigation().getAllByRole("link")).toHaveLength(4);
 
     await act(() => router.navigate("/"));
     await user.click(await screen.findByRole("link", { name: "My profile" }));
@@ -284,6 +289,53 @@ describe("personalised home", () => {
     expect(queryClient.getQueryData(["private"])).toBeUndefined();
     expect(screen.queryByText(/Welcome,/)).not.toBeInTheDocument();
   });
+});
+
+describe("student timetable routes", () => {
+  it.each(["/student/my-timetable", "/student/schedule"])("shows the authenticated timetable at %s with the canonical URL", async (path) => {
+    signIn("STUDENT");
+    server.use(http.get(apiUrl("/v1/timetables/me"), () => HttpResponse.json(studentTimetable)));
+    const router = renderApp(path);
+    expect(await screen.findByText("Mathematics")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/student/my-timetable");
+    expect(mainNavigation().getByRole("link", { name: "My Timetable" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it.each(["/student/my-timetable", "/student/schedule"])("sends visitors at %s to login", async (path) => {
+    const router = renderApp(path);
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(screen.queryByRole("heading", { name: "My Timetable" })).not.toBeInTheDocument();
+  });
+
+  it.each(["ADMIN", "TEACHER", "PARENT", "STAFF"])("keeps %s out of both student timetable paths without requesting /me", async (role) => {
+    signIn(role);
+    let requests = 0;
+    server.use(http.get(apiUrl("/v1/timetables/me"), () => {
+      requests++;
+      return HttpResponse.json(studentTimetable);
+    }));
+    const router = renderApp("/student/my-timetable");
+    const destination = `/${role.toLowerCase()}/dashboard`;
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe(destination));
+    await act(() => router.navigate("/student/schedule"));
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe(destination));
+    expect(requests).toBe(0);
+    expect(screen.queryByRole("heading", { name: "My Timetable" })).not.toBeInTheDocument();
+  });
+});
+
+it("ends a rejected student timetable session through the existing refresh handling", async () => {
+  setSessionEndedHandler(() => store.dispatch(resetAuth()));
+  signIn("STUDENT");
+  server.use(
+    http.get(apiUrl("/v1/timetables/me"), () => new HttpResponse(null, { status: 401 })),
+    http.post(apiUrl("/auth/refresh"), () => new HttpResponse(null, { status: 401 })),
+  );
+  const router = renderApp("/student/my-timetable");
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+  expect(token.access).toBeNull();
+  expect(token.refresh).toBeNull();
+  expect(screen.queryByText("No timetable slots to display")).not.toBeInTheDocument();
 });
 
 describe("session restoration", () => {
@@ -356,7 +408,7 @@ describe("student shell", () => {
     expect(await screen.findByRole("heading", { name: "Student dashboard page" })).toBeInTheDocument();
     const nav = within(screen.getByRole("navigation", { name: "Main navigation" }));
     expect(nav.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
-    expect(nav.getAllByRole("link").map((link) => link.textContent)).toEqual(["Home", "Dashboard", "Announcements"]);
+    expect(nav.getAllByRole("link").map((link) => link.textContent)).toEqual(["Home", "Dashboard", "Announcements", "My Timetable"]);
     expect(screen.queryByRole("button", { name: /sidebar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Search pages" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("main")).toHaveLength(1);

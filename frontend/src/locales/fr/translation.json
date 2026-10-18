@@ -163,6 +163,7 @@
         "meetings": "Réunions",
         "logout": "Déconnexion",
         "dashboard": "Tableau de bord",
+        "myTimetable": "Mon emploi du temps",
         "myProfile": "Mon profil",
         "logOut": "Se déconnecter",
         "studentManagement": "Gestion des élèves",
@@ -328,6 +329,22 @@
             "nextPage": "Aller à la page suivante",
             "lastPage": "Aller à la dernière page",
             "selectedRows": "{{selected}} ligne(s) sélectionnée(s) sur {{total}}"
+        }
+    },
+    "studentTimetable": {
+        "loading": "Chargement de votre emploi du temps…",
+        "empty": "Aucun créneau à afficher",
+        "error": "Votre emploi du temps n’a pas pu être chargé",
+        "retry": "Réessayer",
+        "period": "Période {{index}}",
+        "days": {
+            "MONDAY": "Lundi",
+            "TUESDAY": "Mardi",
+            "WEDNESDAY": "Mercredi",
+            "THURSDAY": "Jeudi",
+            "FRIDAY": "Vendredi",
+            "SATURDAY": "Samedi",
+            "SUNDAY": "Dimanche"
         }
     }
 }

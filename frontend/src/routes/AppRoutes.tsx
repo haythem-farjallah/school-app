@@ -3,6 +3,7 @@ import {
   createBrowserRouter,
   RouterProvider,
   Outlet,
+  Navigate,
   type RouteObject,
 } from "react-router-dom";
 import { Layout } from "@/components/Layout/Layout";
@@ -96,7 +97,6 @@ const TeacherGradeWorkflow = lazy(() => import("@/pages/teacher/GradeWorkflow"))
 
 // Student pages
 const StudentDashboard = lazy(() => import("@/pages/student/Dashboard"));
-const StudentSchedule = lazy(() => import("@/pages/student/Schedule"));
 const StudentMyTimetable = lazy(() => import("@/pages/student/MyTimetable"));
 const StudentGrades = lazy(() => import("@/pages/student/Grades"));
 const StudentAssignments = lazy(() => import("@/pages/student/Assignments"));
@@ -278,7 +278,7 @@ export const appRoutes: RouteObject[] = [
         children: [
           { path: "dashboard", element: <Suspense fallback={<Shimmer />}><StudentDashboard /></Suspense> },
           { path: "courses", element: <Suspense fallback={<Shimmer />}><StudentCourses /></Suspense> },
-          { path: "schedule", element: <Suspense fallback={<Shimmer />}><StudentSchedule /></Suspense> },
+          { path: "schedule", element: <Navigate to="/student/my-timetable" replace /> },
           { path: "my-timetable", element: <Suspense fallback={<Shimmer />}><StudentMyTimetable /></Suspense> },
           { path: "exams", element: <Suspense fallback={<Shimmer />}><StudentExams /></Suspense> },
           { path: "results", element: <Suspense fallback={<Shimmer />}><StudentResults /></Suspense> },

@@ -163,6 +163,7 @@
         "meetings": "Meetings",
         "logout": "Logout",
         "dashboard": "Dashboard",
+        "myTimetable": "My Timetable",
         "myProfile": "My Profile",
         "logOut": "Log out",
         "studentManagement": "Student Management",
@@ -328,6 +329,22 @@
             "nextPage": "Go to next page",
             "lastPage": "Go to last page",
             "selectedRows": "{{selected}} of {{total}} rows selected"
+        }
+    },
+    "studentTimetable": {
+        "loading": "Loading your timetable…",
+        "empty": "No timetable slots to display",
+        "error": "Your timetable could not be loaded",
+        "retry": "Try again",
+        "period": "Period {{index}}",
+        "days": {
+            "MONDAY": "Monday",
+            "TUESDAY": "Tuesday",
+            "WEDNESDAY": "Wednesday",
+            "THURSDAY": "Thursday",
+            "FRIDAY": "Friday",
+            "SATURDAY": "Saturday",
+            "SUNDAY": "Sunday"
         }
     }
 }

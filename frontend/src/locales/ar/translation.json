@@ -163,6 +163,7 @@
         "meetings": "الاجتماعات",
         "logout": "تسجيل الخروج",
         "dashboard": "لوحة التحكم",
+        "myTimetable": "جدولي الدراسي",
         "myProfile": "ملفي الشخصي",
         "logOut": "تسجيل الخروج",
         "studentManagement": "إدارة الطلاب",
@@ -328,6 +329,22 @@
             "nextPage": "الانتقال إلى الصفحة التالية",
             "lastPage": "الانتقال إلى الصفحة الأخيرة",
             "selectedRows": "تم تحديد {{selected}} من {{total}} صفوف"
+        }
+    },
+    "studentTimetable": {
+        "loading": "جارٍ تحميل جدولك الدراسي…",
+        "empty": "لا توجد حصص لعرضها",
+        "error": "تعذّر تحميل جدولك الدراسي",
+        "retry": "حاول مجدداً",
+        "period": "الحصة {{index}}",
+        "days": {
+            "MONDAY": "الاثنين",
+            "TUESDAY": "الثلاثاء",
+            "WEDNESDAY": "الأربعاء",
+            "THURSDAY": "الخميس",
+            "FRIDAY": "الجمعة",
+            "SATURDAY": "السبت",
+            "SUNDAY": "الأحد"
         }
     }
 }
