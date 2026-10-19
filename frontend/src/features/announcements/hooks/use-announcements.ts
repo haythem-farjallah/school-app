@@ -24,11 +24,15 @@ export function useAnnouncements(filters: AnnouncementFilters = {}) {
 }
 
 // Get public announcements (for students/parents)
-export function usePublicAnnouncements(page = 0, size = 10) {
+export function usePublicAnnouncements(page = 0, size = 10, accountId?: number) {
   return useQuery({
-    queryKey: ['announcements', 'public', page, size],
-    queryFn: async () => {
-      const response = await api.get<ApiResponse<PageDto<Announcement>>>(`/v1/announcements/public?page=${page}&size=${size}`);
+    // School-scoped public content must not cross accounts when used on the dashboard.
+    queryKey: accountId === undefined
+      ? ['announcements', 'public', page, size]
+      : ['announcements', 'public', page, size, accountId],
+    ...(accountId === undefined ? {} : { gcTime: 0, retry: false }),
+    queryFn: async ({ signal }) => {
+      const response = await api.get<ApiResponse<PageDto<Announcement>>>(`/v1/announcements/public?page=${page}&size=${size}`, { signal });
       return response.data.data;
     },
   });
