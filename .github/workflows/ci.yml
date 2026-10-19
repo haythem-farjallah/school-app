@@ -127,8 +127,10 @@ jobs:
       - name: Run smoke test
         working-directory: frontend
         run: npm run test:e2e
+      - name: Verify persisted timetable after two backend starts
+        run: bash scripts/check-timetable-restart.sh
       - name: Upload Playwright report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v5
         with:
           name: playwright-report
