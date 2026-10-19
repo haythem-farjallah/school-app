@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { http, HttpResponse } from "msw";
 import { HelmetProvider } from "react-helmet-async";
 import { I18nextProvider } from "react-i18next";
 import { Provider } from "react-redux";
@@ -15,6 +16,7 @@ import { queryClient } from "@/lib/query-client";
 import { store } from "@/stores/store";
 import { loginSuccess, resetAuth } from "@/stores/authSlice";
 import { createTestI18n } from "@/test/i18n";
+import { apiUrl, server } from "@/test/server";
 
 const user = { id: "1", name: "Ada Lovelace", email: "ada@fixtures.school.test", role: "Student" };
 
@@ -89,6 +91,11 @@ describe("student pages built on SimpleStudentLayout", () => {
     ["Results", StudentResults, "All Results"],
     ["Events", StudentEvents, "All Events"],
   ] as [string, ComponentType, string][])("%s renders one page title and no banner or main landmark", (_name, Page, title) => {
+    server.use(
+      http.get(apiUrl("/v1/grades/student/1/paged"), () =>
+        HttpResponse.json({ status: "success", data: { content: [], page: 0, size: 10, totalElements: 0 } }),
+      ),
+    );
     store.dispatch(
       loginSuccess({
         user: { id: 1, email: "ada@fixtures.school.test", firstName: "Ada", lastName: "Lovelace", role: "STUDENT" },

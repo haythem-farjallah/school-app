@@ -1,280 +1,145 @@
-import React from 'react';
-import { Helmet } from 'react-helmet-async';
-import { SimpleStudentLayout } from '@/components/Dashboard/SimpleStudentLayout';
-import { terminateSession } from '@/lib/session';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Award, Calendar, FileText } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { SimpleStudentLayout } from "@/components/Dashboard/SimpleStudentLayout";
+import { LoadingState } from "@/components/Shared/LoadingState";
+import { ErrorState } from "@/components/Shared/ErrorState";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import type { PageDto } from "@/types/level";
+import { useAuth } from "@/hooks/useAuth";
+import { useStudentResults, type StudentResult } from "@/features/grades/use-student-results";
 
-const StudentResults = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
+/** The 1-based `page` search parameter; anything that is not a positive integer means the first page. */
+function requestedPage(value: string | null) {
+  return value !== null && /^[1-9]\d{0,8}$/.test(value) ? Number(value) : 1;
+}
 
-  const dashboardUser = {
-    id: user?.id?.toString() || "1",
-    name: user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : "Student Name",
-    email: user?.email || "student@school.edu",
-    role: "Student",
-    avatar: undefined,
-    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000)
-  };
-
-  const notifications = [
-    {
-      id: "1",
-      title: "New Result Posted",
-      message: "Your Mathematics quiz result has been posted",
-      type: "success" as const,
-      isRead: false,
-      timestamp: new Date()
-    }
-  ];
-
-  const recentResults = [
-    {
-      id: '1',
-      subject: 'Geography',
-      title: 'Geography Assignment',
-      score: 90,
-      maxScore: 100,
-      grade: 'A',
-      teacher: 'James Green',
-      class: '5A',
-      date: '14/09/2024',
-      type: 'assignment'
-    },
-    {
-      id: '2',
-      subject: 'English',
-      title: 'English Midterm Exam',
-      score: 85,
-      maxScore: 100,
-      grade: 'B+',
-      teacher: 'Noah',
-      class: '3A',
-      date: '12/09/2024',
-      type: 'exam'
-    },
-    {
-      id: '3',
-      subject: 'Biology',
-      title: 'Biology Quiz',
-      score: 92,
-      maxScore: 100,
-      grade: 'A',
-      teacher: 'Daniel',
-      class: '2A',
-      date: '10/09/2024',
-      type: 'quiz'
-    },
-    {
-      id: '4',
-      subject: 'Computer Science',
-      title: 'Programming Test',
-      score: 88,
-      maxScore: 100,
-      grade: 'B+',
-      teacher: 'Chloe',
-      class: '3A',
-      date: '08/09/2024',
-      type: 'test'
-    }
-  ];
-
-  const getGradeColor = (grade: string) => {
-    if (grade.startsWith('A')) return 'bg-green-100 text-green-800 border-green-200';
-    if (grade.startsWith('B')) return 'bg-blue-100 text-blue-800 border-blue-200';
-    if (grade.startsWith('C')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    if (grade.startsWith('D')) return 'bg-orange-100 text-orange-800 border-orange-200';
-    return 'bg-red-100 text-red-800 border-red-200';
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'exam': return '📝';
-      case 'quiz': return '❓';
-      case 'assignment': return '📋';
-      case 'test': return '🧪';
-      default: return '📄';
-    }
-  };
-
-  const calculateAverage = () => {
-    const total = recentResults.reduce((sum, result) => sum + result.score, 0);
-    return Math.round(total / recentResults.length);
-  };
-
-  const handleNotificationClick = (notification: any) => {
-    console.log("Notification clicked:", notification);
-  };
+function ResultsList({
+  data,
+  page,
+  onPageChange,
+}: {
+  data: PageDto<StudentResult>;
+  page: number;
+  onPageChange: (page: number) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const totalPages = Math.ceil(data.totalElements / data.size);
 
   return (
-    <>
-      <Helmet>
-        <title>Results - Student Dashboard</title>
-        <meta name="description" content="View your exam results and grades" />
-      </Helmet>
-      
-      <SimpleStudentLayout
-        title="All Results"
-        subtitle="View your academic performance and grades"
-        user={dashboardUser}
-        notifications={notifications}
-        onNotificationClick={handleNotificationClick}
-        onProfileClick={() => navigate("/student/profile")}
-        onSettingsClick={() => navigate("/student/settings")}
-        onLogout={terminateSession}
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left Column - Results List */}
-          <div className="lg:col-span-3">
+    <section aria-label={t("studentResults.listLabel")} className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {t("studentResults.showing", {
+          from: data.page * data.size + 1,
+          to: data.page * data.size + data.content.length,
+          total: data.totalElements,
+        })}
+      </p>
+      <ul className="space-y-3">
+        {data.content.map((result) => (
+          <li key={result.id}>
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Recent Results
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left p-3 text-sm font-medium text-gray-600">Title</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600">Student</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600">Score</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600">Teacher</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600">Class</th>
-                        <th className="text-left p-3 text-sm font-medium text-gray-600">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentResults.map((result) => (
-                        <tr key={result.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">{getTypeIcon(result.type)}</span>
-                              <div>
-                                <div className="font-medium text-sm">{result.title}</div>
-                                <div className="text-xs text-gray-500">{result.subject}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <div className="text-sm">Stella</div>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <Badge 
-                                variant="outline" 
-                                className={`${getGradeColor(result.grade)} font-semibold`}
-                              >
-                                {result.score}
-                              </Badge>
-                              <Badge 
-                                variant="outline" 
-                                className={getGradeColor(result.grade)}
-                              >
-                                {result.grade}
-                              </Badge>
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <div className="text-sm">{result.teacher}</div>
-                          </td>
-                          <td className="p-3">
-                            <div className="text-sm">{result.class}</div>
-                          </td>
-                          <td className="p-3">
-                            <div className="text-sm text-gray-600">{result.date}</div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h2 className="min-w-0 break-words font-medium">
+                    {result.content || t("studentResults.untitled")}
+                  </h2>
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">{t("studentResults.score")}: </span>
+                    <span className="font-semibold">{result.score ?? t("studentResults.notRecorded")}</span>
+                  </p>
                 </div>
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                  {result.courseName && (
+                    <div className="flex min-w-0 gap-1">
+                      <dt className="text-muted-foreground">{t("studentResults.course")}:</dt>
+                      <dd className="break-words">{result.courseName}</dd>
+                    </div>
+                  )}
+                  {result.className && (
+                    <div className="flex min-w-0 gap-1">
+                      <dt className="text-muted-foreground">{t("studentResults.class")}:</dt>
+                      <dd className="break-words">{result.className}</dd>
+                    </div>
+                  )}
+                  {result.teacherName && (
+                    <div className="flex min-w-0 gap-1">
+                      <dt className="text-muted-foreground">{t("studentResults.teacher")}:</dt>
+                      <dd className="break-words">{result.teacherName}</dd>
+                    </div>
+                  )}
+                  {result.gradedAt && (
+                    <div className="flex min-w-0 gap-1">
+                      <dt className="text-muted-foreground">{t("studentResults.gradedOn")}:</dt>
+                      <dd>
+                        <time dateTime={result.gradedAt}>
+                          {new Date(result.gradedAt).toLocaleDateString(i18n.language)}
+                        </time>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Right Column - Statistics */}
-          <div className="space-y-6">
-            {/* Performance Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <TrendingUp className="h-5 w-5" />
-                  Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{calculateAverage()}%</div>
-                  <div className="text-sm text-gray-600">Average Score</div>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Total Results</span>
-                    <Badge variant="secondary">{recentResults.length}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">A Grades</span>
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
-                      {recentResults.filter(r => r.grade.startsWith('A')).length}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">B Grades</span>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      {recentResults.filter(r => r.grade.startsWith('B')).length}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Achievements */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Award className="h-5 w-5" />
-                  Achievements
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">🏆</span>
-                    <span className="font-medium text-sm">Top Performer</span>
-                  </div>
-                  <div className="text-xs text-gray-600">Scored 90+ in Geography</div>
-                </div>
-                
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">📚</span>
-                    <span className="font-medium text-sm">Consistent Student</span>
-                  </div>
-                  <div className="text-xs text-gray-600">4 consecutive good grades</div>
-                </div>
-                
-                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">⭐</span>
-                    <span className="font-medium text-sm">Improvement</span>
-                  </div>
-                  <div className="text-xs text-gray-600">Score improved by 15%</div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </SimpleStudentLayout>
-    </>
+          </li>
+        ))}
+      </ul>
+      <nav aria-label={t("studentResults.pagination")} className="flex items-center justify-between gap-2">
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+          <ChevronLeft className="rtl:rotate-180" aria-hidden="true" />
+          {t("dataTable.pagination.previousPage")}
+        </Button>
+        <span className="text-sm">{t("dataTable.pagination.pageOf", { page, pages: totalPages })}</span>
+        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+          {t("dataTable.pagination.nextPage")}
+          <ChevronRight className="rtl:rotate-180" aria-hidden="true" />
+        </Button>
+      </nav>
+    </section>
   );
-};
+}
 
-export default StudentResults;
+function StudentResultsContent({ studentId }: { studentId: number }) {
+  const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = requestedPage(searchParams.get("page"));
+  const results = useStudentResults(studentId, page - 1);
+  const data = results.data;
+
+  const goToPage = (target: number, replace = false) =>
+    setSearchParams(target === 1 ? {} : { page: String(target) }, { replace });
+
+  const totalPages = data ? Math.ceil(data.totalElements / data.size) : 0;
+  // A bookmarked page beyond the last one (for example after results were removed) moves to the last page.
+  const pastLastPage = data !== undefined && data.content.length === 0 && data.totalElements > 0;
+  useEffect(() => {
+    if (pastLastPage) goToPage(totalPages, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pastLastPage, totalPages]);
+
+  return (
+    <SimpleStudentLayout title={t("studentResults.title")} subtitle={t("studentResults.subtitle")}>
+      {results.isPending || pastLastPage ? (
+        <LoadingState title={t("studentResults.loading")} />
+      ) : results.isError ? (
+        <ErrorState title={t("studentResults.error")} onRetry={() => void results.refetch()} />
+      ) : results.data.totalElements === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">{t("studentResults.empty")}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <ResultsList data={results.data} page={page} onPageChange={goToPage} />
+      )}
+    </SimpleStudentLayout>
+  );
+}
+
+export default function StudentResults() {
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated || user?.role !== "STUDENT") return null;
+  return <StudentResultsContent key={user.id} studentId={user.id} />;
+}
