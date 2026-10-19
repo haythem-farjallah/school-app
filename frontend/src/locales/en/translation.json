@@ -319,6 +319,23 @@
             "enrollmentYearRange": "Enter a year between 1900 and 2100."
         }
     },
+    "studentResults": {
+        "title": "All Results",
+        "subtitle": "Results recorded for you",
+        "loading": "Loading your results…",
+        "error": "Unable to load your results.",
+        "listLabel": "Results",
+        "empty": "No results have been recorded for you yet.",
+        "untitled": "Untitled result",
+        "score": "Recorded score",
+        "notRecorded": "Not recorded",
+        "course": "Course",
+        "class": "Class",
+        "teacher": "Teacher",
+        "gradedOn": "Graded on",
+        "showing": "Showing {{from}}–{{to}} of {{total}} results",
+        "pagination": "Results pages"
+    },
     "dataTable": {
         "pagination": {
             "rowsPerPage": "Rows per page",

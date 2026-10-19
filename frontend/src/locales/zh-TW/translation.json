@@ -319,6 +319,23 @@
             "enrollmentYearRange": "請輸入 1900 到 2100 之間的年份。"
         }
     },
+    "studentResults": {
+        "title": "所有成績",
+        "subtitle": "為您記錄的成績",
+        "loading": "正在載入您的成績…",
+        "error": "無法載入您的成績。",
+        "listLabel": "成績",
+        "empty": "目前尚未記錄您的任何成績。",
+        "untitled": "未命名成績",
+        "score": "已記錄分數",
+        "notRecorded": "未記錄",
+        "course": "課程",
+        "class": "班級",
+        "teacher": "教師",
+        "gradedOn": "評分日期",
+        "showing": "顯示第 {{from}}–{{to}} 筆，共 {{total}} 筆成績",
+        "pagination": "成績分頁"
+    },
     "dataTable": {
         "pagination": {
             "rowsPerPage": "每頁列數",

@@ -319,6 +319,23 @@
             "enrollmentYearRange": "أدخل سنة بين 1900 و2100."
         }
     },
+    "studentResults": {
+        "title": "جميع النتائج",
+        "subtitle": "النتائج المسجلة لك",
+        "loading": "جارٍ تحميل نتائجك…",
+        "error": "تعذر تحميل نتائجك.",
+        "listLabel": "النتائج",
+        "empty": "لم يتم تسجيل أي نتائج لك بعد.",
+        "untitled": "نتيجة بلا عنوان",
+        "score": "الدرجة المسجلة",
+        "notRecorded": "غير مسجلة",
+        "course": "المادة",
+        "class": "الفصل",
+        "teacher": "المعلم",
+        "gradedOn": "تاريخ التقييم",
+        "showing": "عرض {{from}}–{{to}} من {{total}} نتيجة",
+        "pagination": "صفحات النتائج"
+    },
     "dataTable": {
         "pagination": {
             "rowsPerPage": "عدد الصفوف في الصفحة",
