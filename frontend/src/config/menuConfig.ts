@@ -118,6 +118,7 @@ export const menuConfig: Record<string, MenuSection[]> = {
         { icon: Home, label: 'navigation.home', href: '/' },
         { icon: LayoutDashboard, label: 'navigation.dashboard', href: '/student/dashboard' },
         { icon: Bell, label: 'navigation.announcements', href: '/student/announcements' },
+        { icon: CalendarDays, label: 'navigation.myTimetable', href: '/student/my-timetable' },
       ],
     },
     {

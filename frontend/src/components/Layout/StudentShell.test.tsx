@@ -44,6 +44,7 @@ function renderShell(path = "/student/dashboard", lng: SupportedLocale = "en") {
               >
                 <Route path="/" element={<Where />} />
                 <Route path="/student/dashboard" element={<Where />} />
+                <Route path="/student/my-timetable" element={<Where />} />
                 <Route path="/student/announcements" element={<Where />} />
                 <Route path="/profile" element={<Where />} />
               </Route>
@@ -79,7 +80,7 @@ afterEach(() => {
 });
 
 describe("StudentShell navigation", () => {
-  it("offers Home, Dashboard and Announcements with their own destinations", () => {
+  it("offers the verified student destinations, including My Timetable", () => {
     signIn();
     renderShell();
 
@@ -88,6 +89,7 @@ describe("StudentShell navigation", () => {
       ["Home", "/"],
       ["Dashboard", "/student/dashboard"],
       ["Announcements", "/student/announcements"],
+      ["My Timetable", "/student/my-timetable"],
     ]);
   });
 
@@ -114,23 +116,24 @@ describe("StudentShell navigation", () => {
     expect(within(topNavigation()).getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("does not advertise timetable, courses or other unverified destinations", async () => {
+  it("does not advertise courses or other unverified destinations", async () => {
     signIn();
     renderShell();
     const links = screen.getAllByRole("link").map((link) => link.textContent);
     await userEvent.setup().click(screen.getByRole("button", { name: "Open navigation menu" }));
 
     const advertised = [...links, ...screen.getAllByRole("menuitem").map((item) => item.textContent)].join("|");
-    expect(advertised).not.toMatch(/timetable|schedule|assignment|course|exam|result|event|attendance|grade|learning/i);
+    expect(advertised).not.toMatch(/schedule|assignment|course|exam|result|event|attendance|grade|learning/i);
     const hrefs = menuConfig.STUDENT.flatMap((section) => section.items)
       .flatMap((item) => ("href" in item ? [item.href] : []));
-    expect(hrefs).toEqual(["/", "/student/dashboard", "/student/announcements", "/profile"]);
+    expect(hrefs).toEqual(["/", "/student/dashboard", "/student/announcements", "/student/my-timetable", "/profile"]);
   });
 
   it.each([
     ["/", "Home"],
     ["/student/dashboard", "Dashboard"],
     ["/student/announcements", "Announcements"],
+    ["/student/my-timetable", "My Timetable"],
   ])("marks only the current page at %s", (path, current) => {
     signIn();
     renderShell(path);
@@ -151,6 +154,26 @@ describe("StudentShell navigation", () => {
     const nav = within(topNavigation());
     expect(nav.getByRole("link", { name: "Announcements" })).toHaveAttribute("aria-current", "page");
     expect(nav.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current");
+  });
+});
+
+describe("timetable navigation", () => {
+  it("opens My Timetable from the desktop navigation", async () => {
+    signIn();
+    renderShell();
+    await userEvent.setup().click(within(topNavigation()).getByRole("link", { name: "My Timetable" }));
+    expect(screen.getByTestId("where")).toHaveTextContent("/student/my-timetable");
+    expect(within(topNavigation()).getByRole("link", { name: "My Timetable" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("opens My Timetable from the mobile menu and closes it", async () => {
+    signIn();
+    renderShell();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    await user.click(await screen.findByRole("menuitem", { name: "My Timetable" }));
+    expect(screen.getByTestId("where")).toHaveTextContent("/student/my-timetable");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });
 
@@ -217,6 +240,7 @@ describe("StudentShell mobile menu", () => {
       "Home",
       "Dashboard",
       "Announcements",
+      "My Timetable",
     ]);
     expect(within(menu).getByRole("menuitem", { name: "Home" })).toHaveAttribute("aria-current", "page");
 
@@ -237,6 +261,7 @@ describe("StudentShell mobile menu", () => {
     await user.tab(); // Home
     await user.tab(); // Dashboard
     await user.tab(); // Announcements
+    await user.tab(); // My Timetable
     await user.tab(); // menu button
     expect(button).toHaveFocus();
 
@@ -257,7 +282,7 @@ describe("StudentShell languages", () => {
   const expected = (locale: SupportedLocale) => {
     const navigation = (localeBundles[locale].navigation ?? {}) as Record<string, string>;
     return {
-      links: [navigation.home, navigation.dashboard, navigation.announcements],
+      links: [navigation.home, navigation.dashboard, navigation.announcements, navigation.myTimetable],
       profile: navigation.myProfile,
       logOut: navigation.logOut,
     };

@@ -71,7 +71,7 @@ export const StudentShell = ({ children }: { children?: ReactNode }) => {
             <span className="truncate text-base font-semibold">{t('shell.appName')}</span>
           </Link>
 
-          <nav aria-label={t('shell.navigationLabel')} className="ms-2 hidden md:block">
+          <nav aria-label={t('shell.navigationLabel')} className="ms-2 hidden lg:block">
             <ul className="flex items-center gap-1">
               {navigationLinks.map((item) => {
                 const active = isActivePath(pathname, item.href)
@@ -103,7 +103,7 @@ export const StudentShell = ({ children }: { children?: ReactNode }) => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn('size-11 md:hidden [&_svg]:size-5', focusRing)}
+                  className={cn('size-11 lg:hidden [&_svg]:size-5', focusRing)}
                   aria-label={t('shell.sidebar.open')}
                 >
                   <Menu aria-hidden="true" />

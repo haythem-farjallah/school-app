@@ -14,13 +14,13 @@ FRONTEND_DEPS := frontend/node_modules/.package-lock.json
 
 .DEFAULT_GOAL := help
 .PHONY: help dev-up dev-down backend-run frontend-run backend-test frontend-test \
-        frontend-watch frontend-build quality e2e task verify docker-build
+        frontend-watch frontend-build quality e2e task verify docker-build timetable-backend timetable-check timetable-restart
 
 help:
 	@sed -n '1,7p' Makefile | sed 's/^# \{0,1\}//'
 	@echo
 	@echo "Targets: dev-up dev-down backend-run frontend-run backend-test frontend-test"
-	@echo "         frontend-watch frontend-build quality e2e task verify docker-build"
+	@echo "         frontend-watch frontend-build quality e2e task verify docker-build timetable-backend timetable-check timetable-restart"
 
 # PostgreSQL + Redis; start once and leave running (no-op when already up).
 dev-up:
@@ -68,3 +68,13 @@ $(FRONTEND_DEPS): frontend/package.json frontend/package-lock.json
 
 $(BACKEND_JAR): $(BACKEND_SRC)
 	$(MVN) package -Dmaven.test.skip=true
+
+# Opt-in timetable demo, using only development fixtures and the existing local database.
+timetable-backend:
+	SCHOOL_DEV_TIMETABLE_FIXTURES_ENABLED=true $(MVN) spring-boot:run -Dspring-boot.run.profiles=dev
+
+timetable-check:
+	python3 scripts/verify-timetable-demo.py
+
+timetable-restart: dev-up $(BACKEND_JAR)
+	bash scripts/check-timetable-restart.sh

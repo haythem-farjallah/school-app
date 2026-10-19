@@ -8,7 +8,7 @@ import { defineConfig, devices } from "@playwright/test";
  *   mvn -f ../backend/pom.xml package -DskipTests
  *
  * Playwright starts the backend (dev profile, fixture accounts) and the Vite
- * dev server, or reuses ones already running locally.
+ * preview server, or reuses ones already running locally.
  */
 const backendJar = "../backend/target/school-management-0.0.1-SNAPSHOT.jar";
 
@@ -29,17 +29,17 @@ export default defineConfig({
     {
       command: `java -jar ${backendJar}`,
       url: "http://localhost:8088/actuator/health",
-      env: { SPRING_PROFILES_ACTIVE: "dev" },
+      env: { SPRING_PROFILES_ACTIVE: "dev", SCHOOL_DEV_TIMETABLE_FIXTURES_ENABLED: "true" },
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
       stdout: "ignore",
       stderr: "pipe",
     },
     {
-      command: "npm run dev -- --port 5173 --strictPort",
+      command: "npm run build && npm run preview -- --port 5173 --strictPort",
       url: "http://localhost:5173/login",
       reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
+      timeout: 120_000,
     },
   ],
 });

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { api } from '../../lib/api-client';
 import type { ApiResponse, PageDto } from '../../types/level';
 import { Period } from '../../types/period';
-import { Timetable } from '../../types/timetable';
+import type { Timetable, TimetableResponseDto } from '../../types/timetable';
 
 export function usePeriods() {
   return useQuery({
@@ -47,5 +47,16 @@ export function useTimetables() {
       const response = await api.get<ApiResponse<PageDto<Timetable>>>('/v1/timetables');
       return response.data.data.content;
     },
+  });
+}
+
+export function useMyTimetable() {
+  return useQuery({
+    queryKey: ['student-timetable'],
+    queryFn: async ({ signal }) => {
+      const response = await api.get<ApiResponse<TimetableResponseDto>>('/v1/timetables/me', { signal });
+      return response.data.data;
+    },
+    retry: false,
   });
 }

@@ -163,6 +163,7 @@
         "meetings": "親師會談",
         "logout": "登出",
         "dashboard": "儀表板",
+        "myTimetable": "我的課表",
         "myProfile": "我的個人資料",
         "logOut": "登出",
         "studentManagement": "學生管理",
@@ -328,6 +329,26 @@
             "nextPage": "前往下一頁",
             "lastPage": "前往最後一頁",
             "selectedRows": "已選取 {{selected}} 列，共 {{total}} 列"
+        }
+    },
+    "studentTimetable": {
+        "weekly": "每週課表",
+        "time": "時間",
+        "day": "日期",
+        "emptyDay": "這一天沒有安排課程",
+        "loading": "正在載入您的課表…",
+        "empty": "目前沒有可顯示的課程時段",
+        "error": "無法載入您的課表",
+        "retry": "重試",
+        "period": "第 {{index}} 節",
+        "days": {
+            "MONDAY": "星期一",
+            "TUESDAY": "星期二",
+            "WEDNESDAY": "星期三",
+            "THURSDAY": "星期四",
+            "FRIDAY": "星期五",
+            "SATURDAY": "星期六",
+            "SUNDAY": "星期日"
         }
     }
 }
