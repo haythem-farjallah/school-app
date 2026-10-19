@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { StudentResult } from "../src/features/grades/use-student-results";
+import type { StudentResult } from "../src/features/grades/types";
 import type { PageDto } from "../src/types/level";
 
 const student = {

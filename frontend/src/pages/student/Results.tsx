@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PageDto } from "@/types/level";
 import { useAuth } from "@/hooks/useAuth";
-import { useStudentResults, type StudentResult } from "@/features/grades/use-student-results";
+import { useStudentResults } from "@/features/grades/use-student-results";
+import type { StudentResult } from "@/features/grades/types";
 
 /** The 1-based `page` search parameter; anything that is not a positive integer means the first page. */
 function requestedPage(value: string | null) {

@@ -8,7 +8,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { delay, http, HttpResponse } from "msw";
 import StudentResults from "./Results";
-import type { StudentResult } from "@/features/grades/use-student-results";
+import type { StudentResult } from "@/features/grades/types";
 import { queryClient } from "@/lib/query-client";
 import { terminateSession } from "@/lib/session";
 import { store } from "@/stores/store";
