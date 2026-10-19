@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { I18nextProvider } from "react-i18next";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 import type { ComponentType } from "react";
+import { http, HttpResponse } from "msw";
+import { apiUrl, server } from "@/test/server";
 import { SimpleStudentLayout } from "./SimpleStudentLayout";
 import StudentDashboard from "@/pages/student/Dashboard";
 import StudentEvents from "@/pages/student/Events";
@@ -33,6 +35,7 @@ function renderInApp(ui: React.ReactNode) {
 }
 
 afterEach(() => {
+  cleanup();
   store.dispatch(resetAuth());
   queryClient.clear();
 });
@@ -89,6 +92,10 @@ describe("student pages built on SimpleStudentLayout", () => {
     ["Results", StudentResults, "All Results"],
     ["Events", StudentEvents, "All Events"],
   ] as [string, ComponentType, string][])("%s renders one page title and no banner or main landmark", (_name, Page, title) => {
+    server.use(
+      http.get(apiUrl("/v1/dashboard/current-user"), () => new HttpResponse(null, { status: 503 })),
+      http.get(apiUrl("/v1/announcements/public"), () => new HttpResponse(null, { status: 503 })),
+    );
     store.dispatch(
       loginSuccess({
         user: { id: 1, email: "ada@fixtures.school.test", firstName: "Ada", lastName: "Lovelace", role: "STUDENT" },
