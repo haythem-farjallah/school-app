@@ -296,7 +296,8 @@ describe("student timetable routes", () => {
     signIn("STUDENT");
     server.use(http.get(apiUrl("/v1/timetables/me"), () => HttpResponse.json(studentTimetable)));
     const router = renderApp(path);
-    expect(await screen.findByText("Mathematics")).toBeInTheDocument();
+    const timetable = await screen.findByRole("table", { name: "Weekly timetable" });
+    expect(within(timetable).getByText("Mathematics")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/student/my-timetable");
     expect(mainNavigation().getByRole("link", { name: "My Timetable" })).toHaveAttribute("aria-current", "page");
   });

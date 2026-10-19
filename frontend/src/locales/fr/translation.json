@@ -332,6 +332,10 @@
         }
     },
     "studentTimetable": {
+        "weekly": "Emploi du temps hebdomadaire",
+        "time": "Horaire",
+        "day": "Jour",
+        "emptyDay": "Aucun cours prévu pour ce jour",
         "loading": "Chargement de votre emploi du temps…",
         "empty": "Aucun créneau à afficher",
         "error": "Votre emploi du temps n’a pas pu être chargé",

@@ -332,6 +332,10 @@
         }
     },
     "studentTimetable": {
+        "weekly": "Weekly timetable",
+        "time": "Time",
+        "day": "Day",
+        "emptyDay": "No lessons scheduled for this day",
         "loading": "Loading your timetable…",
         "empty": "No timetable slots to display",
         "error": "Your timetable could not be loaded",

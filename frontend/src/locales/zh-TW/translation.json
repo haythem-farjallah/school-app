@@ -332,6 +332,10 @@
         }
     },
     "studentTimetable": {
+        "weekly": "每週課表",
+        "time": "時間",
+        "day": "日期",
+        "emptyDay": "這一天沒有安排課程",
         "loading": "正在載入您的課表…",
         "empty": "目前沒有可顯示的課程時段",
         "error": "無法載入您的課表",
