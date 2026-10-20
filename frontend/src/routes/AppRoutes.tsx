@@ -107,7 +107,7 @@ const StudentEvents = lazy(() => import("@/pages/student/Events"));
 // Student additional pages (temporarily commented out for troubleshooting)
 const StudentCourses = lazy(() => import("@/pages/student/Courses"));
 // const StudentProgress = lazy(() => import("@/pages/student/Progress"));
-// const StudentAttendance = lazy(() => import("@/pages/student/Attendance"));
+const StudentAttendance = lazy(() => import("@/pages/student/Attendance"));
 // const StudentAchievements = lazy(() => import("@/pages/student/Achievements"));
 const StudentMessages = lazy(() => import("@/pages/student/Messages"));
 
@@ -286,7 +286,7 @@ export const appRoutes: RouteObject[] = [
           { path: "assignments", element: <Suspense fallback={<Shimmer />}><StudentAssignments /></Suspense> },
           { path: "grades", element: <Suspense fallback={<Shimmer />}><StudentGrades /></Suspense> },
           // { path: "progress", element: <Suspense fallback={<Shimmer />}><StudentProgress /></Suspense> },
-          // { path: "attendance", element: <Suspense fallback={<Shimmer />}><StudentAttendance /></Suspense> },
+          { path: "attendance", element: <Suspense fallback={<Shimmer />}><StudentAttendance /></Suspense> },
           // { path: "achievements", element: <Suspense fallback={<Shimmer />}><StudentAchievements /></Suspense> },
           { path: "messages", element: <Suspense fallback={<Shimmer />}><StudentMessages /></Suspense> },
           { path: "announcements", element: <Suspense fallback={<Shimmer />}><StudentAnnouncements /></Suspense> },

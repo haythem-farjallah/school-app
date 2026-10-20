@@ -101,3 +101,13 @@ export interface ClassAttendanceSummary {
   excusedCount: number;
   attendanceRate: number;
 }
+
+/** Read-only overview projection of AttendanceDto; excludes notes and excuses. */
+export type AttendanceHistoryRecord = Pick<Attendance, "userId" | "date"> & {
+  status: AttendanceStatus | "SICK_LEAVE" | "MEDICAL_LEAVE" | "OTHER";
+  id: number;
+  className: string | null;
+  courseName: string | null;
+  teacherName: string | null;
+  timetableSlotId: number | null;
+};

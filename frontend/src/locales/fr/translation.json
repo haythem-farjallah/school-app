@@ -329,5 +329,31 @@
             "lastPage": "Aller à la dernière page",
             "selectedRows": "{{selected}} ligne(s) sélectionnée(s) sur {{total}}"
         }
+    },
+    "studentAttendance": {
+        "title": "Mes présences",
+        "description": "Consultez les présences enregistrées pour votre compte. Une entrée manquante ne signifie ni présence ni absence.",
+        "history": "Historique des présences",
+        "monthNavigation": "Mois de présence",
+        "previousMonth": "Mois précédent",
+        "nextMonth": "Mois suivant",
+        "signIn": "Connectez-vous pour consulter vos présences.",
+        "sessionRequired": "Une session élève active est nécessaire.",
+        "loading": "Chargement des présences",
+        "error": "Impossible de charger les présences",
+        "errorDescription": "Les présences n’ont pas pu être récupérées. Veuillez réessayer.",
+        "empty": "Aucune présence n’a été enregistrée pour ce mois.",
+        "emptyDescription": "Seules les entrées enregistrées figurent ici.",
+        "records": "Présences enregistrées",
+        "noDetails": "Aucune classe ni aucun cours enregistré",
+        "statuses": {
+            "PRESENT": "Présent",
+            "ABSENT": "Absent",
+            "LATE": "En retard",
+            "EXCUSED": "Excusé",
+            "SICK_LEAVE": "Congé maladie",
+            "MEDICAL_LEAVE": "Congé médical",
+            "OTHER": "Autre"
+        }
     }
 }
