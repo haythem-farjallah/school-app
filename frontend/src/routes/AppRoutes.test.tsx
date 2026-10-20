@@ -18,6 +18,7 @@ import { apiUrl, server } from "@/test/server";
 
 // The dashboards load their own data; routing is what is under test here.
 vi.mock("@/pages/admin/Dashboard", () => ({ default: () => <h1>Admin dashboard page</h1> }));
+vi.mock("@/pages/student/Attendance", () => ({ default: () => <h1>Student attendance page</h1> }));
 vi.mock("@/pages/student/Dashboard", () => ({ default: () => <h1>Student dashboard page</h1> }));
 vi.mock("@/pages/student/Announcements", () => ({ default: () => <h1>Student announcements page</h1> }));
 vi.mock("@/pages/Profile", () => ({ default: () => <h1>Profile page</h1> }));
@@ -437,6 +438,28 @@ describe("shell of the other roles", () => {
     await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     await vi.waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+  });
+});
+
+describe("student attendance route", () => {
+  it("allows a student to open attendance directly", async () => {
+    signIn("STUDENT");
+    renderApp("/student/attendance");
+    expect(await screen.findByRole("heading", { name: "Student attendance page" })).toBeInTheDocument();
+    expectSingleLandmarks();
+  });
+
+  it("requires a session", async () => {
+    const router = renderApp("/student/attendance");
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(screen.queryByText("Student attendance page")).not.toBeInTheDocument();
+  });
+
+  it.each(["ADMIN", "TEACHER", "PARENT", "STAFF"])("keeps %s out of student attendance", async (role) => {
+    signIn(role);
+    const router = renderApp("/student/attendance");
+    await vi.waitFor(() => expect(router.state.location.pathname).not.toBe("/student/attendance"));
+    expect(screen.queryByText("Student attendance page")).not.toBeInTheDocument();
   });
 });
 

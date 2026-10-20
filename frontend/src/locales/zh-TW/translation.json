@@ -329,5 +329,31 @@
             "lastPage": "前往最後一頁",
             "selectedRows": "已選取 {{selected}} 列，共 {{total}} 列"
         }
+    },
+    "studentAttendance": {
+        "title": "我的出勤紀錄",
+        "description": "查看帳戶的實際出勤紀錄。沒有紀錄並不代表出席或缺席。",
+        "history": "出勤歷史",
+        "monthNavigation": "出勤月份",
+        "previousMonth": "上個月",
+        "nextMonth": "下個月",
+        "signIn": "請登入以查看出勤紀錄。",
+        "sessionRequired": "需要有效的學生登入狀態。",
+        "loading": "正在載入出勤紀錄",
+        "error": "無法載入出勤紀錄",
+        "errorDescription": "無法取得出勤紀錄。請再試一次。",
+        "empty": "本月沒有已登記的出勤紀錄。",
+        "emptyDescription": "此處僅顯示已登記的紀錄。",
+        "records": "已登記的出勤紀錄",
+        "noDetails": "未登記班級或課程",
+        "statuses": {
+            "PRESENT": "出席",
+            "ABSENT": "缺席",
+            "LATE": "遲到",
+            "EXCUSED": "已准假",
+            "SICK_LEAVE": "病假",
+            "MEDICAL_LEAVE": "醫療假",
+            "OTHER": "其他"
+        }
     }
 }

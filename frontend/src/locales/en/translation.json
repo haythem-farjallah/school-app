@@ -329,5 +329,31 @@
             "lastPage": "Go to last page",
             "selectedRows": "{{selected}} of {{total}} rows selected"
         }
+    },
+    "studentAttendance": {
+        "title": "My Attendance",
+        "description": "View attendance recorded for your account. A missing entry does not indicate presence or absence.",
+        "history": "Attendance history",
+        "monthNavigation": "Attendance months",
+        "previousMonth": "Previous month",
+        "nextMonth": "Next month",
+        "signIn": "Sign in to view your attendance.",
+        "sessionRequired": "An active student session is required.",
+        "loading": "Loading attendance",
+        "error": "Unable to load attendance",
+        "errorDescription": "Attendance could not be retrieved. Please try again.",
+        "empty": "No attendance entries were recorded for this month.",
+        "emptyDescription": "Only recorded entries appear here.",
+        "records": "Recorded attendance",
+        "noDetails": "No class or course recorded",
+        "statuses": {
+            "PRESENT": "Present",
+            "ABSENT": "Absent",
+            "LATE": "Late",
+            "EXCUSED": "Excused",
+            "SICK_LEAVE": "Sick leave",
+            "MEDICAL_LEAVE": "Medical leave",
+            "OTHER": "Other"
+        }
     }
 }
