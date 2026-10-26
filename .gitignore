@@ -1,1 +1,4 @@
 jenkins_home
+
+# Isolated Claude Code agent checkouts; never commit their contents.
+.claude/worktrees/
